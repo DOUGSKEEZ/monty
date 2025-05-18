@@ -26,6 +26,9 @@ if (process.env.NODE_ENV === 'production') {
 // Import routes
 const configRoutes = require('./routes/config');
 const shadeRoutes = require('./routes/shades');
+const weatherRoutes = require('./routes/weather');
+const schedulerRoutes = require('./routes/scheduler');
+const musicRoutes = require('./routes/music');
 
 // API Routes
 app.get('/api/health', (req, res) => {
@@ -35,6 +38,9 @@ app.get('/api/health', (req, res) => {
 // Register API routes
 app.use('/api/config', configRoutes);
 app.use('/api/shades', shadeRoutes);
+app.use('/api/weather', weatherRoutes);
+app.use('/api/scheduler', schedulerRoutes);
+app.use('/api/music', musicRoutes);
 
 // Catch-all route for client-side routing (production only)
 if (process.env.NODE_ENV === 'production') {
