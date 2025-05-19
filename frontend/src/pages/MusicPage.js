@@ -44,11 +44,11 @@ function MusicPage() {
       await actions.controlMusic('connectBluetooth');
       setIsConnectingBluetooth(false);
       
-      // Then start player
-      await actions.controlMusic('start', { connectBluetooth: false });
+      // Then start player (use silent mode to reduce console noise)
+      await actions.controlMusic('start', { connectBluetooth: false, silent: true });
       
-      // Refresh music status
-      await actions.refreshMusic();
+      // Refresh music status (silent mode for background refresh)
+      await actions.refreshMusic(false);
     } catch (error) {
       console.error('Error starting player:', error);
     } finally {
@@ -59,8 +59,10 @@ function MusicPage() {
   // Stop the player
   const handleStopPlayer = async () => {
     try {
-      await actions.controlMusic('stop', { disconnectBluetooth: true });
-      await actions.refreshMusic();
+      // Use silent mode to reduce console noise
+      await actions.controlMusic('stop', { disconnectBluetooth: true, silent: true });
+      // Use silent mode for refresh after stopping
+      await actions.refreshMusic(false);
     } catch (error) {
       console.error('Error stopping player:', error);
     }
@@ -71,11 +73,12 @@ function MusicPage() {
     if (!isPlayerOn()) return;
     
     try {
-      await actions.controlMusic('command', { command });
+      await actions.controlMusic('command', { command, silent: true });
       
       // Give the command time to take effect
       setTimeout(() => {
-        actions.refreshMusic();
+        // Use silent mode for automatic refresh after command
+        actions.refreshMusic(false);
       }, 1000);
     } catch (error) {
       console.error(`Error sending command ${command}:`, error);
@@ -87,11 +90,12 @@ function MusicPage() {
     if (!selectedStation || !isPlayerOn()) return;
     
     try {
-      await actions.controlMusic('command', { command: `s ${selectedStation}` });
+      await actions.controlMusic('command', { command: `s ${selectedStation}`, silent: true });
       
       // Give the station change time to take effect
       setTimeout(() => {
-        actions.refreshMusic();
+        // Use silent mode for automatic refresh after station change
+        actions.refreshMusic(false);
       }, 2000);
     } catch (error) {
       console.error('Error changing station:', error);
@@ -109,6 +113,7 @@ function MusicPage() {
       artist: music.status.artist || '',
       album: music.status.album || '',
       station: music.status.station || '',
+      stationId: music.status.stationId || '',
     };
   };
   
@@ -250,13 +255,20 @@ function MusicPage() {
           
           {/* Station Selector */}
           <div className="mt-6">
-            <label className="block text-sm font-medium mb-2">Select Station</label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium">Select Station</label>
+              {music.stations && music.stations.mock && (
+                <span className="text-xs text-amber-600">
+                  {music.stations.message || (isPlayerOn() ? 'Loading stations...' : 'Turn on player to see your stations')}
+                </span>
+              )}
+            </div>
             <div className="flex space-x-2">
               <select 
                 className={`block w-full p-2 border rounded ${!isPlayerOn() ? 'bg-gray-100' : ''}`}
                 value={selectedStation}
                 onChange={(e) => setSelectedStation(e.target.value)}
-                disabled={!isPlayerOn() || music.loading || !music.stations || music.stations.length === 0}
+                disabled={!isPlayerOn() || music.loading || !music.stations || !music.stations.stations || music.stations.stations.length === 0}
               >
                 <option value="">Select a station...</option>
                 {music.stations && music.stations.stations && music.stations.stations.map((station, index) => (

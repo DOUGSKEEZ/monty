@@ -8,12 +8,15 @@ const API_BASE_URL = 'http://192.168.0.15:3001/api';
  * Generic fetch function with error handling
  * @param {string} endpoint - API endpoint to call
  * @param {Object} options - Fetch options
+ * @param {boolean} silent - Whether to suppress logging
  * @returns {Promise<Object>} - API response data
  */
-async function fetchApi(endpoint, options = {}) {
+async function fetchApi(endpoint, options = {}, silent = false) {
   try {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`Making API request to: ${url}`);
+    if (!silent) {
+      console.log(`Making API request to: ${url}`);
+    }
     
     const response = await fetch(url, {
       ...options,
@@ -23,7 +26,9 @@ async function fetchApi(endpoint, options = {}) {
       },
     });
     
-    console.log(`Received response from ${url}:`, response.status);
+    if (!silent) {
+      console.log(`Received response from ${url}:`, response.status);
+    }
 
     // Parse JSON response
     const data = await response.json();
@@ -35,7 +40,9 @@ async function fetchApi(endpoint, options = {}) {
 
     return data;
   } catch (error) {
-    console.error(`API Error (${endpoint}):`, error);
+    if (!silent) {
+      console.error(`API Error (${endpoint}):`, error);
+    }
     throw error;
   }
 }
@@ -143,50 +150,55 @@ export const schedulerApi = {
 export const musicApi = {
   /**
    * Get music player status
+   * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Music status
    */
-  getStatus: () => 
-    fetchApi('/music/status'),
+  getStatus: (silent = false) => 
+    fetchApi(`/music/status${silent ? '?silent=true' : ''}`, {}, silent),
   
   /**
    * Get available stations
+   * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Stations list
    */
-  getStations: () => 
-    fetchApi('/music/stations'),
+  getStations: (silent = false) => 
+    fetchApi(`/music/stations${silent ? '?silent=true' : ''}`, {}, silent),
   
   /**
    * Start music player
    * @param {boolean} connectBluetooth - Whether to connect to Bluetooth first
+   * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
-  startPlayer: (connectBluetooth = true) => 
-    fetchApi('/music/start', {
+  startPlayer: (connectBluetooth = true, silent = false) => 
+    fetchApi(`/music/start${silent ? '?silent=true' : ''}`, {
       method: 'POST',
-      body: JSON.stringify({ connectBluetooth }),
-    }),
+      body: JSON.stringify({ connectBluetooth, silent }),
+    }, silent),
   
   /**
    * Stop music player
    * @param {boolean} disconnectBluetooth - Whether to disconnect Bluetooth after
+   * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
-  stopPlayer: (disconnectBluetooth = true) => 
+  stopPlayer: (disconnectBluetooth = true, silent = false) => 
     fetchApi('/music/stop', {
       method: 'POST',
-      body: JSON.stringify({ disconnectBluetooth }),
-    }),
+      body: JSON.stringify({ disconnectBluetooth, silent }),
+    }, silent),
   
   /**
    * Send control command to music player
    * @param {string} command - Control command
+   * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
-  sendCommand: (command) => 
-    fetchApi('/music/control', {
+  sendCommand: (command, silent = false) => 
+    fetchApi(`/music/control${silent ? '?silent=true' : ''}`, {
       method: 'POST',
-      body: JSON.stringify({ command }),
-    }),
+      body: JSON.stringify({ command, silent }),
+    }, silent),
   
   /**
    * Connect to Bluetooth speaker

@@ -140,11 +140,14 @@ export const AppProvider = ({ children }) => {
       setMusic(prev => ({ ...prev, loading: true, error: null }));
     }
     
+    // Use silent mode for background polling to reduce console noise
+    const isSilent = !showLoading;
+    
     try {
       // Load music status and stations in parallel
       const [statusRes, stationsRes] = await Promise.all([
-        musicApi.getStatus(),
-        musicApi.getStations(),
+        musicApi.getStatus(isSilent),
+        musicApi.getStations(isSilent),
       ]);
       
       setMusic({
@@ -154,7 +157,9 @@ export const AppProvider = ({ children }) => {
         error: null,
       });
     } catch (error) {
-      console.error('Error loading music data:', error);
+      if (!isSilent) {
+        console.error('Error loading music data:', error);
+      }
       setMusic(prev => ({
         ...prev,
         loading: false,
@@ -208,13 +213,17 @@ export const AppProvider = ({ children }) => {
       
       switch (action) {
         case 'start':
-          await musicApi.startPlayer(options.connectBluetooth);
+          const startSilent = options.silent !== false;
+          await musicApi.startPlayer(options.connectBluetooth, startSilent);
           break;
         case 'stop':
-          await musicApi.stopPlayer(options.disconnectBluetooth);
+          // Use silent mode to reduce console noise
+          const silent = options.silent !== false;
+          await musicApi.stopPlayer(options.disconnectBluetooth, silent);
           break;
         case 'command':
-          await musicApi.sendCommand(options.command);
+          const cmdSilent = options.silent !== false;
+          await musicApi.sendCommand(options.command, cmdSilent);
           break;
         case 'connectBluetooth':
           await musicApi.connectBluetooth();

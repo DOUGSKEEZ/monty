@@ -1,5 +1,10 @@
 {
   "status": "stopped",
-  "stopTime": 1747638109401,
-  "updateTime": 1747638109401
+  "stopTime": 1747644267897,
+  "updateTime": 1747644267897,
+  "startTime": 1747643996650,
+  "lastCommand": "next",
+  "stationId": "4",
+  "commandTime": 1747643407129,
+  "error": "Command failed: pkill -f pianobar || true\n"
 }
