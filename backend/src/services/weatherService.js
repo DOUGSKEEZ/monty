@@ -11,9 +11,21 @@ class WeatherService {
     this.weatherCachePath = path.join(this.cacheDir, 'weather_cache.json');
     this.forecastCachePath = path.join(this.cacheDir, 'forecast_cache.json');
     
-    // Cache expiration times (in milliseconds)
-    this.currentWeatherExpiration = 30 * 60 * 1000; // 30 minutes
-    this.forecastExpiration = 3 * 60 * 60 * 1000;   // 3 hours
+    // Service status tracking
+    this.serviceStatus = {
+      status: 'unknown',
+      lastSuccessfulFetch: null,
+      consecutiveFailures: 0,
+      lastError: null,
+      backoffDelay: 0
+    };
+    
+    // Cache expiration times (in milliseconds) - load from config if available
+    const refreshInterval = configManager.get('weather.refreshIntervalMin', 30);
+    const cacheExpiration = configManager.get('weather.cacheExpirationMin', 60);
+    
+    this.currentWeatherExpiration = refreshInterval * 60 * 1000; // minutes to ms
+    this.forecastExpiration = cacheExpiration * 60 * 1000;        // minutes to ms
     
     // Create cache directory if it doesn't exist
     this.ensureCacheDirectory();
@@ -21,10 +33,61 @@ class WeatherService {
     // Load initial cache if exists
     this.weatherCache = this.loadCache(this.weatherCachePath);
     this.forecastCache = this.loadCache(this.forecastCachePath);
+    
+    // Set up automatic refresh with exponential backoff on failure
+    setTimeout(() => this.setupPeriodicRefresh(), 5000);
   }
   
   /**
-   * Ensure the cache directory exists
+   * Set up periodic refresh of weather data with exponential backoff on failure
+   */
+  setupPeriodicRefresh() {
+    const refreshWeather = async () => {
+      try {
+        // Only refresh if we have an API key
+        if (this.isConfigured()) {
+          // First check service status
+          if (this.serviceStatus.status === 'down' && this.serviceStatus.backoffDelay > 0) {
+            logger.warn(`Weather service is down, waiting for backoff delay (${Math.round(this.serviceStatus.backoffDelay/60000)} minutes)`);
+            
+            // If in backoff, decrease the delay for next attempt
+            if (this.serviceStatus.backoffDelay > 0) {
+              this.serviceStatus.backoffDelay = Math.max(
+                0, 
+                this.serviceStatus.backoffDelay - Math.min(this.currentWeatherExpiration, 300000) // Decrease by refresh interval or 5 minutes max
+              );
+            }
+            
+            // If backoff is complete, reset status to unknown for next attempt
+            if (this.serviceStatus.backoffDelay <= 0) {
+              this.serviceStatus.status = 'unknown';
+            }
+          } else {
+            // Attempt to refresh weather data
+            logger.debug('Running scheduled weather refresh');
+            await this.getCurrentWeather(true);
+            
+            // Only refresh forecast occasionally to save API calls
+            if (!this.forecastCache || !this.forecastCache.timestamp ||
+                (Date.now() - this.forecastCache.timestamp > this.forecastExpiration)) {
+              await this.getForecast(true);
+            }
+          }
+        }
+      } catch (error) {
+        logger.error(`Error in weather refresh: ${error.message}`);
+      } finally {
+        // Schedule next run
+        setTimeout(refreshWeather, this.currentWeatherExpiration);
+      }
+    };
+    
+    // Start the refresh cycle
+    refreshWeather().catch(err => logger.error(`Initial weather refresh failed: ${err.message}`));
+  }
+  
+  /**
+   * Ensure the cache directory exists with fallback
    */
   ensureCacheDirectory() {
     if (!fs.existsSync(this.cacheDir)) {
@@ -32,7 +95,30 @@ class WeatherService {
         fs.mkdirSync(this.cacheDir, { recursive: true });
         logger.info(`Created cache directory at ${this.cacheDir}`);
       } catch (error) {
-        logger.error(`Failed to create cache directory: ${error.message}`);
+        logger.error(`Failed to create primary cache directory: ${error.message}`);
+        
+        // Try fallback to system temp directory
+        try {
+          const tempCacheDir = path.join(require('os').tmpdir(), 'monty-cache');
+          if (!fs.existsSync(tempCacheDir)) {
+            fs.mkdirSync(tempCacheDir, { recursive: true });
+          }
+          
+          // Update cache paths to use temp directory
+          this.cacheDir = tempCacheDir;
+          this.weatherCachePath = path.join(this.cacheDir, 'weather_cache.json');
+          this.forecastCachePath = path.join(this.cacheDir, 'forecast_cache.json');
+          
+          logger.info(`Using fallback cache directory at ${this.cacheDir}`);
+        } catch (fallbackError) {
+          logger.error(`Failed to create fallback cache directory: ${fallbackError.message}`);
+          logger.warn('Weather caching will be disabled');
+          
+          // Disable cache by setting paths to null
+          this.cacheDir = null;
+          this.weatherCachePath = null;
+          this.forecastCachePath = null;
+        }
       }
     }
   }
@@ -56,15 +142,28 @@ class WeatherService {
   }
   
   /**
-   * Save cache to a file
+   * Save cache to a file with error handling
    * @param {string} cachePath - Path to the cache file
    * @param {object} cacheData - Data to save
    */
   saveCache(cachePath, cacheData) {
+    if (!cachePath || !this.cacheDir) {
+      // Cache is disabled
+      return;
+    }
+    
     try {
-      fs.writeFileSync(cachePath, JSON.stringify(cacheData, null, 2));
+      // First write to a temporary file
+      const tempPath = `${cachePath}.tmp`;
+      fs.writeFileSync(tempPath, JSON.stringify(cacheData, null, 2));
+      
+      // Then atomically rename
+      fs.renameSync(tempPath, cachePath);
     } catch (error) {
       logger.error(`Error saving cache to ${cachePath}: ${error.message}`);
+      
+      // Set flag indicating disk issues
+      this.serviceStatus.diskIssue = true;
     }
   }
   
@@ -76,7 +175,7 @@ class WeatherService {
   }
   
   /**
-   * Get the current weather data
+   * Get the current weather data with resilient error handling
    * @param {boolean} forceRefresh - Force a refresh of the data even if cached
    * @returns {Promise<object>} - The weather data
    */
@@ -104,16 +203,41 @@ class WeatherService {
       return {
         success: true,
         data: this.weatherCache.data,
-        cached: true
+        cached: true,
+        serviceStatus: this.serviceStatus.status
       };
     }
     
-    // Fetch new data
+    // Fetch new data with exponential backoff
     try {
       logger.info(`Fetching current weather for ${zipCode}`);
       
+      // Check if the service is in a backoff period
+      if (this.serviceStatus.status === 'down' && 
+          this.serviceStatus.backoffDelay > 0 && 
+          this.weatherCache && 
+          this.weatherCache.data) {
+        
+        // Return cached data and don't attempt a fetch
+        logger.warn(`Weather API in backoff period (${Math.round(this.serviceStatus.backoffDelay/60000)} min), using cached data`);
+        return {
+          success: true,
+          data: this.weatherCache.data,
+          cached: true,
+          stale: true,
+          serviceStatus: this.serviceStatus.status
+        };
+      }
+      
+      // Set request timeout and retries
+      const axiosOptions = {
+        timeout: 10000, // 10 second timeout
+        retries: 2,
+        retryDelay: 1000
+      };
+      
       const url = `https://api.openweathermap.org/data/2.5/weather?zip=${zipCode},${country}&units=imperial&appid=${this.apiKey}`;
-      const response = await axios.get(url);
+      const response = await axios.get(url, axiosOptions);
       
       // Format the data for our needs
       const weatherData = {
@@ -155,28 +279,61 @@ class WeatherService {
       };
       this.saveCache(this.weatherCachePath, this.weatherCache);
       
+      // Reset service status since we had a successful fetch
+      this.serviceStatus = {
+        status: 'up',
+        lastSuccessfulFetch: Date.now(),
+        consecutiveFailures: 0,
+        lastError: null,
+        backoffDelay: 0
+      };
+      
       return {
         success: true,
         data: weatherData,
-        cached: false
+        cached: false,
+        serviceStatus: 'up'
       };
     } catch (error) {
+      // Update service status with failure information
+      this.serviceStatus.consecutiveFailures++;
+      this.serviceStatus.lastError = error.message;
+      
+      // Implement exponential backoff after repeated failures
+      if (this.serviceStatus.consecutiveFailures >= 3) {
+        this.serviceStatus.status = 'down';
+        // Exponential backoff: 5 min -> 15 min -> 30 min -> 60 min max
+        this.serviceStatus.backoffDelay = Math.min(
+          60 * 60 * 1000, // Max 1 hour backoff
+          (5 * 60 * 1000) * Math.pow(2, this.serviceStatus.consecutiveFailures - 3)
+        );
+        
+        logger.warn(`Weather API marked as down after ${this.serviceStatus.consecutiveFailures} failures. Backoff: ${Math.round(this.serviceStatus.backoffDelay/60000)} minutes`);
+      }
+      
       logger.error(`Error fetching current weather: ${error.message}`);
       
       // If we have a cache, return it even if expired
       if (this.weatherCache && this.weatherCache.data) {
         logger.info('Returning stale cached weather data due to API error');
+        
         return {
           success: true,
           data: this.weatherCache.data,
           cached: true,
-          stale: true
+          stale: true,
+          serviceStatus: this.serviceStatus.status,
+          error: {
+            message: error.message,
+            retryAfter: this.serviceStatus.backoffDelay
+          }
         };
       }
       
       return {
         success: false,
-        error: `Failed to fetch weather data: ${error.message}`
+        error: `Failed to fetch weather data: ${error.message}`,
+        serviceStatus: this.serviceStatus.status
       };
     }
   }

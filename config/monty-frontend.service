@@ -1,0 +1,18 @@
+[Unit]
+Description=Monty Home Automation Frontend Service
+After=network.target monty-backend.service
+
+[Service]
+Type=simple
+User=monty
+WorkingDirectory=/home/monty/monty/frontend
+ExecStart=/usr/local/bin/serve -s build -l 3000
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=monty-frontend
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

@@ -1,8 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger').getModuleLogger('config');
+// Node.js built-in modules
+const os = require('os'); // Used for system temp directory access in ensureCacheDirectory
 
-const CONFIG_FILE_PATH = path.join(__dirname, '../../../config/config.json');
+// Allow config path to be specified in environment variables
+const CONFIG_FILE_PATH = process.env.CONFIG_PATH 
+  ? path.resolve(process.env.CONFIG_PATH) 
+  : path.join(__dirname, '../../../config/config.json');
+
+// Backup file path for config
+const BACKUP_CONFIG_PATH = `${CONFIG_FILE_PATH}.backup`;
 
 // Default configuration values
 const DEFAULT_CONFIG = {
@@ -59,6 +67,9 @@ const DEFAULT_CONFIG = {
 class ConfigManager {
   constructor() {
     this.config = null;
+    this.configLoaded = false;
+    this.configChanged = false;
+    this.lastConfigError = null;
     this.ensureConfigDirectory();
     this.loadConfig();
     
@@ -69,8 +80,50 @@ class ConfigManager {
         this.configChanged = false;
       }
     }, 60000); // Save every minute if changes exist
+    
+    // Set up periodic config validation and recovery
+    setInterval(() => {
+      this.validateAndRecoverConfig();
+    }, 300000); // Check every 5 minutes
   }
   
+  /**
+   * Ensure the cache directory exists with fallback
+   */
+  ensureCacheDirectory() {
+    if (!fs.existsSync(this.cacheDir)) {
+      try {
+        fs.mkdirSync(this.cacheDir, { recursive: true });
+        logger.info(`Created cache directory at ${this.cacheDir}`);
+      } catch (error) {
+        logger.error(`Failed to create primary cache directory: ${error.message}`);
+        
+        // Try fallback to system temp directory
+        try {
+          const tempCacheDir = path.join(os.tmpdir(), 'monty-cache');
+          if (!fs.existsSync(tempCacheDir)) {
+            fs.mkdirSync(tempCacheDir, { recursive: true });
+          }
+          
+          // Update cache paths to use temp directory
+          this.cacheDir = tempCacheDir;
+          this.weatherCachePath = path.join(this.cacheDir, 'weather_cache.json');
+          this.forecastCachePath = path.join(this.cacheDir, 'forecast_cache.json');
+          
+          logger.info(`Using fallback cache directory at ${this.cacheDir}`);
+        } catch (fallbackError) {
+          logger.error(`Failed to create fallback cache directory: ${fallbackError.message}`);
+          logger.warn('Weather caching will be disabled');
+          
+          // Disable cache by setting paths to null
+          this.cacheDir = null;
+          this.weatherCachePath = null;
+          this.forecastCachePath = null;
+        }
+      }
+    }
+  }
+
   /**
    * Ensure the config directory exists
    */
@@ -91,23 +144,56 @@ class ConfigManager {
    */
   loadConfig() {
     try {
+      // Try to load from main config file
       if (fs.existsSync(CONFIG_FILE_PATH)) {
-        const rawData = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
-        this.config = JSON.parse(rawData);
-        logger.info('Configuration loaded successfully');
-        
-        // Ensure all required fields exist (handle config file from older version)
-        this.config = this.mergeWithDefaults(this.config, DEFAULT_CONFIG);
-      } else {
-        logger.info('No configuration file found, creating default');
-        this.config = { ...DEFAULT_CONFIG };
-        this.saveConfig();
+        try {
+          const rawData = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
+          this.config = JSON.parse(rawData);
+          logger.info(`Configuration loaded successfully from ${CONFIG_FILE_PATH}`);
+          this.configLoaded = true;
+          
+          // Ensure all required fields exist (handle config file from older version)
+          this.config = this.mergeWithDefaults(this.config, DEFAULT_CONFIG);
+          return;
+        } catch (mainConfigError) {
+          // Main config file exists but is invalid, try backup
+          logger.error(`Error loading main configuration: ${mainConfigError.message}`);
+          this.lastConfigError = mainConfigError.message;
+          
+          if (fs.existsSync(BACKUP_CONFIG_PATH)) {
+            logger.info('Attempting to load from backup configuration');
+            try {
+              const backupData = fs.readFileSync(BACKUP_CONFIG_PATH, 'utf8');
+              this.config = JSON.parse(backupData);
+              logger.info('Backup configuration loaded successfully');
+              this.configLoaded = true;
+              
+              // Ensure all required fields exist
+              this.config = this.mergeWithDefaults(this.config, DEFAULT_CONFIG);
+              
+              // Restore the main config from backup
+              this.saveConfig();
+              return;
+            } catch (backupError) {
+              logger.error(`Error loading backup configuration: ${backupError.message}`);
+            }
+          }
+        }
       }
-    } catch (error) {
-      logger.error(`Error loading configuration: ${error.message}`);
-      logger.info('Using default configuration');
+      
+      // If we reach here, either the config doesn't exist or both main and backup are corrupt
+      logger.info('No valid configuration found, creating default');
       this.config = { ...DEFAULT_CONFIG };
       this.configChanged = true;
+      this.configLoaded = true;
+      this.saveConfig();
+    } catch (error) {
+      logger.error(`Critical error in configuration loading: ${error.message}`);
+      logger.info('Using default configuration in memory only');
+      this.lastConfigError = error.message;
+      this.config = { ...DEFAULT_CONFIG };
+      this.configChanged = true;
+      this.configLoaded = false; // Indicate that we're running with in-memory config only
     }
   }
   
@@ -116,14 +202,40 @@ class ConfigManager {
    */
   saveConfig() {
     try {
-      fs.writeFileSync(
-        CONFIG_FILE_PATH, 
-        JSON.stringify(this.config, null, 2), 
-        'utf8'
-      );
+      // First, create a backup of existing config if it exists and is valid
+      if (fs.existsSync(CONFIG_FILE_PATH)) {
+        try {
+          const currentConfig = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
+          JSON.parse(currentConfig); // Test if valid JSON
+          fs.writeFileSync(BACKUP_CONFIG_PATH, currentConfig, 'utf8');
+          logger.debug('Created backup of current configuration');
+        } catch (backupErr) {
+          logger.warn(`Could not backup existing config: ${backupErr.message}`);
+        }
+      }
+      
+      // Now write the new config
+      const configJson = JSON.stringify(this.config, null, 2);
+      
+      // Write to a temporary file first
+      const tempConfigPath = `${CONFIG_FILE_PATH}.tmp`;
+      fs.writeFileSync(tempConfigPath, configJson, 'utf8');
+      
+      // Ensure it's valid JSON before replacing the actual config
+      try {
+        JSON.parse(fs.readFileSync(tempConfigPath, 'utf8'));
+      } catch (jsonErr) {
+        throw new Error(`Invalid JSON in temp config: ${jsonErr.message}`);
+      }
+      
+      // Replace the actual config with the temp file
+      fs.renameSync(tempConfigPath, CONFIG_FILE_PATH);
+      
       logger.info('Configuration saved successfully');
+      this.lastConfigError = null;
       return true;
     } catch (error) {
+      this.lastConfigError = error.message;
       logger.error(`Error saving configuration: ${error.message}`);
       return false;
     }
@@ -304,6 +416,83 @@ class ConfigManager {
     logger.info(`Removed away period at index ${index}`);
     this.saveConfig();
     return true;
+  }
+  
+  /**
+   * Check if the configuration was successfully loaded
+   * @returns {boolean} True if config was loaded, false otherwise
+   */
+  isLoaded() {
+    return this.configLoaded;
+  }
+  
+  /**
+   * Get the last error that occurred during config operations
+   * @returns {string|null} The last error message or null if no error
+   */
+  getLastError() {
+    return this.lastConfigError;
+  }
+  
+  /**
+   * Validate the current configuration and attempt recovery if corrupted
+   */
+  validateAndRecoverConfig() {
+    try {
+      // Perform a basic validation check
+      if (!this.config || typeof this.config !== 'object') {
+        throw new Error('Configuration is not a valid object');
+      }
+      
+      // Check if required sections exist
+      const requiredSections = ['location', 'wakeUpTime', 'homeStatus', 'shadeScenes', 'music'];
+      for (const section of requiredSections) {
+        if (!this.config[section] || typeof this.config[section] !== 'object') {
+          throw new Error(`Required configuration section '${section}' is missing or invalid`);
+        }
+      }
+      
+      // If we're in a degraded state but validation passes, attempt to save again
+      if (!this.configLoaded) {
+        logger.info('Configuration validation passed, attempting to restore from memory');
+        if (this.saveConfig()) {
+          this.configLoaded = true;
+          logger.info('Successfully recovered configuration state');
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error(`Configuration validation failed: ${error.message}`);
+      
+      // If validation fails, attempt recovery
+      if (fs.existsSync(BACKUP_CONFIG_PATH)) {
+        try {
+          logger.info('Attempting to recover from backup configuration');
+          const backupData = fs.readFileSync(BACKUP_CONFIG_PATH, 'utf8');
+          const backupConfig = JSON.parse(backupData);
+          
+          // Merge with defaults to ensure completeness
+          this.config = this.mergeWithDefaults(backupConfig, DEFAULT_CONFIG);
+          this.configLoaded = true;
+          this.configChanged = true;
+          this.saveConfig();
+          
+          logger.info('Successfully recovered configuration from backup');
+          return true;
+        } catch (recoveryError) {
+          logger.error(`Recovery from backup failed: ${recoveryError.message}`);
+        }
+      }
+      
+      // If recovery fails, reset to defaults as last resort
+      logger.warn('Resetting to default configuration as last resort');
+      this.config = { ...DEFAULT_CONFIG };
+      this.configChanged = true;
+      this.saveConfig();
+      
+      return false;
+    }
   }
 }
 

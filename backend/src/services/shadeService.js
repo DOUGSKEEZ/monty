@@ -23,7 +23,7 @@ class ShadeService {
    */
   async checkControllerExists() {
     try {
-      const { stdout, stderr } = await execPromise(`ls -la ${SHADE_CONTROLLER_PATH}`);
+      const { stdout } = await execPromise(`ls -la ${SHADE_CONTROLLER_PATH}`);
       logger.info('Shade controller found:', stdout.trim());
     } catch (error) {
       logger.error(`Shade controller not found at ${SHADE_CONTROLLER_PATH}. Error: ${error.message}`);

@@ -15,7 +15,7 @@ router.get('/', (req, res) => {
 });
 
 // Get specific configuration by path
-router.get('/:path(*)', (req, res) => {
+router.get('/:path', (req, res) => {
   try {
     const { path } = req.params;
     const value = configManager.get(path);
@@ -35,7 +35,7 @@ router.get('/:path(*)', (req, res) => {
 });
 
 // Update specific configuration by path
-router.put('/:path(*)', (req, res) => {
+router.put('/:path', (req, res) => {
   try {
     const { path } = req.params;
     const { value } = req.body;
