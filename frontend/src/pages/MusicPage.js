@@ -6,13 +6,21 @@ function MusicPage() {
   const [selectedStation, setSelectedStation] = useState('');
   const [isConnectingBluetooth, setIsConnectingBluetooth] = useState(false);
   const [showConnectingMessage, setShowConnectingMessage] = useState(false);
+  const [bluetoothStatus, setBluetoothStatus] = useState('unknown'); // 'unknown', 'connecting', 'connected', 'failed'
   
   // Update selected station when music status changes
   useEffect(() => {
     if (music.status && music.status.stationId) {
       setSelectedStation(music.status.stationId);
     }
-  }, [music.status]);
+    
+    // Update bluetooth status when music status changes
+    if (music.status && music.status.isBluetoothConnected) {
+      setBluetoothStatus('connected');
+    } else if (music.status && !music.status.isBluetoothConnected && !isConnectingBluetooth) {
+      setBluetoothStatus('disconnected');
+    }
+  }, [music.status, isConnectingBluetooth]);
   
   // Helper to check if player is on
   const isPlayerOn = () => {
@@ -34,25 +42,74 @@ function MusicPage() {
   //   return `${mins}:${secs.toString().padStart(2, '0')}`;
   // };
   
-  // Start the player
+  // Connect to Bluetooth speakers without starting pianobar
+  const handleConnectBluetooth = async () => {
+    setBluetoothStatus('connecting');
+    setIsConnectingBluetooth(true);
+    
+    try {
+      console.log('Starting Bluetooth connection process to wake speakers from sleep mode...');
+      const btResult = await actions.controlMusic('connectBluetooth');
+      
+      if (btResult) {
+        console.log('Bluetooth connection successful, speakers should be awake now');
+        setBluetoothStatus('connected');
+      } else {
+        console.warn('Bluetooth connection failed');
+        setBluetoothStatus('failed');
+      }
+      
+      // Refresh status to update UI
+      await actions.refreshMusic(false);
+    } catch (error) {
+      console.error('Error connecting to Bluetooth:', error);
+      setBluetoothStatus('failed');
+    } finally {
+      setIsConnectingBluetooth(false);
+    }
+  };
+  
+  // Start the player - WITHOUT any Bluetooth connectivity
   const handleStartPlayer = async () => {
     setShowConnectingMessage(true);
     
     try {
-      // First connect to Bluetooth
-      setIsConnectingBluetooth(true);
-      await actions.controlMusic('connectBluetooth');
-      setIsConnectingBluetooth(false);
+      console.log('Starting Pandora music player...');
       
-      // Then start player (use silent mode to reduce console noise)
+      // Start player WITHOUT initiating Bluetooth connection
       await actions.controlMusic('start', { connectBluetooth: false, silent: true });
       
       // Refresh music status (silent mode for background refresh)
       await actions.refreshMusic(false);
+      
+      // Set up staggered status refresh timers to catch player status changes
+      // Multiple refreshes with progressively longer intervals
+      // This helps detect player status changes
+      
+      // First check after 5 seconds
+      setTimeout(async () => {
+        console.log('First status refresh after 5s');
+        await actions.refreshMusic(false);
+        
+        // Second check after 8 more seconds (13s total)
+        setTimeout(async () => {
+          console.log('Second status refresh after 13s');
+          await actions.refreshMusic(false);
+          
+          // Third check after 12 more seconds (25s total)
+          setTimeout(async () => {
+            console.log('Third status refresh after 25s');
+            await actions.refreshMusic(false);
+          }, 12000);
+        }, 8000);
+      }, 5000);
     } catch (error) {
       console.error('Error starting player:', error);
     } finally {
-      setShowConnectingMessage(false);
+      // Keep the message visible briefly for feedback
+      setTimeout(() => {
+        setShowConnectingMessage(false);
+      }, 2000);
     }
   };
   
@@ -60,11 +117,26 @@ function MusicPage() {
   const handleStopPlayer = async () => {
     try {
       // Use silent mode to reduce console noise
-      await actions.controlMusic('stop', { disconnectBluetooth: true, silent: true });
+      // Do NOT disconnect Bluetooth when stopping player
+      await actions.controlMusic('stop', { disconnectBluetooth: false, silent: true });
       // Use silent mode for refresh after stopping
       await actions.refreshMusic(false);
     } catch (error) {
       console.error('Error stopping player:', error);
+    }
+  };
+  
+  // Disconnect from Bluetooth
+  const handleDisconnectBluetooth = async () => {
+    try {
+      setIsConnectingBluetooth(true);
+      await actions.controlMusic('disconnectBluetooth');
+      await actions.refreshMusic(false);
+      setBluetoothStatus('disconnected');
+    } catch (error) {
+      console.error('Error disconnecting from Bluetooth:', error);
+    } finally {
+      setIsConnectingBluetooth(false);
     }
   };
   
@@ -90,12 +162,37 @@ function MusicPage() {
     if (!selectedStation || !isPlayerOn()) return;
     
     try {
-      await actions.controlMusic('command', { command: `s ${selectedStation}`, silent: true });
+      // Log the selected station for debugging
+      console.log('Changing to station:', selectedStation);
       
-      // Give the station change time to take effect
+      // Check if we have station IDs available (from CSV)
+      const stationIds = music.stations?.stationIds;
+      const index = parseInt(selectedStation, 10);
+      
+      if (Array.isArray(stationIds) && stationIds.length > index) {
+        // We have actual station IDs, use the direct station ID
+        console.log(`Using direct station ID: ${stationIds[index]}`);
+        await actions.controlMusic('command', { command: `s ${stationIds[index]}`, silent: true });
+      } else {
+        // Fallback to using index
+        console.log(`Using station index: ${index}`);
+        await actions.controlMusic('command', { command: `s ${index}`, silent: true });
+      }
+      
+      // Give the station change time to take effect and attempt multiple refreshes
+      // First refresh after 2 seconds
       setTimeout(() => {
-        // Use silent mode for automatic refresh after station change
         actions.refreshMusic(false);
+        
+        // Second refresh after 5 seconds (total 7s delay)
+        setTimeout(() => {
+          actions.refreshMusic(false);
+          
+          // Third refresh after 10 seconds (total 17s delay)
+          setTimeout(() => {
+            actions.refreshMusic(false);
+          }, 10000);
+        }, 5000);
       }, 2000);
     } catch (error) {
       console.error('Error changing station:', error);
@@ -138,15 +235,55 @@ function MusicPage() {
   };
   
   const progressPercent = getProgressPercent();
+  
+  // Get the appropriate Bluetooth status display info
+  const getBluetoothStatusInfo = () => {
+    if (isConnectingBluetooth) {
+      return {
+        text: 'Connecting to Klipsch The Fives...',
+        colorClass: 'text-amber-600',
+        showProgress: true,
+        showReconnectButton: false
+      };
+    }
+    
+    if (music.status?.isBluetoothConnected) {
+      return {
+        text: 'Connected to Klipsch The Fives ✓',
+        colorClass: 'text-green-600',
+        showProgress: false,
+        showReconnectButton: false
+      };
+    }
+    
+    if (isPlayerOn() && !music.status?.isBluetoothConnected) {
+      return {
+        text: 'Not Connected to Speakers',
+        colorClass: 'text-amber-600',
+        showProgress: false,
+        showReconnectButton: true
+      };
+    }
+    
+    return {
+      text: 'Not Connected',
+      colorClass: 'text-gray-600',
+      showProgress: false,
+      showReconnectButton: false
+    };
+  };
+  
+  const bluetoothStatusInfo = getBluetoothStatusInfo();
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Monty's Pianobar</h1>
+      <h1 className="text-3xl font-bold mb-6">Monty's Music Player</h1>
       
       {/* Error Display */}
       {music.error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          Could not connect to music player. Please check your connection.
+          <p className="font-bold">Connection Error</p>
+          <p>{music.message || "Could not connect to music player. Please check your connection."}</p>
         </div>
       )}
       
@@ -156,6 +293,53 @@ function MusicPage() {
           Loading music player status...
         </div>
       )}
+      
+      {/* Bluetooth Connection Panel */}
+      <div className="bg-white p-6 rounded shadow mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Bluetooth Speaker</h2>
+          <div>
+            {music.status?.isBluetoothConnected ? (
+              <button 
+                onClick={handleDisconnectBluetooth}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                disabled={isConnectingBluetooth}
+              >
+                Disconnect
+              </button>
+            ) : (
+              <button 
+                onClick={handleConnectBluetooth}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                disabled={isConnectingBluetooth}
+              >
+                {isConnectingBluetooth ? 'Connecting...' : 'Connect'}
+              </button>
+            )}
+          </div>
+        </div>
+        
+        <div className="mb-2">
+          <p className={`${bluetoothStatusInfo.colorClass}`}>
+            <span className="font-semibold">Status:</span> {bluetoothStatusInfo.text}
+          </p>
+          {bluetoothStatusInfo.showProgress && (
+            <div className="mt-1">
+              <p className="text-sm text-amber-600 animate-pulse">
+                <span className="inline-block mr-2">⚠️</span>
+                Waking up speakers from sleep mode - may take up to 30 seconds
+              </p>
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-2">
+                <div className="h-full bg-blue-500 animate-pulse" style={{ width: '100%' }}></div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="text-sm text-gray-600 mt-2">
+          <p>The Klipsch The Fives speakers go into deep sleep mode when inactive. Connecting may take 20-40 seconds when waking them up.</p>
+        </div>
+      </div>
       
       {/* Music Player Controls */}
       <div className="bg-white p-6 rounded shadow">
@@ -177,11 +361,7 @@ function MusicPage() {
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
               disabled={music.loading || showConnectingMessage}
             >
-              {showConnectingMessage ? (
-                isConnectingBluetooth ? 'Connecting to Speakers...' : 'Starting Player...'
-              ) : (
-                'Turn On'
-              )}
+              {showConnectingMessage ? 'Starting Player...' : 'Turn On'}
             </button>
           )}
         </div>
@@ -257,9 +437,14 @@ function MusicPage() {
           <div className="mt-6">
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium">Select Station</label>
-              {music.stations && music.stations.mock && (
+              {music.message && (
                 <span className="text-xs text-amber-600">
-                  {music.stations.message || (isPlayerOn() ? 'Loading stations...' : 'Turn on player to see your stations')}
+                  {music.message}
+                </span>
+              )}
+              {(!isPlayerOn() || !Array.isArray(music.stations) || music.stations.length === 0) && !music.message && (
+                <span className="text-xs text-amber-600">
+                  {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
                 </span>
               )}
             </div>
@@ -268,12 +453,15 @@ function MusicPage() {
                 className={`block w-full p-2 border rounded ${!isPlayerOn() ? 'bg-gray-100' : ''}`}
                 value={selectedStation}
                 onChange={(e) => setSelectedStation(e.target.value)}
-                disabled={!isPlayerOn() || music.loading || !music.stations || !music.stations.stations || music.stations.stations.length === 0}
+                disabled={!isPlayerOn() || music.loading || !Array.isArray(music.stations) || music.stations.length === 0}
               >
                 <option value="">Select a station...</option>
-                {music.stations && music.stations.stations && music.stations.stations.map((station, index) => (
-                  <option key={index} value={index}>{station}</option>
-                ))}
+                {Array.isArray(music.stations) && music.stations.map((station, index) => {
+                  // Use index as the station identifier
+                  return (
+                    <option key={index} value={index}>{station}</option>
+                  );
+                })}
               </select>
               <button
                 onClick={handleChangeStation}
@@ -290,15 +478,24 @@ function MusicPage() {
           </div>
           
           {/* Bluetooth Status */}
-          <div className="mt-6 text-sm text-gray-600">
-            <p>
-              <span className="font-semibold">Bluetooth Status:</span> {
-                music.status?.isBluetoothConnected 
-                  ? 'Connected to Klipsch The Fives' 
-                  : 'Not Connected'
-              }
-            </p>
-          </div>
+          {isPlayerOn() && !music.status?.isBluetoothConnected && !isConnectingBluetooth && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded">
+              <p className="text-amber-700 text-sm font-medium mb-2">
+                <span className="inline-block mr-1">⚠️</span>
+                Bluetooth connection issue detected
+              </p>
+              <p className="text-amber-600 text-xs mb-2">
+                The speakers may be in sleep mode. Music will not play until Bluetooth is connected.
+              </p>
+              <button 
+                onClick={handleConnectBluetooth}
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded"
+                disabled={isConnectingBluetooth}
+              >
+                Connect to Speakers
+              </button>
+            </div>
+          )}
         </div>
       </div>
       
@@ -306,10 +503,11 @@ function MusicPage() {
       <div className="mt-6 bg-gray-50 p-4 rounded border">
         <h3 className="font-semibold mb-2">How to Use:</h3>
         <ol className="list-decimal pl-5 space-y-1">
-          <li>Turn on the player to connect to your Bluetooth speaker and start Pandora</li>
+          <li>First, connect to the Bluetooth speaker by clicking "Connect" in the Bluetooth section</li>
+          <li>Once speakers are connected, turn on the music player</li>
           <li>Use the playback controls to skip songs or pause music</li>
           <li>Heart a song to tell Pandora you like it</li>
-          <li>Change stations using the selector below</li>
+          <li>Change stations using the selector</li>
           <li>Turn off the player when done to disconnect from Bluetooth</li>
         </ol>
       </div>

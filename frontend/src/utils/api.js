@@ -165,7 +165,25 @@ export const musicApi = {
     fetchApi(`/music/stations${silent ? '?silent=true' : ''}`, {}, silent),
   
   /**
-   * Start music player
+   * Control the music player with unified endpoint
+   * @param {string} action - Action to perform (start, stop, command, connectBluetooth, disconnectBluetooth)
+   * @param {Object} options - Additional options for the action
+   * @param {boolean} silent - Whether to suppress logging
+   * @returns {Promise<Object>} - Result
+   */
+  controlMusic: (action, options = {}, silent = false) => 
+    fetchApi(`/music/control${silent ? '?silent=true' : ''}`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        action, 
+        options,
+        silent
+      }),
+    }, silent),
+  
+  // Legacy methods - use controlMusic instead
+  /**
+   * Start music player (legacy method - use controlMusic instead)
    * @param {boolean} connectBluetooth - Whether to connect to Bluetooth first
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
@@ -177,7 +195,7 @@ export const musicApi = {
     }, silent),
   
   /**
-   * Stop music player
+   * Stop music player (legacy method - use controlMusic instead)
    * @param {boolean} disconnectBluetooth - Whether to disconnect Bluetooth after
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
@@ -189,7 +207,7 @@ export const musicApi = {
     }, silent),
   
   /**
-   * Send control command to music player
+   * Send control command to music player (legacy method - use controlMusic instead)
    * @param {string} command - Control command
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
@@ -201,7 +219,7 @@ export const musicApi = {
     }, silent),
   
   /**
-   * Connect to Bluetooth speaker
+   * Connect to Bluetooth speaker (legacy method - use controlMusic instead)
    * @returns {Promise<Object>} - Result
    */
   connectBluetooth: () => 
@@ -210,7 +228,7 @@ export const musicApi = {
     }),
   
   /**
-   * Disconnect from Bluetooth speaker
+   * Disconnect from Bluetooth speaker (legacy method - use controlMusic instead)
    * @returns {Promise<Object>} - Result
    */
   disconnectBluetooth: () => 

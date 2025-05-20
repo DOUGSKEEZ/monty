@@ -3,6 +3,11 @@ const router = express.Router();
 const weatherService = require('../services/weatherService');
 const logger = require('../utils/logger').getModuleLogger('weather-routes');
 
+// Initialize weather service in non-blocking way
+process.nextTick(() => {
+  logger.info('Weather routes initialized');
+});
+
 // Get current weather data
 router.get('/current', async (req, res) => {
   try {

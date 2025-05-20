@@ -210,33 +210,22 @@ export const AppProvider = ({ children }) => {
   // Control music player
   const controlMusic = async (action, options = {}) => {
     try {
+      // Use the unified controlMusic API
+      const silent = options?.silent !== false;
       
-      switch (action) {
-        case 'start':
-          const startSilent = options.silent !== false;
-          await musicApi.startPlayer(options.connectBluetooth, startSilent);
-          break;
-        case 'stop':
-          // Use silent mode to reduce console noise
-          const silent = options.silent !== false;
-          await musicApi.stopPlayer(options.disconnectBluetooth, silent);
-          break;
-        case 'command':
-          const cmdSilent = options.silent !== false;
-          await musicApi.sendCommand(options.command, cmdSilent);
-          break;
-        case 'connectBluetooth':
-          await musicApi.connectBluetooth();
-          break;
-        case 'disconnectBluetooth':
-          await musicApi.disconnectBluetooth();
-          break;
-        default:
-          throw new Error(`Unknown music action: ${action}`);
+      // Call the unified endpoint
+      await musicApi.controlMusic(action, options, silent);
+      
+      // Reload music data after control (silently to avoid logs)
+      await loadMusicData(false);
+      
+      // For connectBluetooth action, return a boolean success indicator
+      if (action === 'connectBluetooth') {
+        // Check if the connection was successful by looking at the updated status
+        const statusRes = await musicApi.getStatus(true);
+        return statusRes.data?.isBluetoothConnected === true;
       }
       
-      // Reload music data after control
-      await loadMusicData(false);
       return true;
     } catch (error) {
       console.error(`Error controlling music (${action}):`, error);

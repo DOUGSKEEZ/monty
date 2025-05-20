@@ -1,11 +1,30 @@
+/**
+ * WeatherService (DI Version) - Weather data service with dependency injection
+ * 
+ * This service provides weather information with explicit dependency injection.
+ * It implements the IWeatherService interface and uses provided dependencies
+ * instead of importing them directly.
+ */
+
+const IWeatherService = require('../interfaces/IWeatherService');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const logger = require('../utils/logger').getModuleLogger('weather-service');
-const configManager = require('../utils/config');
 
-class WeatherService {
-  constructor() {
+class WeatherService extends IWeatherService {
+  /**
+   * Create a new WeatherService with explicit dependencies
+   * @param {Object} logger - Logger instance
+   * @param {Object} configManager - Configuration manager instance
+   */
+  constructor(logger, configManager) {
+    super();
+    
+    // Store injected dependencies
+    this.logger = logger;
+    this.configManager = configManager;
+    
+    // Initialize service properties
     this.apiKey = process.env.OPENWEATHERMAP_API_KEY;
     this.cacheDir = path.join(__dirname, '../../../data/cache');
     this.weatherCachePath = path.join(this.cacheDir, 'weather_cache.json');
@@ -21,12 +40,11 @@ class WeatherService {
     };
     
     // Cache expiration times (in milliseconds) - load from config if available
-    // Increase refresh intervals to avoid hitting API limits (60 calls per minute)
-    const refreshInterval = configManager.get('weather.refreshIntervalMin', 60); // Changed from 30 to 60
-    const cacheExpiration = configManager.get('weather.cacheExpirationMin', 180); // Changed from 60 to 180
+    const refreshInterval = this.configManager.get('weather.refreshIntervalMin', 60);
+    const cacheExpiration = this.configManager.get('weather.cacheExpirationMin', 180);
     
     this.currentWeatherExpiration = refreshInterval * 60 * 1000; // minutes to ms
-    this.forecastExpiration = cacheExpiration * 60 * 1000;        // minutes to ms
+    this.forecastExpiration = cacheExpiration * 60 * 1000;       // minutes to ms
     
     // Add API rate limiting
     this.apiCallHistory = [];
@@ -54,7 +72,7 @@ class WeatherService {
         if (this.isConfigured()) {
           // First check service status
           if (this.serviceStatus.status === 'down' && this.serviceStatus.backoffDelay > 0) {
-            logger.warn(`Weather service is down, waiting for backoff delay (${Math.round(this.serviceStatus.backoffDelay/60000)} minutes)`);
+            this.logger.warn(`Weather service is down, waiting for backoff delay (${Math.round(this.serviceStatus.backoffDelay/60000)} minutes)`);
             
             // If in backoff, decrease the delay for next attempt
             if (this.serviceStatus.backoffDelay > 0) {
@@ -70,7 +88,7 @@ class WeatherService {
             }
           } else {
             // Attempt to refresh weather data
-            logger.debug('Running scheduled weather refresh');
+            this.logger.debug('Running scheduled weather refresh');
             await this.getCurrentWeather(true);
             
             // Only refresh forecast occasionally to save API calls
@@ -81,7 +99,7 @@ class WeatherService {
           }
         }
       } catch (error) {
-        logger.error(`Error in weather refresh: ${error.message}`);
+        this.logger.error(`Error in weather refresh: ${error.message}`);
       } finally {
         // Schedule next run
         setTimeout(refreshWeather, this.currentWeatherExpiration);
@@ -89,7 +107,7 @@ class WeatherService {
     };
     
     // Start the refresh cycle
-    refreshWeather().catch(err => logger.error(`Initial weather refresh failed: ${err.message}`));
+    refreshWeather().catch(err => this.logger.error(`Initial weather refresh failed: ${err.message}`));
   }
   
   /**
@@ -99,9 +117,9 @@ class WeatherService {
     if (!fs.existsSync(this.cacheDir)) {
       try {
         fs.mkdirSync(this.cacheDir, { recursive: true });
-        logger.info(`Created cache directory at ${this.cacheDir}`);
+        this.logger.info(`Created cache directory at ${this.cacheDir}`);
       } catch (error) {
-        logger.error(`Failed to create primary cache directory: ${error.message}`);
+        this.logger.error(`Failed to create primary cache directory: ${error.message}`);
         
         // Try fallback to system temp directory
         try {
@@ -115,10 +133,10 @@ class WeatherService {
           this.weatherCachePath = path.join(this.cacheDir, 'weather_cache.json');
           this.forecastCachePath = path.join(this.cacheDir, 'forecast_cache.json');
           
-          logger.info(`Using fallback cache directory at ${this.cacheDir}`);
+          this.logger.info(`Using fallback cache directory at ${this.cacheDir}`);
         } catch (fallbackError) {
-          logger.error(`Failed to create fallback cache directory: ${fallbackError.message}`);
-          logger.warn('Weather caching will be disabled');
+          this.logger.error(`Failed to create fallback cache directory: ${fallbackError.message}`);
+          this.logger.warn('Weather caching will be disabled');
           
           // Disable cache by setting paths to null
           this.cacheDir = null;
@@ -141,7 +159,7 @@ class WeatherService {
         return JSON.parse(cacheData);
       }
     } catch (error) {
-      logger.error(`Error loading cache from ${cachePath}: ${error.message}`);
+      this.logger.error(`Error loading cache from ${cachePath}: ${error.message}`);
     }
     
     return {};
@@ -166,7 +184,7 @@ class WeatherService {
       // Then atomically rename
       fs.renameSync(tempPath, cachePath);
     } catch (error) {
-      logger.error(`Error saving cache to ${cachePath}: ${error.message}`);
+      this.logger.error(`Error saving cache to ${cachePath}: ${error.message}`);
       
       // Set flag indicating disk issues
       this.serviceStatus.diskIssue = true;
@@ -175,6 +193,7 @@ class WeatherService {
   
   /**
    * Check if the API key is configured
+   * @returns {boolean} - True if the service is configured
    */
   isConfigured() {
     return !!this.apiKey;
@@ -195,7 +214,7 @@ class WeatherService {
       return true;
     }
     
-    logger.warn(`API rate limit reached (${this.apiCallHistory.length} calls in the last minute)`);
+    this.logger.warn(`API rate limit reached (${this.apiCallHistory.length} calls in the last minute)`);
     return false;
   }
   
@@ -206,7 +225,7 @@ class WeatherService {
    */
   async getCurrentWeather(forceRefresh = false) {
     if (!this.isConfigured()) {
-      logger.error('OpenWeatherMap API key not configured');
+      this.logger.error('OpenWeatherMap API key not configured');
       return {
         success: false,
         error: 'Weather service not configured'
@@ -214,7 +233,7 @@ class WeatherService {
     }
     
     // Get location from config
-    const zipCode = configManager.get('location.zipCode', '80498');
+    const zipCode = this.configManager.get('location.zipCode', '80498');
     const country = 'us';
     
     // Check if we have a valid cache
@@ -224,7 +243,7 @@ class WeatherService {
         this.weatherCache.timestamp && 
         (Date.now() - this.weatherCache.timestamp < this.currentWeatherExpiration)) {
       
-      logger.debug('Returning cached current weather data');
+      this.logger.debug('Returning cached current weather data');
       return {
         success: true,
         data: this.weatherCache.data,
@@ -235,7 +254,7 @@ class WeatherService {
     
     // Fetch new data with exponential backoff
     try {
-      logger.info(`Fetching current weather for ${zipCode}`);
+      this.logger.info(`Fetching current weather for ${zipCode}`);
       
       // Check rate limits and service status
       if ((!this.canMakeApiCall() || this.serviceStatus.status === 'down') && 
@@ -244,7 +263,7 @@ class WeatherService {
           this.weatherCache.data) {
         
         // Return cached data and don't attempt a fetch
-        logger.warn(`Weather API in backoff period (${Math.round(this.serviceStatus.backoffDelay/60000)} min), using cached data`);
+        this.logger.warn(`Weather API in backoff period (${Math.round(this.serviceStatus.backoffDelay/60000)} min), using cached data`);
         return {
           success: true,
           data: this.weatherCache.data,
@@ -333,14 +352,14 @@ class WeatherService {
           (5 * 60 * 1000) * Math.pow(2, this.serviceStatus.consecutiveFailures - 3)
         );
         
-        logger.warn(`Weather API marked as down after ${this.serviceStatus.consecutiveFailures} failures. Backoff: ${Math.round(this.serviceStatus.backoffDelay/60000)} minutes`);
+        this.logger.warn(`Weather API marked as down after ${this.serviceStatus.consecutiveFailures} failures. Backoff: ${Math.round(this.serviceStatus.backoffDelay/60000)} minutes`);
       }
       
-      logger.error(`Error fetching current weather: ${error.message}`);
+      this.logger.error(`Error fetching current weather: ${error.message}`);
       
       // If we have a cache, return it even if expired
       if (this.weatherCache && this.weatherCache.data) {
-        logger.info('Returning stale cached weather data due to API error');
+        this.logger.info('Returning stale cached weather data due to API error');
         
         return {
           success: true,
@@ -370,7 +389,7 @@ class WeatherService {
    */
   async getForecast(forceRefresh = false) {
     if (!this.isConfigured()) {
-      logger.error('OpenWeatherMap API key not configured');
+      this.logger.error('OpenWeatherMap API key not configured');
       return {
         success: false,
         error: 'Weather service not configured'
@@ -378,7 +397,7 @@ class WeatherService {
     }
     
     // Get location from config
-    const zipCode = configManager.get('location.zipCode', '80498');
+    const zipCode = this.configManager.get('location.zipCode', '80498');
     const country = 'us';
     
     // Check if we have a valid cache
@@ -388,7 +407,7 @@ class WeatherService {
         this.forecastCache.timestamp && 
         (Date.now() - this.forecastCache.timestamp < this.forecastExpiration)) {
       
-      logger.debug('Returning cached forecast data');
+      this.logger.debug('Returning cached forecast data');
       return {
         success: true,
         data: this.forecastCache.data,
@@ -398,11 +417,11 @@ class WeatherService {
     
     // Fetch new data
     try {
-      logger.info(`Fetching forecast for ${zipCode}`);
+      this.logger.info(`Fetching forecast for ${zipCode}`);
       
       // Check rate limits before making API call
       if (!this.canMakeApiCall() && this.forecastCache && this.forecastCache.data) {
-        logger.warn('API rate limit reached, using cached forecast data');
+        this.logger.warn('API rate limit reached, using cached forecast data');
         return {
           success: true,
           data: this.forecastCache.data,
@@ -491,11 +510,11 @@ class WeatherService {
         cached: false
       };
     } catch (error) {
-      logger.error(`Error fetching forecast: ${error.message}`);
+      this.logger.error(`Error fetching forecast: ${error.message}`);
       
       // If we have a cache, return it even if expired
       if (this.forecastCache && this.forecastCache.data) {
-        logger.info('Returning stale cached forecast data due to API error');
+        this.logger.info('Returning stale cached forecast data due to API error');
         return {
           success: true,
           data: this.forecastCache.data,
@@ -620,7 +639,7 @@ class WeatherService {
         }
       }
     } catch (error) {
-      logger.warn(`Error getting sun times from weather data: ${error.message}`);
+      this.logger.warn(`Error getting sun times from weather data: ${error.message}`);
     }
     
     // Otherwise, use the specialized API
@@ -673,7 +692,7 @@ class WeatherService {
         throw new Error('Invalid response from sunrise-sunset API');
       }
     } catch (error) {
-      logger.error(`Error fetching sunrise/sunset data: ${error.message}`);
+      this.logger.error(`Error fetching sunrise/sunset data: ${error.message}`);
       return {
         success: false,
         error: `Failed to fetch sunrise/sunset data: ${error.message}`
@@ -682,6 +701,5 @@ class WeatherService {
   }
 }
 
-// Create and export a singleton instance
-const weatherService = new WeatherService();
-module.exports = weatherService;
+// Export only the class (no singleton)
+module.exports = WeatherService;

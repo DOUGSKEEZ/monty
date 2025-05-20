@@ -1,0 +1,5 @@
+# Allow monty user to execute specific commands for Bluetooth without password
+monty ALL=(ALL) NOPASSWD: /usr/bin/killall pulseaudio
+monty ALL=(ALL) NOPASSWD: /usr/bin/pulseaudio --system --daemonize
+monty ALL=(ALL) NOPASSWD: /usr/sbin/modprobe -r btusb
+monty ALL=(ALL) NOPASSWD: /usr/sbin/modprobe btusb

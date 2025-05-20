@@ -1,4 +1,10 @@
 {
-  "stations": [],
-  "fetchTime": 1747643733878
+  "stations": [
+    "Jazz Fruits Music Radio",
+    "Classic Rock Radio",
+    "Lofi House Radio",
+    "Bossa Nova Radio",
+    "Classical for Studying Radio"
+  ],
+  "fetchTime": 1747725783016
 }

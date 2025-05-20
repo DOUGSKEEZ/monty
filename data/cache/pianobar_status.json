@@ -1,10 +1,47 @@
 {
   "status": "stopped",
-  "stopTime": 1747644267897,
-  "updateTime": 1747644267897,
-  "startTime": 1747643996650,
-  "lastCommand": "next",
-  "stationId": "4",
-  "commandTime": 1747643407129,
-  "error": "Command failed: pkill -f pianobar || true\n"
+  "song": "Autumn Leaves",
+  "artist": "Bill Evans Trio",
+  "album": "Portrait in Jazz",
+  "station": "Jazz Fruits Music Radio",
+  "stationId": "128737420597291214",
+  "isPianobarRunning": true,
+  "isPlaying": true,
+  "length": "6:30",
+  "startTime": 1747726409732,
+  "expectedEndTime": 1747726590,
+  "stopTime": 1747726410925,
+  "updateTime": 1747726410925,
+  "cleanupPerformed": true,
+  "correctedBy": "init",
+  "message": "Status corrected at service startup - process running but status was stopped",
+  "serviceUptime": "2",
+  "processId": 15889,
+  "isBluetoothConnected": false,
+  "history": [
+    {
+      "previousStatus": "playing",
+      "newStatus": "stopped",
+      "changeTime": 1747726410929,
+      "reason": "api"
+    },
+    {
+      "previousStatus": "stopped",
+      "newStatus": "playing",
+      "changeTime": 1747726409735,
+      "reason": "init"
+    }
+  ],
+  "processCount": 1,
+  "zombieCount": 0,
+  "processCheckTime": 1747726410960,
+  "processList": [
+    {
+      "pid": "15949",
+      "isZombie": false,
+      "cpu": "0",
+      "startTime": "unknown"
+    }
+  ],
+  "processCheckAdded": true
 }

@@ -5,8 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "HOST=0.0.0.0 node src/server.js",
+    "dev": "HOST=0.0.0.0 nodemon src/server.js",
+    "dev-direct": "HOST=0.0.0.0 node start-direct.js",
     "lint": "eslint src/**/*.js"
   },
   "keywords": [
