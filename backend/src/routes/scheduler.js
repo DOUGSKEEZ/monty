@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const schedulerService = require('../services/schedulerService');
+const { schedulerService } = require('../services/serviceFactory');
 const logger = require('../utils/logger').getModuleLogger('scheduler-routes');
 
 // Get all active schedules

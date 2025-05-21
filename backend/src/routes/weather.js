@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const weatherService = require('../services/weatherService');
+const { weatherService } = require('../services/serviceFactory');
 const logger = require('../utils/logger').getModuleLogger('weather-routes');
 
 // Initialize weather service in non-blocking way
