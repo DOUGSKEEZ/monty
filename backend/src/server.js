@@ -1,3 +1,5 @@
+const prometheusMetrics = require("./services/PrometheusMetricsService");
+const metricsMiddleware = require("./middleware/metricsMiddleware");
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -33,6 +35,7 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(logger.httpLogger); // Add HTTP request logging
+app.use(metricsMiddleware); // Add metrics middleware
 
 // Add request logger for debugging
 app.use((req, res, next) => {
@@ -54,6 +57,9 @@ process.on('uncaughtException', (err) => {
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../../frontend/build')));
 }
+
+// Add metrics endpoint
+app.get('/metrics', prometheusMetrics.getMetricsHandler());
 
 // Import routes
 const configRoutes = require('./routes/config');

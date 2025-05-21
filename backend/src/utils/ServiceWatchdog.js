@@ -11,6 +11,7 @@
 
 const EventEmitter = require('events');
 const logger = require('./logger').getModuleLogger('service-watchdog');
+const prometheusMetrics = require('../services/PrometheusMetricsService');
 
 class ServiceWatchdog extends EventEmitter {
   /**
@@ -267,6 +268,9 @@ class ServiceWatchdog extends EventEmitter {
         // Service is healthy
         serviceData.status = 'healthy';
         serviceData.consecutiveFailures = 0;
+
+        // Update service health status in Prometheus
+        prometheusMetrics.setServiceHealth(serviceName, 'ok');
         
         // Reset recovery backoff if the service has been healthy for a while
         if (serviceData.recoveryAttempts > 0 && 
@@ -281,6 +285,9 @@ class ServiceWatchdog extends EventEmitter {
         serviceData.status = 'unhealthy';
         serviceData.consecutiveFailures++;
         serviceData.lastFailure = Date.now();
+
+        // Update service health status in Prometheus
+        prometheusMetrics.setServiceHealth(serviceName, healthStatus.status || 'error');
         
         logger.warn(`Service "${serviceName}" reported unhealthy: ${healthStatus.message}`);
         
@@ -417,6 +424,9 @@ class ServiceWatchdog extends EventEmitter {
       recoveryRecord.successful = true;
       recoveryRecord.duration = recoveryDuration;
       recoveryRecord.result = result;
+
+      // Record successful recovery in Prometheus
+      prometheusMetrics.recordRecovery(serviceName, true);
       
       // Update service health data
       serviceData.lastRecovery = Date.now();
@@ -447,6 +457,9 @@ class ServiceWatchdog extends EventEmitter {
       recoveryRecord.successful = false;
       recoveryRecord.error = error.message;
       recoveryRecord.duration = Date.now() - attemptTime;
+
+      // Record failed recovery in Prometheus
+      prometheusMetrics.recordRecovery(serviceName, false);
       
       // Update recovery history
       this.recoveryHistory[serviceName].failedRecoveries++;

@@ -7,6 +7,7 @@
  */
 
 const logger = require('./logger').getModuleLogger('retry-helper');
+const prometheusMetrics = require('../services/PrometheusMetricsService');
 
 class RetryHelper {
   /**
@@ -97,6 +98,9 @@ class RetryHelper {
         // Operation succeeded
         this.retryHistory[historyKey].success = true;
         this.retryHistory[historyKey].endTime = Date.now();
+
+        // Record successful operation in Prometheus
+        prometheusMetrics.recordRetry(operationName, true);
         
         if (attempt > 0) {
           logger.info(`Successfully completed ${operationName} after ${attempt} retries`);
@@ -110,6 +114,10 @@ class RetryHelper {
         // Check if we should retry this type of error
         if (!shouldRetry(error)) {
           logger.warn(`Error in ${operationName} is not retryable: ${error.message}`);
+          
+          // Record non-retryable error in Prometheus
+          prometheusMetrics.recordRetry(operationName, false);
+
           throw error;
         }
         
@@ -118,6 +126,9 @@ class RetryHelper {
         if (attempt > maxRetries) {
           const errorMsg = `${operationName} failed after ${maxRetries} retries: ${error.message}`;
           this.retryHistory[historyKey].endTime = Date.now();
+
+          // Record failed operation in Prometheus after exhausting retries
+          prometheusMetrics.recordRetry(operationName, false);
           
           if (isCritical) {
             logger.error(errorMsg);

@@ -13,6 +13,7 @@
 
 const EventEmitter = require('events');
 const logger = require('./logger').getModuleLogger('circuit-breaker');
+const prometheusMetrics = require('../services/PrometheusMetricsService');
 
 // Circuit states
 const STATES = {
@@ -244,6 +245,9 @@ class CircuitBreaker extends EventEmitter {
       this.lastStateChange = Date.now();
       this.halfOpenSuccesses = 0;
       
+      // Add Prometheus metrics here
+      prometheusMetrics.setCircuitBreakerState(this.name, this.state);
+
       logger.warn(`Circuit "${this.name}" opened: ${reason}`);
       
       // Set a timer to try again (move to HALF_OPEN) after resetTimeout
@@ -273,6 +277,9 @@ class CircuitBreaker extends EventEmitter {
       this.lastStateChange = Date.now();
       this.halfOpenSuccesses = 0;
       
+      // Add Prometheus metrics here
+      prometheusMetrics.setCircuitBreakerState(this.name, this.state);
+
       // Clear any existing reset timer
       if (this.resetTimer) {
         clearTimeout(this.resetTimer);
@@ -303,6 +310,9 @@ class CircuitBreaker extends EventEmitter {
       this.lastStateChange = Date.now();
       this.halfOpenSuccesses = 0;
       
+      // Add Prometheus metrics here
+      prometheusMetrics.setCircuitBreakerState(this.name, this.state);
+
       // Clear any existing reset timer
       if (this.resetTimer) {
         clearTimeout(this.resetTimer);
@@ -357,6 +367,9 @@ class CircuitBreaker extends EventEmitter {
         this.lastStateChange = Date.now();
         this.halfOpenSuccesses = 0;
         
+        // Add Prometheus metrics here
+        prometheusMetrics.setCircuitBreakerState(this.name, this.state);
+
         // Set reset timer
         this.resetTimer = setTimeout(() => {
           this.halfOpenCircuit('Reset timeout elapsed');
@@ -367,6 +380,10 @@ class CircuitBreaker extends EventEmitter {
         this.state = STATES.HALF_OPEN;
         this.lastStateChange = Date.now();
         this.halfOpenSuccesses = 0;
+
+        // Add Prometheus metrics here
+        prometheusMetrics.setCircuitBreakerState(this.name, this.state);
+
         break;
         
       case STATES.CLOSED:
@@ -374,6 +391,10 @@ class CircuitBreaker extends EventEmitter {
         this.lastStateChange = Date.now();
         this.halfOpenSuccesses = 0;
         this.rollingWindow = [];
+
+        // Add Prometheus metrics here
+        prometheusMetrics.setCircuitBreakerState(this.name, this.state);
+        
         break;
     }
     
