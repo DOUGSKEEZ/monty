@@ -112,12 +112,31 @@ For development, you can run the services with hot-reload:
 ```bash
 # Backend development
 cd backend
-npm run dev
+npm run dev  # Starts server with nodemon for auto-reload on code changes
 
 # Frontend development (in a separate terminal)
 cd frontend
 npm start
 ```
+
+### Stopping Development Servers
+
+#### Backend
+To stop the backend development server:
+- Press `Ctrl+C` in the terminal where it's running
+- The server will shut down gracefully
+
+If the server doesn't respond:
+- Press `Ctrl+C` twice in quick succession
+- Or find and kill the process from another terminal:
+  ```bash
+  ps aux | grep node  # Find the process ID (PID)
+  kill <PID>          # Replace <PID> with the actual process ID
+  ```
+
+#### Frontend
+To stop the frontend development server:
+- Press `Ctrl+C` in the terminal where it's running
 
 ## Configuration Guide
 

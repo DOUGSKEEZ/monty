@@ -1190,6 +1190,68 @@ class SchedulerService {
   }
   
   /**
+   * Get schedule information for API endpoint
+   * @returns {object} - Comprehensive schedule information
+   */
+  async getSchedule() {
+    // Get active schedules
+    const activeSchedules = this.getActiveSchedules();
+    
+    // Get missed schedules
+    const missedSchedules = this.getMissedSchedules();
+    
+    // Get circuit status
+    const circuitStatus = this.getCircuitStatus();
+    
+    // Get the next wake-up time
+    const nextWakeUpTime = configManager.get('wakeUpTime.nextWakeUpTime');
+    const defaultWakeUpTime = configManager.get('wakeUpTime.defaultTime');
+    
+    // Get weather info for sunshine calculations (if available)
+    let weatherInfo = null;
+    try {
+      const weatherService = this.getWeatherService();
+      if (weatherService && typeof weatherService.getCurrentWeather === 'function') {
+        const weather = await weatherService.getCurrentWeather();
+        if (weather && weather.success) {
+          weatherInfo = {
+            sunrise: weather.data.sunrise,
+            sunset: weather.data.sunset,
+            cloudCover: weather.data.clouds,
+            sunPosition: weather.data.sunPosition
+          };
+        }
+      }
+    } catch (error) {
+      logger.warn(`Failed to get weather info for schedule details: ${error.message}`);
+      // Continue without weather info
+    }
+    
+    return {
+      activeSchedules: activeSchedules.data || {},
+      nextSchedules: Object.keys(activeSchedules.data || {}).map(name => ({
+        name: name,
+        nextRun: activeSchedules.data[name].nextRunAt
+      })).sort((a, b) => new Date(a.nextRun) - new Date(b.nextRun)),
+      missedSchedules: missedSchedules,
+      circuitStatus: {
+        shadeControl: circuitStatus.shadeControl || { state: 'unknown' },
+        weatherService: circuitStatus.weatherService || { state: 'unknown' }
+      },
+      wakeUpTimes: {
+        nextWakeUp: nextWakeUpTime,
+        defaultWakeUp: defaultWakeUpTime
+      },
+      weatherInfo: weatherInfo,
+      serviceStatus: {
+        initialized: this.initialized,
+        startTime: this.startTime ? new Date(this.startTime).toISOString() : null,
+        uptime: this.startTime ? ((Date.now() - this.startTime) / 1000).toFixed(0) : 0
+      }
+    };
+  }
+  
+  /**
    * Manually trigger a shade scene schedule
    * @param {string} sceneName - The name of the scene schedule to trigger
    */

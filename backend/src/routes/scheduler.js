@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { schedulerService } = require('../services/serviceFactory');
 const logger = require('../utils/logger').getModuleLogger('scheduler-routes');
+const configManager = require('../utils/config');
 
 // Get all active schedules
 router.get('/schedules', (req, res) => {
@@ -77,6 +78,71 @@ router.post('/trigger', (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to trigger schedule'
+    });
+  }
+});
+
+// Get current schedule information
+router.get('/schedule', async (req, res) => {
+  try {
+    // Get the scheduler service
+    const schedulerService = require('../services/schedulerService.fixed');
+    
+    // Check if scheduler service is initialized
+    const isInitialized = typeof schedulerService.isInitialized === 'function' && 
+                          schedulerService.isInitialized();
+    
+    // Get the current schedule
+    let schedule;
+    
+    if (isInitialized) {
+      schedule = await schedulerService.getSchedule();
+    } else {
+      // Return a minimal response if service is still initializing
+      schedule = {
+        activeSchedules: {},
+        nextSchedules: [],
+        missedSchedules: { total: 0, pending: 0, recovered: 0, details: [] },
+        serviceStatus: {
+          initialized: false,
+          startTime: null,
+          uptime: 0,
+          status: 'initializing',
+          message: 'Scheduler service is still initializing'
+        }
+      };
+      
+      // Try to get circuit status if available
+      try {
+        if (typeof schedulerService.getCircuitStatus === 'function') {
+          schedule.circuitStatus = schedulerService.getCircuitStatus();
+        }
+      } catch (err) {
+        logger.warn(`Could not get circuit status: ${err.message}`);
+      }
+      
+      // Try to get wake-up times
+      try {
+        schedule.wakeUpTimes = {
+          nextWakeUp: configManager.get('wakeUpTime.nextWakeUpTime'),
+          defaultWakeUp: configManager.get('wakeUpTime.defaultTime')
+        };
+      } catch (err) {
+        logger.warn(`Could not get wake-up times: ${err.message}`);
+      }
+    }
+    
+    // Return the schedule data
+    res.json({
+      success: true,
+      data: schedule
+    });
+  } catch (error) {
+    logger.error(`Error retrieving schedule: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve schedule information',
+      message: error.message
     });
   }
 });

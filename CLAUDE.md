@@ -46,7 +46,10 @@ cd backend
 npm install
 
 # Start server in development mode with hot reload
-npm run dev
+npm run dev  # Uses nodemon for auto-restart on file changes
+
+# Stop development server
+# Press Ctrl+C in the terminal where it's running
 
 # Start server in production mode
 npm start

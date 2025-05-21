@@ -9,6 +9,8 @@ const process = require('process');
 const config = require('./utils/config');
 const serviceRegistry = require('./services/ServiceRegistry');
 const retryHelper = require('./utils/RetryHelper');
+const prometheusMetrics = require('./services/PrometheusMetricsService');
+const metricsMiddleware = require('./middleware/metricsMiddleware');
 
 // Load environment variables
 dotenv.config();
@@ -53,11 +55,15 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(logger.httpLogger); // Add HTTP request logging
+app.use(metricsMiddleware);
 
 // Serve static files from frontend build in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../../frontend/build')));
 }
+
+// Add the metrics endpoint (typically before other routes)
+app.get('/metrics', prometheusMetrics.getMetricsHandler());
 
 // Track initialized services
 let initializedServices = {
