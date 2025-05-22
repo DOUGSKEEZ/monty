@@ -8,6 +8,9 @@
     "start": "HOST=0.0.0.0 node src/server.js",
     "dev": "HOST=0.0.0.0 nodemon src/server.js",
     "dev-direct": "HOST=0.0.0.0 node start-direct.js",
+    "minimal": "HOST=0.0.0.0 node minimal-pianobar-test.js",
+    "fifo-test": "node direct-fifo-test.js",
+    "pianobar": "HOST=0.0.0.0 node direct-pianobar-server.js",
     "lint": "eslint src/**/*.js"
   },
   "keywords": [

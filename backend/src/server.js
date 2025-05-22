@@ -12,6 +12,9 @@ const config = require('./utils/config');
 const serviceRegistry = require('./utils/ServiceRegistry');
 const CircuitBreaker = require('./utils/CircuitBreaker');
 const serviceWatchdog = require('./utils/ServiceWatchdog');
+const RetryHelper = require('./utils/RetryHelper');
+const { initializePianobarWebsocket } = require('./services/PianobarWebsocketIntegration');
+const { createPianobarCommandInterface } = require('./services/PianobarCommandInterface');
 
 // Load environment variables
 dotenv.config();
@@ -508,6 +511,52 @@ app.use((err, req, res, next) => {
 
 // Create HTTP server
 const server = http.createServer(app);
+
+// Initialize Pianobar Command Interface - with debug logging
+console.log('About to create pianobarRetryHelper');
+const pianobarRetryHelper = new RetryHelper({
+  operationPrefix: 'pianobar',
+  maxRetries: 3,
+  initialDelay: 1000,
+  backoffFactor: 2
+});
+console.log('pianobarRetryHelper created');
+
+// Create PianobarCommandInterface singleton - with minimal dependencies
+console.log('About to create PianobarCommandInterface');
+try {
+  const pianobarCommandInterface = createPianobarCommandInterface(
+    {
+      verbose: true // Force verbose logging for debugging
+    },
+    pianobarRetryHelper,
+    null // Skip serviceWatchdog dependency for now
+  );
+  console.log('PianobarCommandInterface created successfully');
+} catch (error) {
+  console.error(`Error creating PianobarCommandInterface: ${error.message}`);
+  console.error(error.stack);
+}
+
+// WebSocket initialization temporarily commented out to focus on command interface
+/*
+setTimeout(() => {
+  initializePianobarWebsocket(server)
+    .then(result => {
+      if (result.success) {
+        logger.info('PianobarWebsocketService initialized successfully');
+      } else {
+        logger.warn(`PianobarWebsocketService initialization warning: ${result.message}`);
+      }
+    })
+    .catch(err => {
+      logger.error(`Error initializing PianobarWebsocketService: ${err.message}`);
+    });
+}, 3000); // Delay by 3 seconds to allow server to start first
+*/
+
+// Log that we're starting with just the command interface
+logger.info('Starting with PianobarCommandInterface only - WebSocket disabled temporarily');
 
 // Graceful shutdown handler
 function gracefulShutdown(signal) {

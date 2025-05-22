@@ -25,7 +25,9 @@ const WeatherService = require('../services/weatherService.di');
 const SchedulerService = require('../services/schedulerService.di');
 const MusicService = require('../services/musicService.di');
 const BluetoothService = require('../services/BluetoothService');
-const PianobarService = require('../services/PianobarService');
+// Using new PianobarCommandInterface instead of old PianobarService
+// const PianobarService = require('../services/PianobarService');
+const { createPianobarCommandInterface } = require('../services/PianobarCommandInterface');
 const prometheusMetrics = require('../services/PrometheusMetricsService');
 
 /**
@@ -188,9 +190,17 @@ function initializeContainer() {
 
 /**
  * Create a properly configured Pianobar Service
- * @returns {PianobarService} - Configured pianobar service
+ * @returns {Object} - Configured pianobar command interface
  */
 function createPianobarService() {
+  // Return the new PianobarCommandInterface singleton instead
+  return createPianobarCommandInterface(
+    {}, // Default config
+    container.resolve('retryHelper'),
+    container.resolve('serviceWatchdog')
+  );
+  
+  /* Old implementation disabled
   if (!container.has('pianobarService')) {
     // Register pianobar service in container
     container.register('pianobarService', PianobarService, {
@@ -210,6 +220,7 @@ function createPianobarService() {
   }
   
   return container.resolve('pianobarService');
+  */
 }
 
 /**
@@ -222,7 +233,18 @@ function initializeContainer() {
   createSchedulerService();
   createBluetoothService();
   createMusicService();
-  createPianobarService();
+  
+  // Initialize PianobarCommandInterface separately
+  const commandInterface = createPianobarCommandInterface(
+    {}, // Default config
+    container.resolve('retryHelper'),
+    container.resolve('serviceWatchdog')
+  );
+  
+  // Initialize asynchronously but don't block
+  commandInterface.initialize().catch(err => {
+    logger.error(`Error initializing PianobarCommandInterface: ${err.message}`);
+  });
   
   return container;
 }
