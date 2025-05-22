@@ -79,6 +79,43 @@ class PrometheusMetricsService {
     this.httpRequestCounter.labels(method, route, statusCode).inc();
   }
   
+  // Increment the HTTP request counter directly
+  incrementHttpRequestCount(method, route) {
+    if (!method || !route) {
+      this.logger.warn('Invalid parameters for incrementHttpRequestCount');
+      return;
+    }
+    // We use a placeholder status code since the actual one isn't known yet
+    // The actual status will be recorded by recordResponseTime when the request completes
+    this.httpRequestCounter.labels(method, route, '0').inc();
+  }
+  
+  // Record the response time directly 
+  recordResponseTime(method, route, statusCode, timeMs) {
+    if (!method || !route || !statusCode) {
+      this.logger.warn('Invalid parameters for recordResponseTime');
+      return;
+    }
+    
+    // Convert milliseconds to seconds for the histogram
+    const timeSeconds = timeMs / 1000;
+    this.httpRequestDuration.labels(method, route, statusCode.toString()).observe(timeSeconds);
+    
+    // Also increment the counter with the actual status code
+    this.httpRequestCounter.labels(method, route, statusCode.toString()).inc();
+  }
+  
+  // Record operation success/failure
+  recordOperation(operation, success) {
+    this.retryCounter.labels(operation, success ? 'true' : 'false').inc();
+  }
+  
+  // Increment error counter
+  incrementErrorCount(method, route, errorMessage) {
+    this.logger.debug(`Recording error for ${method} ${route}: ${errorMessage}`);
+    // Could add a specific error counter here if needed
+  }
+  
   // API to track service health
   setServiceHealth(service, status) {
     let value = 0;

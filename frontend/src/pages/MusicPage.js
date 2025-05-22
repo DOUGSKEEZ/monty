@@ -1,26 +1,114 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../utils/AppContext';
 
 function MusicPage() {
-  const { music, actions } = useAppContext();
+  // Debug Render Count to track re-renders
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  console.log(`RENDER #${renderCount.current} - MusicPage component rendering`);
+  
+  // Get Bluetooth state from context
+  const { music, bluetooth, actions } = useAppContext();
+  
+  // CRITICAL FIX: Add explicit re-render trigger when bluetooth object changes
+  const [forceRender, setForceRender] = useState(0);
+  
+  // Force re-render when bluetooth context actually changes
+  useEffect(() => {
+    console.log('BLUETOOTH OBJECT FROM CONTEXT CHANGED:', bluetooth, 'Triggering re-render');
+    setForceRender(prev => prev + 1);
+  }, [bluetooth]); // This should trigger when ANY property of bluetooth changes
+  
+  // Debug render with render counter and force render value
+  console.log(`RENDER #${renderCount.current} (forceRender=${forceRender}) - Bluetooth state:`, {
+    isConnected: bluetooth.isConnected,
+    connectionInProgress: bluetooth.connectionInProgress,
+    disconnecting: bluetooth.disconnecting,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Component state
   const [selectedStation, setSelectedStation] = useState('');
-  const [isConnectingBluetooth, setIsConnectingBluetooth] = useState(false);
   const [showConnectingMessage, setShowConnectingMessage] = useState(false);
-  const [bluetoothStatus, setBluetoothStatus] = useState('unknown'); // 'unknown', 'connecting', 'connected', 'failed'
+  const [connectAttemptCount, setConnectAttemptCount] = useState(0);
+  const statusCheckInterval = useRef(null);
+  
+  // Local copy of Bluetooth state for debugging purposes
+  const [localBluetoothState, setLocalBluetoothState] = useState({
+    isConnected: false,
+    connectionInProgress: false,
+    disconnecting: false,
+    timestamp: new Date().toISOString()
+  });
+  
+  // ALTERNATIVE FIX: Also track individual properties to ensure re-rendering
+  // This is a backup in case the main fix with [bluetooth] dependency doesn't work
+  const [renderTrigger, setRenderTrigger] = useState(0);
+  
+  useEffect(() => {
+    console.log('INDIVIDUAL BLUETOOTH PROPERTIES CHANGED - Triggering re-render');
+    setRenderTrigger(Date.now());
+  }, [
+    bluetooth.isConnected, 
+    bluetooth.connectionInProgress, 
+    bluetooth.disconnecting
+  ]);
+  
+  // Debug log for the alternative fix
+  console.log(`Alternative fix render trigger: ${renderTrigger}`);
   
   // Update selected station when music status changes
   useEffect(() => {
     if (music.status && music.status.stationId) {
       setSelectedStation(music.status.stationId);
     }
+  }, [music.status]);
+  
+  // Check Bluetooth status when component mounts
+  useEffect(() => {
+    // Initial status check
+    actions.refreshBluetooth();
     
-    // Update bluetooth status when music status changes
-    if (music.status && music.status.isBluetoothConnected) {
-      setBluetoothStatus('connected');
-    } else if (music.status && !music.status.isBluetoothConnected && !isConnectingBluetooth) {
-      setBluetoothStatus('disconnected');
-    }
-  }, [music.status, isConnectingBluetooth]);
+    // NOTE: The main periodic status checks are now handled in AppContext.js
+    // with dynamic intervals (500ms during connection, 12s when idle)
+    // We don't need an additional interval here
+    
+    console.log('INITIAL BLUETOOTH STATE:', {
+      isConnected: bluetooth.isConnected,
+      connectionInProgress: bluetooth.connectionInProgress,
+      disconnecting: bluetooth.disconnecting,
+      timestamp: new Date().toISOString()
+    });
+    
+    return () => {
+      // Clean up interval on component unmount if it exists
+      if (statusCheckInterval.current) {
+        clearInterval(statusCheckInterval.current);
+        statusCheckInterval.current = null;
+      }
+    };
+  }, []);
+  
+  // CRITICAL DEBUG: Watch for state changes in bluetooth properties
+  useEffect(() => {
+    console.log('BLUETOOTH STATE CHANGED:', {
+      isConnected: bluetooth.isConnected,
+      connectionInProgress: bluetooth.connectionInProgress,
+      disconnecting: bluetooth.disconnecting,
+      timestamp: new Date().toISOString()
+    });
+    
+    // CRITICAL FIX: Sync local state with context state when context changes
+    // This ensures local state is cleared when connection completes
+    setLocalBluetoothState({
+      isConnected: bluetooth.isConnected,
+      connectionInProgress: bluetooth.connectionInProgress,
+      disconnecting: bluetooth.disconnecting,
+      timestamp: new Date().toISOString()
+    });
+    
+    console.log('Local state synced with context state');
+  }, [bluetooth.isConnected, bluetooth.connectionInProgress, bluetooth.disconnecting]);
   
   // Helper to check if player is on
   const isPlayerOn = () => {
@@ -44,28 +132,147 @@ function MusicPage() {
   
   // Connect to Bluetooth speakers without starting pianobar
   const handleConnectBluetooth = async () => {
-    setBluetoothStatus('connecting');
-    setIsConnectingBluetooth(true);
+    // Don't allow multiple connection attempts
+    if (bluetooth.connectionInProgress || bluetooth.disconnecting) {
+      console.log('Connection already in progress, ignoring click');
+      return;
+    }
+    
+    // Increment connect attempt counter to track retries
+    setConnectAttemptCount(count => count + 1);
+    
+    // If more than 2 attempts, force wakeup mode
+    const forceWakeup = connectAttemptCount >= 2;
+    
+    console.log(`Starting Bluetooth connection process${forceWakeup ? ' with force wakeup' : ''}...`);
+    console.log('Before connect - Bluetooth state:', {
+      isConnected: bluetooth.isConnected,
+      connectionInProgress: bluetooth.connectionInProgress,
+      disconnecting: bluetooth.disconnecting,
+      attemptCount: connectAttemptCount
+    });
     
     try {
-      console.log('Starting Bluetooth connection process to wake speakers from sleep mode...');
-      const btResult = await actions.controlMusic('connectBluetooth');
+      // CRITICAL: Let's force a local state update to test re-rendering
+      console.log('Setting local state showConnectingMessage to true');
+      setShowConnectingMessage(true);
       
-      if (btResult) {
+      // CRITICAL TEST: Make our own state change to bluetooth locally in this component
+      // This is a temporary test - we're creating a new state object that mimics what AppContext should update to
+      const tempState = {
+        ...bluetooth,
+        connectionInProgress: true,
+        disconnecting: false
+      };
+      
+      console.log('CRITICAL TEST - Created temporary state:', tempState);
+      
+      // Use direct Bluetooth connect instead of controlMusic
+      console.log('Calling actions.connectBluetooth with forceWakeup =', forceWakeup);
+      
+      // Force a render to ensure we see the temporary state update
+      setTimeout(() => {
+        console.log('DEBUG: STATE BEFORE API CALL:', {
+          isConnected: bluetooth.isConnected,
+          connectionInProgress: bluetooth.connectionInProgress,
+          disconnecting: bluetooth.disconnecting,
+          showConnectingMessage: showConnectingMessage,
+          timestamp: new Date().toISOString()
+        });
+      }, 100);
+      
+      const result = await actions.connectBluetooth(forceWakeup);
+      
+      console.log('Connect result:', result);
+      console.log('After connect call - Bluetooth state:', {
+        isConnected: bluetooth.isConnected,
+        connectionInProgress: bluetooth.connectionInProgress,
+        disconnecting: bluetooth.disconnecting,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Force another render after the API call returns
+      setTimeout(() => {
+        console.log('DEBUG: STATE AFTER API CALL:', {
+          isConnected: bluetooth.isConnected,
+          connectionInProgress: bluetooth.connectionInProgress,
+          disconnecting: bluetooth.disconnecting,
+          showConnectingMessage: showConnectingMessage,
+          timestamp: new Date().toISOString()
+        });
+      }, 100);
+      
+      if (result) {
         console.log('Bluetooth connection successful, speakers should be awake now');
-        setBluetoothStatus('connected');
+        
+        // CRITICAL FIX: Clear local connection in progress state on success
+        setLocalBluetoothState({
+          isConnected: true,
+          connectionInProgress: false, // Clear the in-progress flag
+          disconnecting: false,
+          timestamp: new Date().toISOString()
+        });
+        
+        console.log('Local state updated after successful connection');
+        
+        // Reset connect attempt counter on success
+        setConnectAttemptCount(0);
+        
+        // Also clear the connecting message
+        setShowConnectingMessage(false);
       } else {
-        console.warn('Bluetooth connection failed');
-        setBluetoothStatus('failed');
+        console.warn('Bluetooth connection failed or timed out');
+        
+        // CRITICAL FIX: Clear local connection in progress state on failure
+        setLocalBluetoothState({
+          isConnected: false,
+          connectionInProgress: false, // Clear the in-progress flag
+          disconnecting: false,
+          timestamp: new Date().toISOString()
+        });
+        
+        console.log('Local state updated after failed connection');
+        
+        // Don't reset attempt counter on failure to enable force wakeup on next try
+        
+        // Clear the connecting message
+        setShowConnectingMessage(false);
       }
-      
-      // Refresh status to update UI
-      await actions.refreshMusic(false);
     } catch (error) {
       console.error('Error connecting to Bluetooth:', error);
-      setBluetoothStatus('failed');
+      
+      // CRITICAL FIX: Clear local state on error
+      setLocalBluetoothState({
+        isConnected: false,
+        connectionInProgress: false,
+        disconnecting: false,
+        timestamp: new Date().toISOString()
+      });
+      
+      setShowConnectingMessage(false);
     } finally {
-      setIsConnectingBluetooth(false);
+      // Always make sure states are cleared if something went wrong
+      // This is a failsafe that runs after 7 seconds
+      setTimeout(() => {
+        console.log('FAILSAFE: Checking for stuck states');
+        
+        // Make sure local state is reset
+        setLocalBluetoothState(prevState => {
+          // Only clear if still connecting (avoid clearing a successful connection)
+          if (prevState.connectionInProgress) {
+            console.log('Clearing stuck connectionInProgress flag');
+            return {
+              ...prevState,
+              connectionInProgress: false,
+              timestamp: new Date().toISOString()
+            };
+          }
+          return prevState;
+        });
+        
+        // Clear local connecting message
+        setShowConnectingMessage(false);
+      }, 7000);
     }
   };
   
@@ -128,15 +335,84 @@ function MusicPage() {
   
   // Disconnect from Bluetooth
   const handleDisconnectBluetooth = async () => {
+    // Don't allow multiple disconnect attempts
+    if (bluetooth.disconnecting || bluetooth.connectionInProgress) {
+      console.log('Operation already in progress, ignoring disconnect click');
+      return;
+    }
+    
+    console.log('Disconnecting from Bluetooth speakers...');
+    console.log('Before disconnect - Bluetooth state:', {
+      isConnected: bluetooth.isConnected,
+      connectionInProgress: bluetooth.connectionInProgress,
+      disconnecting: bluetooth.disconnecting
+    });
+    
     try {
-      setIsConnectingBluetooth(true);
-      await actions.controlMusic('disconnectBluetooth');
-      await actions.refreshMusic(false);
-      setBluetoothStatus('disconnected');
+      // CRITICAL: This ensures we see "Disconnecting..." immediately
+      // Force a render by setting a local state variable
+      setShowConnectingMessage(true);
+      
+      // Use direct Bluetooth disconnect instead of controlMusic
+      console.log('Calling actions.disconnectBluetooth...');
+      const result = await actions.disconnectBluetooth();
+      
+      console.log('Disconnect result:', result);
+      console.log('After disconnect call - Bluetooth state:', {
+        isConnected: bluetooth.isConnected,
+        connectionInProgress: bluetooth.connectionInProgress,
+        disconnecting: bluetooth.disconnecting
+      });
+      
+      if (result) {
+        console.log('Bluetooth disconnection successful');
+        
+        // CRITICAL FIX: Update local state after disconnection success
+        setLocalBluetoothState({
+          isConnected: false,
+          connectionInProgress: false,
+          disconnecting: false,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.warn('Bluetooth disconnection failed');
+        
+        // CRITICAL FIX: Update local state after disconnection failure
+        setLocalBluetoothState({
+          // Keep original connection state if disconnect failed
+          isConnected: bluetooth.isConnected,
+          connectionInProgress: false,
+          disconnecting: false, // But clear the disconnecting flag
+          timestamp: new Date().toISOString()
+        });
+      }
     } catch (error) {
       console.error('Error disconnecting from Bluetooth:', error);
+      
+      // CRITICAL FIX: Clear local state on error
+      setLocalBluetoothState(prevState => ({
+        ...prevState,
+        disconnecting: false,
+        timestamp: new Date().toISOString()
+      }));
     } finally {
-      setIsConnectingBluetooth(false);
+      // Always clear the local connecting message state
+      setShowConnectingMessage(false);
+      
+      // Failsafe to clear stuck states after 3 seconds
+      setTimeout(() => {
+        setLocalBluetoothState(prevState => {
+          if (prevState.disconnecting) {
+            console.log('Clearing stuck disconnecting flag');
+            return {
+              ...prevState,
+              disconnecting: false,
+              timestamp: new Date().toISOString()
+            };
+          }
+          return prevState;
+        });
+      }, 3000);
     }
   };
   
@@ -238,7 +514,20 @@ function MusicPage() {
   
   // Get the appropriate Bluetooth status display info
   const getBluetoothStatusInfo = () => {
-    if (isConnectingBluetooth) {
+    // SIMPLIFIED LOGIC: Follow the same pattern as the button logic
+    
+    // Disconnecting state
+    if (bluetooth.disconnecting) {
+      return {
+        text: 'Disconnecting from Klipsch The Fives...',
+        colorClass: 'text-amber-600',
+        showProgress: true,
+        showReconnectButton: false
+      };
+    }
+    
+    // Connecting state (regardless of other flags)
+    if (bluetooth.connectionInProgress) {
       return {
         text: 'Connecting to Klipsch The Fives...',
         colorClass: 'text-amber-600',
@@ -247,16 +536,28 @@ function MusicPage() {
       };
     }
     
-    if (music.status?.isBluetoothConnected) {
-      return {
-        text: 'Connected to Klipsch The Fives ✓',
-        colorClass: 'text-green-600',
-        showProgress: false,
-        showReconnectButton: false
-      };
+    // Connected state
+    if (bluetooth.isConnected) {
+      // Show different status based on audio readiness
+      if (bluetooth.isAudioReady) {
+        return {
+          text: 'Connected to Klipsch The Fives ✓',
+          colorClass: 'text-green-600',
+          showProgress: false,
+          showReconnectButton: false
+        };
+      } else {
+        return {
+          text: 'Connected to Klipsch The Fives (Audio initializing...)',
+          colorClass: 'text-amber-600',
+          showProgress: true,
+          showReconnectButton: false
+        };
+      }
     }
     
-    if (isPlayerOn() && !music.status?.isBluetoothConnected) {
+    // Not connected but player is on
+    if (isPlayerOn()) {
       return {
         text: 'Not Connected to Speakers',
         colorClass: 'text-amber-600',
@@ -265,6 +566,7 @@ function MusicPage() {
       };
     }
     
+    // Default not connected state
     return {
       text: 'Not Connected',
       colorClass: 'text-gray-600',
@@ -299,23 +601,124 @@ function MusicPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Bluetooth Speaker</h2>
           <div>
-            {music.status?.isBluetoothConnected ? (
+            {/* CRITICAL DEBUG: Log EXACTLY what's being used during render */}
+            {console.log('RENDER VALUES:', { 
+              context: {
+                isConnected: bluetooth.isConnected, 
+                connectionInProgress: bluetooth.connectionInProgress,
+                disconnecting: bluetooth.disconnecting
+              },
+              local: {
+                isConnected: localBluetoothState.isConnected,
+                connectionInProgress: localBluetoothState.connectionInProgress,
+                disconnecting: localBluetoothState.disconnecting
+              },
+              showConnectingMessage: showConnectingMessage
+            })}
+            
+            {/* FIXED BUTTON LOGIC: Context now properly triggers re-renders */}
+            {/* We still keep the local state as a fallback for extra reliability */}
+            {(bluetooth.disconnecting || localBluetoothState.disconnecting) ? (
+              /* Disconnecting state */
               <button 
-                onClick={handleDisconnectBluetooth}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-                disabled={isConnectingBluetooth}
+                className="px-4 py-2 rounded text-white bg-orange-500"
+                disabled={true}
+              >
+                Disconnecting...
+              </button>
+            ) : (bluetooth.connectionInProgress || localBluetoothState.connectionInProgress) ? (
+              /* Connecting state */
+              <button 
+                className="px-4 py-2 rounded text-white bg-yellow-500"
+                disabled={true}
+              >
+                Connecting...
+              </button>
+            ) : bluetooth.isConnected ? (
+              /* Connected state */
+              <button 
+                onClick={() => {
+                  // WORKAROUND: Update local state first for immediate UI feedback
+                  setLocalBluetoothState({
+                    isConnected: bluetooth.isConnected,
+                    connectionInProgress: false,
+                    disconnecting: true, // Set disconnecting flag
+                    timestamp: new Date().toISOString()
+                  });
+                  
+                  // Then call the actual disconnect function
+                  handleDisconnectBluetooth();
+                }}
+                className="px-4 py-2 rounded text-white bg-red-500 hover:bg-red-600"
+                disabled={false}
               >
                 Disconnect
               </button>
             ) : (
+              /* Not connected state */
               <button 
-                onClick={handleConnectBluetooth}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                disabled={isConnectingBluetooth}
+                onClick={() => {
+                  // WORKAROUND: Directly update our local component state first
+                  setLocalBluetoothState({
+                    isConnected: false,
+                    connectionInProgress: true, // Critical fix
+                    disconnecting: false,
+                    timestamp: new Date().toISOString()
+                  });
+                  
+                  // Also set local connecting message state
+                  setShowConnectingMessage(true);
+                  
+                  // Then call the actual connect function
+                  handleConnectBluetooth();
+                }}
+                className="px-4 py-2 rounded text-white bg-blue-500 hover:bg-blue-600"
+                disabled={false}
               >
-                {isConnectingBluetooth ? 'Connecting...' : 'Connect'}
+                Connect
               </button>
             )}
+            
+            {/* DEBUG BUTTONS */}
+            <div className="mt-2 flex space-x-2">
+              <button 
+                onClick={() => console.log('Force render test', bluetooth)}
+                className="px-2 py-1 bg-gray-500 text-white text-xs rounded"
+              >
+                Debug State
+              </button>
+              
+              <button 
+                onClick={() => {
+                  // Create a local update to test if the component is re-rendering
+                  const now = new Date().toISOString();
+                  console.log(`Force update clicked at ${now}`);
+                  setShowConnectingMessage(prev => !prev);
+                }}
+                className="px-2 py-1 bg-purple-500 text-white text-xs rounded"
+              >
+                Force Update
+              </button>
+              
+              <button 
+                onClick={() => {
+                  // Create a direct update to our local bluetooth state copy
+                  console.log('Setting local bluetooth state copy...');
+                  setLocalBluetoothState({
+                    isConnected: false,
+                    connectionInProgress: true, // This is key - we set it to true
+                    disconnecting: false,
+                    timestamp: new Date().toISOString()
+                  });
+                  
+                  // Also test with local state update
+                  setShowConnectingMessage(true);
+                }}
+                className="px-2 py-1 bg-green-500 text-white text-xs rounded"
+              >
+                Set Local Flag
+              </button>
+            </div>
           </div>
         </div>
         
@@ -323,11 +726,25 @@ function MusicPage() {
           <p className={`${bluetoothStatusInfo.colorClass}`}>
             <span className="font-semibold">Status:</span> {bluetoothStatusInfo.text}
           </p>
+          
+          {/* Show Bluetooth error message if present */}
+          {bluetooth.error && (
+            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+              <p className="text-sm text-red-600">
+                <span className="inline-block mr-2">⚠️</span>
+                {bluetooth.error}
+              </p>
+            </div>
+          )}
+          
+          {/* Progress indicator */}
           {bluetoothStatusInfo.showProgress && (
             <div className="mt-1">
               <p className="text-sm text-amber-600 animate-pulse">
                 <span className="inline-block mr-2">⚠️</span>
-                Waking up speakers from sleep mode - may take up to 30 seconds
+                {bluetooth.connectionInProgress ? 
+                  'Waking up speakers from sleep mode - may take up to 30 seconds' :
+                  'Finalizing audio connection - please wait'}
               </p>
               <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-2">
                 <div className="h-full bg-blue-500 animate-pulse" style={{ width: '100%' }}></div>
@@ -477,8 +894,11 @@ function MusicPage() {
             </div>
           </div>
           
-          {/* Bluetooth Status */}
-          {isPlayerOn() && !music.status?.isBluetoothConnected && !isConnectingBluetooth && (
+          {/* Bluetooth Status - SIMPLIFIED LOGIC */}
+          {isPlayerOn() && 
+           !bluetooth.isConnected && 
+           !bluetooth.connectionInProgress && 
+           !bluetooth.disconnecting && (
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded">
               <p className="text-amber-700 text-sm font-medium mb-2">
                 <span className="inline-block mr-1">⚠️</span>
@@ -490,7 +910,6 @@ function MusicPage() {
               <button 
                 onClick={handleConnectBluetooth}
                 className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded"
-                disabled={isConnectingBluetooth}
               >
                 Connect to Speakers
               </button>

@@ -67,6 +67,7 @@ const shadeRoutes = require('./routes/shades');
 const weatherRoutes = require('./routes/weather');
 const schedulerRoutes = require('./routes/scheduler');
 const musicRoutes = require('./routes/music');
+const bluetoothRoutes = require('./routes/bluetooth');
 
 // API Routes
 app.get('/api/health', async (req, res) => {
@@ -435,22 +436,7 @@ serviceRegistry.register('scheduler-service', {
   }
 });
 
-serviceRegistry.register('music-service', {
-  isCore: false,
-  status: 'initializing',
-  checkHealth: async () => {
-    try {
-      // Simple check to see if music service is operational
-      const musicService = require('./services/musicService');
-      return { 
-        status: musicService.isInitialized ? 'ok' : 'initializing',
-        message: musicService.isInitialized ? 'Music service initialized' : 'Music service initializing'
-      };
-    } catch (error) {
-      return { status: 'error', message: error.message };
-    }
-  }
-});
+// Note: MusicService is now registered through the DI container in ServiceFactory.js
 
 serviceRegistry.register('shade-service', {
   isCore: false,
@@ -498,6 +484,7 @@ app.use('/api/shades', shadeRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/music', musicRoutes);
+app.use('/api/bluetooth', bluetoothRoutes);
 
 // Catch-all route for client-side routing (production only)
 if (process.env.NODE_ENV === 'production') {

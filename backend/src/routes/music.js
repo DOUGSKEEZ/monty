@@ -1,11 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const musicService = require('../services/musicService');
+const { createMusicService } = require('../utils/ServiceFactory');
 const logger = require('../utils/logger').getModuleLogger('music-routes');
+const prometheusMetrics = require('../services/PrometheusMetricsService');
+
+// Get music service instance
+const musicService = createMusicService();
 
 // Get music player status
 router.get('/status', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('GET', '/api/music/status');
+    
     // Check if this is a background poll request (frequent polls from UI)
     const isSilent = req.query.silent === 'true' || req.query.background === 'true';
     
@@ -34,6 +42,10 @@ router.get('/status', async (req, res) => {
     
     // Always return a 200 with the best available status information
     res.json(result);
+    
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/music/status', 200, responseTime);
   } catch (error) {
     logger.error(`Error getting music status: ${error.message}`);
     // Still return a 200 with fallback data to prevent client errors
@@ -47,12 +59,21 @@ router.get('/status', async (req, res) => {
         error: 'Failed to get music status'
       }
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('GET', '/api/music/status', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/music/status', 200, responseTime);
   }
 });
 
 // Get list of stations
 router.get('/stations', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('GET', '/api/music/stations');
+    
     // Check if this is a background poll request
     const silent = req.query.silent === 'true' || req.query.background === 'true';
     
@@ -97,7 +118,7 @@ router.get('/stations', async (req, res) => {
             }
           }
           
-          return res.json({
+          const result = {
             success: true,
             data: {
               stations: {
@@ -107,14 +128,22 @@ router.get('/stations', async (req, res) => {
               source: 'csv',
               message: useProvidedStations ? 'Using provided stations list' : 'Start the music player to see your stations'
             }
-          });
+          };
+          
+          res.json(result);
+          
+          // Record response time
+          const responseTime = Date.now() - routeStartTime;
+          prometheusMetrics.recordResponseTime('GET', '/api/music/stations', 200, responseTime);
+          
+          return;
         }
       } catch (csvError) {
         logger.warn(`Error reading stations CSV: ${csvError.message}, falling back to default list`);
       }
       
       // Fallback to default stations list
-      return res.json({
+      const result = {
         success: true,
         data: {
           stations: {
@@ -130,7 +159,15 @@ router.get('/stations', async (req, res) => {
           mock: true,
           message: 'Start the music player to see your stations'
         }
-      });
+      };
+      
+      res.json(result);
+      
+      // Record response time
+      const responseTime = Date.now() - routeStartTime;
+      prometheusMetrics.recordResponseTime('GET', '/api/music/stations', 200, responseTime);
+      
+      return;
     }
     
     // Create a timeout for the entire route (only if pianobar is running)
@@ -166,6 +203,10 @@ router.get('/stations', async (req, res) => {
     
     // Always return a 200 with the best available stations information
     res.json(result);
+    
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/music/stations', 200, responseTime);
   } catch (error) {
     logger.error(`Error getting stations: ${error.message}`);
     // Still return a 200 with mock data to prevent client errors
@@ -187,12 +228,21 @@ router.get('/stations', async (req, res) => {
         message: 'Error loading stations. Try starting the player again.'
       }
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('GET', '/api/music/stations', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/music/stations', 200, responseTime);
   }
 });
 
 // Start music player
 router.post('/start', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/start');
+    
     const connectBluetooth = req.body.connectBluetooth !== false;
     const silent = req.query.silent === 'true' || req.body.silent === true;
     
@@ -215,6 +265,10 @@ router.post('/start', async (req, res) => {
     
     // Always return a 200 response to avoid UI errors
     res.json(result);
+    
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/start', 200, responseTime);
   } catch (error) {
     // Even on error, return a successful response to avoid UI blocking
     logger.error(`Error starting music player: ${error.message}`);
@@ -225,34 +279,52 @@ router.post('/start', async (req, res) => {
       background: true,
       error: 'Error in start process, but continuing in background'
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('POST', '/api/music/start', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/start', 200, responseTime);
   }
 });
 
 // Stop music player
 router.post('/stop', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/stop');
+    
     const disconnectBluetooth = req.body.disconnectBluetooth !== false;
     const isSilent = req.query.silent === 'true' || req.body.silent === true;
     
     const result = await musicService.stopPianobar(disconnectBluetooth, isSilent);
     
-    if (result.success) {
-      res.json(result);
-    } else {
-      res.status(500).json(result);
-    }
+    res.json(result);
+    
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/stop', 200, responseTime);
   } catch (error) {
     logger.error(`Error stopping music player: ${error.message}`);
     res.status(500).json({
       success: false,
       error: 'Failed to stop music player'
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('POST', '/api/music/stop', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/stop', 500, responseTime);
   }
 });
 
 // Control music player - enhanced version supporting different actions
 router.post('/control', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/control');
+    
     const { action, options, command } = req.body;
     const silent = req.query.silent === 'true' || req.body.silent === true;
     
@@ -272,22 +344,42 @@ router.post('/control', async (req, res) => {
       }
       
       if (!isValid) {
-        return res.status(400).json({
+        const result = {
           success: false,
           error: 'Invalid command'
-        });
+        };
+        res.status(400).json(result);
+        
+        // Record response time
+        const responseTime = Date.now() - routeStartTime;
+        prometheusMetrics.recordResponseTime('POST', '/api/music/control', 400, responseTime);
+        
+        return;
       }
       
       const result = await musicService.sendCommand(command, silent);
-      return res.json(result);
+      res.json(result);
+      
+      // Record response time
+      const responseTime = Date.now() - routeStartTime;
+      prometheusMetrics.recordResponseTime('POST', '/api/music/control', 200, responseTime);
+      
+      return;
     }
     
     // New action-based API
     if (!action) {
-      return res.status(400).json({
+      const result = {
         success: false,
         error: 'Action parameter is required'
-      });
+      };
+      res.status(400).json(result);
+      
+      // Record response time
+      const responseTime = Date.now() - routeStartTime;
+      prometheusMetrics.recordResponseTime('POST', '/api/music/control', 400, responseTime);
+      
+      return;
     }
     
     let result;
@@ -309,10 +401,17 @@ router.post('/control', async (req, res) => {
         
       case 'command':
         if (!options || !options.command) {
-          return res.status(400).json({
+          const errorResult = {
             success: false,
             error: 'Command parameter is required'
-          });
+          };
+          res.status(400).json(errorResult);
+          
+          // Record response time
+          const responseTime = Date.now() - routeStartTime;
+          prometheusMetrics.recordResponseTime('POST', '/api/music/control', 400, responseTime);
+          
+          return;
         }
         
         // Validate command
@@ -327,10 +426,17 @@ router.post('/control', async (req, res) => {
         }
         
         if (!isValid) {
-          return res.status(400).json({
+          const errorResult = {
             success: false,
             error: 'Invalid command'
-          });
+          };
+          res.status(400).json(errorResult);
+          
+          // Record response time
+          const responseTime = Date.now() - routeStartTime;
+          prometheusMetrics.recordResponseTime('POST', '/api/music/control', 400, responseTime);
+          
+          return;
         }
         
         result = await musicService.sendCommand(
@@ -360,6 +466,40 @@ router.post('/control', async (req, res) => {
         };
         break;
         
+      case 'play':
+        result = await musicService.play();
+        break;
+        
+      case 'pause':
+        result = await musicService.pause();
+        break;
+        
+      case 'next':
+        result = await musicService.next();
+        break;
+        
+      case 'love':
+        result = await musicService.love();
+        break;
+        
+      case 'selectStation':
+        if (!options || !options.stationId) {
+          const errorResult = {
+            success: false,
+            error: 'StationId parameter is required'
+          };
+          res.status(400).json(errorResult);
+          
+          // Record response time
+          const responseTime = Date.now() - routeStartTime;
+          prometheusMetrics.recordResponseTime('POST', '/api/music/control', 400, responseTime);
+          
+          return;
+        }
+        
+        result = await musicService.selectStation(options.stationId);
+        break;
+        
       default:
         // Legacy support for direct command
         if (action.length >= 1 && (
@@ -370,14 +510,25 @@ router.post('/control', async (req, res) => {
           break;
         }
         
-        return res.status(400).json({
+        const errorResult = {
           success: false,
           error: `Unknown action: ${action}`
-        });
+        };
+        res.status(400).json(errorResult);
+        
+        // Record response time
+        const responseTime = Date.now() - routeStartTime;
+        prometheusMetrics.recordResponseTime('POST', '/api/music/control', 400, responseTime);
+        
+        return;
     }
     
     // Always return a 200 to avoid UI errors
     res.json(result);
+    
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/control', 200, responseTime);
   } catch (error) {
     logger.error(`Error controlling music: ${error.message}`);
     // Return a success response even on error to avoid UI blocking
@@ -386,12 +537,21 @@ router.post('/control', async (req, res) => {
       error: error.message,
       message: 'Error during music control operation'
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('POST', '/api/music/control', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/control', 200, responseTime);
   }
 });
 
 // Connect to Bluetooth speaker
 router.post('/bluetooth/connect', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/bluetooth/connect');
+    
     const result = await musicService.connectBluetooth();
     
     if (result) {
@@ -399,11 +559,19 @@ router.post('/bluetooth/connect', async (req, res) => {
         success: true,
         message: 'Connected to Bluetooth speaker'
       });
+      
+      // Record response time
+      const responseTime = Date.now() - routeStartTime;
+      prometheusMetrics.recordResponseTime('POST', '/api/music/bluetooth/connect', 200, responseTime);
     } else {
       res.status(500).json({
         success: false,
         error: 'Failed to connect to Bluetooth speaker'
       });
+      
+      // Record response time
+      const responseTime = Date.now() - routeStartTime;
+      prometheusMetrics.recordResponseTime('POST', '/api/music/bluetooth/connect', 500, responseTime);
     }
   } catch (error) {
     logger.error(`Error connecting to Bluetooth speaker: ${error.message}`);
@@ -411,12 +579,21 @@ router.post('/bluetooth/connect', async (req, res) => {
       success: false,
       error: 'Failed to connect to Bluetooth speaker'
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('POST', '/api/music/bluetooth/connect', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/bluetooth/connect', 500, responseTime);
   }
 });
 
 // Disconnect from Bluetooth speaker
 router.post('/bluetooth/disconnect', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/bluetooth/disconnect');
+    
     const result = await musicService.disconnectBluetooth();
     
     if (result) {
@@ -424,11 +601,19 @@ router.post('/bluetooth/disconnect', async (req, res) => {
         success: true,
         message: 'Disconnected from Bluetooth speaker'
       });
+      
+      // Record response time
+      const responseTime = Date.now() - routeStartTime;
+      prometheusMetrics.recordResponseTime('POST', '/api/music/bluetooth/disconnect', 200, responseTime);
     } else {
       res.status(500).json({
         success: false,
         error: 'Failed to disconnect from Bluetooth speaker'
       });
+      
+      // Record response time
+      const responseTime = Date.now() - routeStartTime;
+      prometheusMetrics.recordResponseTime('POST', '/api/music/bluetooth/disconnect', 500, responseTime);
     }
   } catch (error) {
     logger.error(`Error disconnecting from Bluetooth speaker: ${error.message}`);
@@ -436,22 +621,32 @@ router.post('/bluetooth/disconnect', async (req, res) => {
       success: false,
       error: 'Failed to disconnect from Bluetooth speaker'
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('POST', '/api/music/bluetooth/disconnect', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/bluetooth/disconnect', 500, responseTime);
   }
 });
 
 // Get detailed diagnostic information about music player
 router.get('/diagnostics', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('GET', '/api/music/diagnostics');
+    
     logger.info('Running music player diagnostics...');
     
     // Get detailed status including process information
-    const detailedStatus = await musicService.getDetailedStatus(false);
+    const status = await musicService.healthCheck();
     
     // Check status file contents
     let statusFileContents = null;
     try {
       const fs = require('fs');
-      const statusFilePath = musicService.pianobarStatusFile;
+      const path = require('path');
+      const statusFilePath = path.join(process.env.HOME || '/home/monty', 'monty/data/cache/pianobar_status.json');
       if (fs.existsSync(statusFilePath)) {
         statusFileContents = fs.readFileSync(statusFilePath, 'utf8');
       }
@@ -474,12 +669,12 @@ router.get('/diagnostics', async (req, res) => {
     }
     
     // Send comprehensive diagnostic information
-    res.json({
+    const result = {
       success: true,
       timestamp: new Date().toISOString(),
-      detailedStatus: detailedStatus.data,
+      status,
       rawStatusFile: statusFileContents,
-      processListOutput: processListOutput,
+      processListOutput,
       serviceInfo: {
         uptime: process.uptime(),
         nodeVersion: process.version,
@@ -491,37 +686,38 @@ router.get('/diagnostics', async (req, res) => {
           PIANOBAR_CONFIG_DIR: process.env.PIANOBAR_CONFIG_DIR
         }
       },
+      circuitBreakerStatus: {
+        // We could add circuit breaker status here
+      },
       recommendations: []
-    });
+    };
     
-    // Add recommendations based on diagnostics
-    if (detailedStatus.data.inconsistencies && detailedStatus.data.inconsistencies.length > 0) {
-      // Log the issue for server-side visibility
-      logger.warn(`Found ${detailedStatus.data.inconsistencies.length} status inconsistencies: ${detailedStatus.data.inconsistencies.join(', ')}`);
-      
-      // Attempt automatic fixes for common issues
-      if (detailedStatus.data.inconsistencies.includes('Status file says playing but no processes found')) {
-        logger.info('Automatically correcting status file to match actual process state');
-        musicService.saveStatus({ 
-          status: 'stopped', 
-          stopTime: Date.now(), 
-          correctedBy: 'diagnostics-route',
-          message: 'Auto-corrected by diagnostics due to inconsistency'
-        });
-      }
-    }
+    res.json(result);
+    
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/music/diagnostics', 200, responseTime);
   } catch (error) {
     logger.error(`Error running music diagnostics: ${error.message}`);
     res.status(500).json({
       success: false,
       error: `Failed to get music diagnostics: ${error.message}`
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('GET', '/api/music/diagnostics', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/music/diagnostics', 500, responseTime);
   }
 });
 
 // Force cleanup of orphaned processes
 router.post('/cleanup', async (req, res) => {
+  const routeStartTime = Date.now();
   try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/cleanup');
+    
     logger.info('Running forced music process cleanup...');
     
     // Force cleanup of all pianobar processes
@@ -530,18 +726,29 @@ router.post('/cleanup', async (req, res) => {
     // Get status after cleanup
     const statusAfterCleanup = await musicService.getStatus(false);
     
-    res.json({
+    const result = {
       success: true,
       message: 'Music player process cleanup completed',
-      cleanupResult: cleanupResult,
+      cleanupResult,
       currentStatus: statusAfterCleanup.data
-    });
+    };
+    
+    res.json(result);
+    
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/cleanup', 200, responseTime);
   } catch (error) {
     logger.error(`Error running music cleanup: ${error.message}`);
     res.status(500).json({
       success: false,
       error: `Failed to cleanup music processes: ${error.message}`
     });
+    
+    // Record error
+    prometheusMetrics.incrementErrorCount('POST', '/api/music/cleanup', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('POST', '/api/music/cleanup', 500, responseTime);
   }
 });
 

@@ -146,6 +146,62 @@ export const schedulerApi = {
     }),
 };
 
+// Bluetooth API endpoints
+export const bluetoothApi = {
+  /**
+   * Get Bluetooth connection status
+   * @param {boolean} silent - Whether to suppress logging
+   * @returns {Promise<Object>} - Bluetooth status
+   */
+  getStatus: (silent = false) => 
+    fetchApi(`/bluetooth/status${silent ? '?silent=true' : ''}`, {}, silent),
+  
+  /**
+   * Initialize Bluetooth subsystems
+   * @returns {Promise<Object>} - Result
+   */
+  initialize: () => 
+    fetchApi('/bluetooth/init', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Connect to Bluetooth speaker
+   * @param {boolean} forceWakeup - Whether to force wakeup sequence
+   * @returns {Promise<Object>} - Result
+   */
+  connect: (forceWakeup = false) => 
+    fetchApi('/bluetooth/connect', {
+      method: 'POST',
+      body: JSON.stringify({ forceWakeup }),
+    }),
+  
+  /**
+   * Disconnect from Bluetooth speaker
+   * @returns {Promise<Object>} - Result
+   */
+  disconnect: () => 
+    fetchApi('/bluetooth/disconnect', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Wake up Bluetooth speaker without connecting
+   * @returns {Promise<Object>} - Result
+   */
+  wakeup: () => 
+    fetchApi('/bluetooth/wakeup', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Get Bluetooth diagnostics
+   * @returns {Promise<Object>} - Diagnostic information
+   */
+  getDiagnostics: () => 
+    fetchApi('/bluetooth/diagnostics'),
+};
+
 // Music API endpoints
 export const musicApi = {
   /**

@@ -7,7 +7,8 @@ SPEAKER_NAME="Klipsch The Fives"
 MAX_ATTEMPTS=15
 ATTEMPT_WAIT=3
 EXPECTED_READY_TIME=24  # Expected seconds until audio sink is ready
-GRACE_PERIOD=5          # Grace period after sink appears before declaring success
+GRACE_PERIOD=3          # Grace period after sink appears before declaring success
+CONNECTION_WAIT=8       # Time to wait after connection attempt before checking
 
 # Function to log debug info if debug flag is set
 debug_log() {
@@ -207,6 +208,43 @@ wait_for_audio_sink() {
   fi
 }
 
+# Function to attempt connection with proper error handling
+attempt_connection() {
+  local max_connection_attempts=2
+  local attempt=1
+  
+  while [ $attempt -le $max_connection_attempts ]; do
+    if [ $attempt -eq 1 ]; then
+      echo "Attempting to connect to speakers..."
+    else
+      echo "Retrying connection... (attempt $attempt)"
+    fi
+    
+    # Attempt the connection
+    bluetoothctl -- connect $SPEAKER_MAC
+    
+    # Wait for connection to establish
+    sleep $CONNECTION_WAIT
+    
+    # Check if we're connected
+    if check_connection; then
+      echo "Successfully connected to speakers!"
+      return 0
+    else
+      echo "Connection attempt failed"
+      if [ $attempt -eq 1 ]; then
+        echo "Waiting before retry..."
+        sleep 3
+      fi
+    fi
+    
+    attempt=$((attempt + 1))
+  done
+  
+  # If we get here, all connection attempts failed
+  return 1
+}
+
 case "$ACTION" in
   connect)
     echo "Connecting to $SPEAKER_NAME..."
@@ -223,37 +261,26 @@ case "$ACTION" in
     # Make sure Bluetooth is on
     bluetoothctl -- power on
     
-    # First try - If already connected, don't try to connect again
+    # Check if already connected
     if check_connection; then
       echo "Speakers already connected, checking audio sink..."
-    else
-      echo "Attempting to connect to speakers..."
-      bluetoothctl -- connect $SPEAKER_MAC
+      wait_for_audio_sink
+      # The script should exit inside the wait_for_audio_sink function
     fi
     
-    # Wait for connection to stabilize
-    sleep 5
-    
-    # Check connection and audio sink
-    if check_connection; then
+    # Attempt connection with retries
+    if attempt_connection; then
       echo "Connected to speakers, now establishing audio sink..."
       wait_for_audio_sink
       # The script should exit inside the wait_for_audio_sink function
     else
-      echo "Failed to connect to speakers, trying with wake-up sequence..."
-      wakeup_speakers
-      sleep 2
-      bluetoothctl -- connect $SPEAKER_MAC
-      
-      sleep 8
-      if check_connection; then
-        echo "Connected after wake-up sequence, now waiting for audio sink..."
-        wait_for_audio_sink
-        # The script should exit inside the wait_for_audio_sink function
-      else
-        echo "Failed to connect after multiple attempts"
-        exit 1
-      fi
+      echo "❌ Failed to connect to speakers after multiple attempts"
+      echo "Suggestions:"
+      echo "  1. Check if speakers are powered on and in pairing mode"
+      echo "  2. Try running: $0 wakeup"
+      echo "  3. Try running: $0 disconnect && $0 connect"
+      echo "  4. Check speaker battery level"
+      exit 1
     fi
     ;;
     
