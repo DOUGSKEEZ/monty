@@ -293,6 +293,112 @@ export const musicApi = {
     }),
 };
 
+// Pianobar API endpoints
+export const pianobarApi = {
+  /**
+   * Initialize pianobar service
+   * @returns {Promise<Object>} - Result
+   */
+  initialize: () => 
+    fetchApi('/pianobar/initialize', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Get current pianobar status
+   * @param {boolean} silent - Whether to suppress logging
+   * @returns {Promise<Object>} - Pianobar status
+   */
+  getStatus: (silent = false) => 
+    fetchApi(`/pianobar/status${silent ? '?silent=true' : ''}`, {}, silent),
+  
+  /**
+   * Start pianobar
+   * @param {boolean} silent - Whether to suppress logging
+   * @returns {Promise<Object>} - Result
+   */
+  start: (silent = false) => 
+    fetchApi('/pianobar/start', {
+      method: 'POST',
+    }, silent),
+  
+  /**
+   * Stop pianobar
+   * @param {boolean} silent - Whether to suppress logging
+   * @returns {Promise<Object>} - Result
+   */
+  stop: (silent = false) => 
+    fetchApi('/pianobar/stop', {
+      method: 'POST',
+    }, silent),
+  
+  /**
+   * Play or resume pianobar
+   * @returns {Promise<Object>} - Result
+   */
+  play: () => 
+    fetchApi('/pianobar/play', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Pause pianobar
+   * @returns {Promise<Object>} - Result
+   */
+  pause: () => 
+    fetchApi('/pianobar/pause', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Skip to next song
+   * @returns {Promise<Object>} - Result
+   */
+  next: () => 
+    fetchApi('/pianobar/next', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Love the current song
+   * @returns {Promise<Object>} - Result
+   */
+  love: () => 
+    fetchApi('/pianobar/love', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Get available stations
+   * @param {boolean} silent - Whether to suppress logging
+   * @returns {Promise<Object>} - Stations list
+   */
+  getStations: (silent = false) => 
+    fetchApi(`/pianobar/stations${silent ? '?silent=true' : ''}`, {}, silent),
+  
+  /**
+   * Select a station by ID
+   * @param {string} stationId - Station ID
+   * @returns {Promise<Object>} - Result
+   */
+  selectStation: (stationId) => 
+    fetchApi('/pianobar/select-station', {
+      method: 'POST',
+      body: JSON.stringify({ stationId }),
+    }),
+  
+  /**
+   * Send a raw command to pianobar
+   * @param {string} command - Command to send
+   * @returns {Promise<Object>} - Result
+   */
+  sendCommand: (command) => 
+    fetchApi('/pianobar/command', {
+      method: 'POST',
+      body: JSON.stringify({ command }),
+    }),
+};
+
 // Config API endpoints
 export const configApi = {
   /**

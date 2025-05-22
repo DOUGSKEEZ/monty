@@ -18,12 +18,14 @@ const IWeatherService = require('../interfaces/IWeatherService');
 const ISchedulerService = require('../interfaces/ISchedulerService');
 const IMusicService = require('../interfaces/IMusicService');
 const IBluetoothService = require('../interfaces/IBluetoothService');
+const IPianobarService = require('../interfaces/IPianobarService');
 
 // Import service implementations
 const WeatherService = require('../services/weatherService.di');
 const SchedulerService = require('../services/schedulerService.di');
 const MusicService = require('../services/musicService.di');
 const BluetoothService = require('../services/BluetoothService');
+const PianobarService = require('../services/PianobarService');
 const prometheusMetrics = require('../services/PrometheusMetricsService');
 
 /**
@@ -184,6 +186,47 @@ function initializeContainer() {
   return container;
 }
 
+/**
+ * Create a properly configured Pianobar Service
+ * @returns {PianobarService} - Configured pianobar service
+ */
+function createPianobarService() {
+  if (!container.has('pianobarService')) {
+    // Register pianobar service in container
+    container.register('pianobarService', PianobarService, {
+      dependencies: [
+        'configManager',
+        'retryHelper',
+        'circuitBreaker',
+        'serviceRegistry',
+        'serviceWatchdog'
+      ],
+      lifecycle: Lifecycle.SINGLETON
+    });
+    
+    // Verify implementation against interface
+    const pianobarService = container.resolve('pianobarService');
+    IPianobarService.verifyImplementation(pianobarService, 'PianobarService');
+  }
+  
+  return container.resolve('pianobarService');
+}
+
+/**
+ * Initialize the service container with all standard services
+ * @returns {Object} - The DI container
+ */
+function initializeContainer() {
+  registerCoreDependencies();
+  createWeatherService();
+  createSchedulerService();
+  createBluetoothService();
+  createMusicService();
+  createPianobarService();
+  
+  return container;
+}
+
 module.exports = {
   container,
   registerCoreDependencies,
@@ -191,5 +234,6 @@ module.exports = {
   createSchedulerService,
   createMusicService,
   createBluetoothService,
+  createPianobarService,
   initializeContainer
 };

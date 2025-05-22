@@ -68,6 +68,7 @@ const weatherRoutes = require('./routes/weather');
 const schedulerRoutes = require('./routes/scheduler');
 const musicRoutes = require('./routes/music');
 const bluetoothRoutes = require('./routes/bluetooth');
+const pianobarRoutes = require('./routes/pianobar');
 
 // API Routes
 app.get('/api/health', async (req, res) => {
@@ -485,6 +486,7 @@ app.use('/api/weather', weatherRoutes);
 app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/music', musicRoutes);
 app.use('/api/bluetooth', bluetoothRoutes);
+app.use('/api/pianobar', pianobarRoutes);
 
 // Catch-all route for client-side routing (production only)
 if (process.env.NODE_ENV === 'production') {

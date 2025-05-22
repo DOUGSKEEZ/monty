@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi } from './api';
+import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarApi } from './api';
 
 // Create context
 const AppContext = createContext();
@@ -51,6 +51,16 @@ export const AppProvider = ({ children }) => {
     loading: true,
     error: null,
   });
+  
+  // Pianobar state
+  const [pianobar, setPianobar] = useState({
+    status: null,
+    stations: [],
+    isRunning: false,
+    isPlaying: false,
+    loading: true,
+    error: null,
+  });
 
   // Load initial data
   useEffect(() => {
@@ -60,11 +70,13 @@ export const AppProvider = ({ children }) => {
     loadSchedulerData();
     loadMusicData();
     loadBluetoothStatus();
+    loadPianobarData();
     
     // Set up interval to refresh data periodically
     const refreshInterval = setInterval(() => {
       loadWeatherData(false);
       loadMusicData(false);
+      loadPianobarData(false);
       // Bluetooth status is refreshed separately
     }, 60000); // Refresh every minute
     
@@ -204,6 +216,44 @@ export const AppProvider = ({ children }) => {
         ...prev,
         loading: false,
         error: 'Failed to load music data',
+      }));
+    }
+  };
+  
+  // Load pianobar data
+  const loadPianobarData = async (showLoading = true) => {
+    if (showLoading) {
+      setPianobar(prev => ({ ...prev, loading: true, error: null }));
+    }
+    
+    // Use silent mode for background polling to reduce console noise
+    const isSilent = !showLoading;
+    
+    try {
+      // Load pianobar status and stations in parallel
+      const [statusRes, stationsRes] = await Promise.all([
+        pianobarApi.getStatus(isSilent),
+        pianobarApi.getStations(isSilent),
+      ]);
+      
+      const statusData = statusRes.data || {};
+      
+      setPianobar({
+        status: statusData,
+        stations: stationsRes.data?.stations || [],
+        isRunning: statusData.isPianobarRunning || false,
+        isPlaying: statusData.isPlaying || false,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      if (!isSilent) {
+        console.error('Error loading pianobar data:', error);
+      }
+      setPianobar(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Failed to load pianobar data',
       }));
     }
   };
@@ -651,6 +701,58 @@ export const AppProvider = ({ children }) => {
       return false;
     }
   };
+  
+  // Control pianobar player
+  const controlPianobar = async (action, options = {}) => {
+    try {
+      const silent = options?.silent !== false;
+      let result;
+      
+      // Handle different actions
+      switch (action) {
+        case 'start':
+          result = await pianobarApi.start(silent);
+          break;
+        case 'stop':
+          result = await pianobarApi.stop(silent);
+          break;
+        case 'play':
+          result = await pianobarApi.play();
+          break;
+        case 'pause':
+          result = await pianobarApi.pause();
+          break;
+        case 'next':
+          result = await pianobarApi.next();
+          break;
+        case 'love':
+          result = await pianobarApi.love();
+          break;
+        case 'selectStation':
+          if (!options.stationId) {
+            throw new Error('stationId is required for selectStation action');
+          }
+          result = await pianobarApi.selectStation(options.stationId);
+          break;
+        case 'command':
+          if (!options.command) {
+            throw new Error('command is required for command action');
+          }
+          result = await pianobarApi.sendCommand(options.command);
+          break;
+        default:
+          throw new Error(`Unknown pianobar action: ${action}`);
+      }
+      
+      // Reload pianobar data after control (silently to avoid logs)
+      await loadPianobarData(false);
+      
+      return result?.success || false;
+    } catch (error) {
+      console.error(`Error controlling pianobar (${action}):`, error);
+      return false;
+    }
+  };
 
   // Context value
   const value = {
@@ -659,16 +761,19 @@ export const AppProvider = ({ children }) => {
     scheduler,
     music,
     bluetooth,
+    pianobar,
     actions: {
       refreshWeather: loadWeatherData,
       refreshShades: loadShadeData,
       refreshSchedules: loadSchedulerData,
       refreshMusic: loadMusicData,
       refreshBluetooth: loadBluetoothStatus,
+      refreshPianobar: loadPianobarData,
       controlShade,
       triggerShadeScene,
       setWakeUpTime,
       controlMusic,
+      controlPianobar,
       connectBluetooth,
       disconnectBluetooth,
     },

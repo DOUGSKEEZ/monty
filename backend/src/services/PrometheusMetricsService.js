@@ -56,6 +56,13 @@ class PrometheusMetricsService {
       buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10] // in seconds
     });
     
+    // Create generic service gauges
+    this.serviceGauges = new promClient.Gauge({
+      name: 'service_status_gauge',
+      help: 'Generic service status values',
+      labelNames: ['service', 'metric']
+    });
+
     // Register metrics
     register.registerMetric(this.httpRequestDuration);
     register.registerMetric(this.httpRequestCounter);
@@ -64,6 +71,7 @@ class PrometheusMetricsService {
     register.registerMetric(this.retryCounter);
     register.registerMetric(this.recoveryCounter);
     register.registerMetric(this.apiDurationHistogram);
+    register.registerMetric(this.serviceGauges);
     
     this.isInitialized = true;
     this.logger.info('PrometheusMetricsService initialized');
@@ -166,6 +174,20 @@ class PrometheusMetricsService {
   measureApiCall(api, endpoint, func) {
     const end = this.apiDurationHistogram.labels(api, endpoint).startTimer();
     return Promise.resolve().then(func).finally(end);
+  }
+  
+  // Record a gauge value for any service metric
+  recordGauge(service, metric, value) {
+    if (typeof value !== 'number') {
+      this.logger.warn(`Invalid gauge value for ${service}.${metric}: ${value} (must be a number)`);
+      return;
+    }
+    
+    try {
+      this.serviceGauges.labels(service, metric).set(value);
+    } catch (error) {
+      this.logger.error(`Error recording gauge for ${service}.${metric}: ${error.message}`);
+    }
   }
   
   // Get the metrics endpoint handler

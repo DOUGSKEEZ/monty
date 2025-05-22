@@ -1175,8 +1175,10 @@ class SchedulerService extends ISchedulerService {
       success: true,
       data: scheduleDetails,
       circuitStatus: {
-        weather: this.weatherCircuit.getState(),
-        shades: this.shadeCircuit.getState()
+        weather: (this.weatherCircuit && typeof this.weatherCircuit.getState === 'function') ? 
+          this.weatherCircuit.getState() : 'UNKNOWN',
+        shades: (this.shadeCircuit && typeof this.shadeCircuit.getState === 'function') ? 
+          this.shadeCircuit.getState() : 'UNKNOWN'
       }
     };
   }
@@ -1218,7 +1220,8 @@ class SchedulerService extends ISchedulerService {
         message: `Manually triggered ${sceneName} schedule`,
         details: result,
         circuitStatus: {
-          shades: this.shadeCircuit.getState()
+          shades: (this.shadeCircuit && typeof this.shadeCircuit.getState === 'function') ? 
+            this.shadeCircuit.getState() : 'UNKNOWN'
         }
       };
     } catch (error) {
@@ -1227,7 +1230,8 @@ class SchedulerService extends ISchedulerService {
         success: false,
         error: `Failed to trigger schedule: ${error.message}`,
         circuitStatus: {
-          shades: this.shadeCircuit.getState()
+          shades: (this.shadeCircuit && typeof this.shadeCircuit.getState === 'function') ? 
+            this.shadeCircuit.getState() : 'UNKNOWN'
         }
       };
     }
@@ -1239,8 +1243,10 @@ class SchedulerService extends ISchedulerService {
    */
   getCircuitStatus() {
     return {
-      weather: this.weatherCircuit.getState(),
-      shades: this.shadeCircuit.getState()
+      weather: (this.weatherCircuit && typeof this.weatherCircuit.getState === 'function') ? 
+        this.weatherCircuit.getState() : 'UNKNOWN',
+      shades: (this.shadeCircuit && typeof this.shadeCircuit.getState === 'function') ? 
+        this.shadeCircuit.getState() : 'UNKNOWN'
     };
   }
   

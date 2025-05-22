@@ -61,6 +61,16 @@ function Navbar() {
             Music
           </Link>
           <Link 
+            to="/pianobar" 
+            className={`px-3 py-2 rounded transition ${
+              isActive('/pianobar') 
+                ? 'bg-blue-700 text-white' 
+                : 'hover:bg-blue-700 hover:text-white'
+            }`}
+          >
+            Pandora
+          </Link>
+          <Link 
             to="/weather" 
             className={`px-3 py-2 rounded transition ${
               isActive('/weather') 
@@ -97,6 +107,13 @@ function Navbar() {
               onClick={() => setIsMenuOpen(false)}
             >
               Music
+            </Link>
+            <Link 
+              to="/pianobar" 
+              className={`px-4 py-2 rounded ${isActive('/pianobar') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Pandora
             </Link>
             <Link 
               to="/weather" 
