@@ -145,6 +145,9 @@ class PianobarService extends IPianobarService {
             // Ensure FIFO exists
             await this.ensureFifo();
             
+            // Verify actual process state on startup and clear stale cache
+            await this._verifyAndClearStaleCache();
+            
             this.isInitialized = true;
             
             if (this.serviceRegistry) {
@@ -196,6 +199,9 @@ class PianobarService extends IPianobarService {
         
         // Ensure FIFO exists
         await this.ensureFifo();
+        
+        // Verify actual process state on startup and clear stale cache
+        await this._verifyAndClearStaleCache();
         
         this.isInitialized = true;
         
@@ -390,12 +396,12 @@ class PianobarService extends IPianobarService {
       // Create new FIFO if needed
       if (needNewFifo) {
         await execPromise(`mkfifo ${this.pianobarCtl}`);
-        await execPromise(`chmod 666 ${this.pianobarCtl}`);
-        logger.info(`Created FIFO control file at ${this.pianobarCtl} with read/write permissions`);
+        await execPromise(`chmod 644 ${this.pianobarCtl}`);
+        logger.info(`Created FIFO control file at ${this.pianobarCtl} with owner read/write permissions (644)`);
       } else {
         // Just ensure proper permissions
-        await execPromise(`chmod 666 ${this.pianobarCtl}`);
-        logger.debug(`Ensured FIFO permissions at ${this.pianobarCtl}`);
+        await execPromise(`chmod 644 ${this.pianobarCtl}`);
+        logger.debug(`Ensured FIFO permissions at ${this.pianobarCtl} (644)`);
       }
       
       return true;
@@ -709,8 +715,9 @@ class PianobarService extends IPianobarService {
       // Send quit command
       const quitResult = await this.sendCommand('q', silent);
       
-      // Give pianobar time to exit
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Give pianobar time to exit - increase timeout to 5 seconds
+      logger.info('Waiting for pianobar to exit after quit command (5 seconds)');
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
       // Check if it's still running
       const stillRunning = await this.checkPianobarStatus(true);
@@ -1031,12 +1038,114 @@ class PianobarService extends IPianobarService {
   }
   
   /**
+   * Check if pianobar process is actually running
+   * @private
+   */
+  async _checkPianobarProcess() {
+    try {
+      const { stdout } = await execPromise('pgrep pianobar');
+      return stdout.trim().length > 0;
+    } catch (error) {
+      // pgrep returns exit code 1 when no processes found
+      return false;
+    }
+  }
+
+  /**
+   * Verify actual process state on startup and clear stale cache
+   * @private
+   */
+  async _verifyAndClearStaleCache() {
+    try {
+      const actuallyRunning = await this._checkPianobarProcess();
+      
+      logger.info(`Startup process verification: pianobar actually running = ${actuallyRunning}`);
+      
+      // Update internal state to match reality
+      this.isPianobarRunning = actuallyRunning;
+      this.isPlaying = actuallyRunning; // If not running, definitely not playing
+      
+      // If there's a status file and process isn't running, check for stale data
+      if (fs.existsSync(this.pianobarStatusFile)) {
+        try {
+          const fileData = fs.readFileSync(this.pianobarStatusFile, 'utf8');
+          if (fileData && fileData.trim()) {
+            const cachedStatus = JSON.parse(fileData);
+            
+            // If cached status says running but process isn't actually running
+            if (cachedStatus.isPianobarRunning && !actuallyRunning) {
+              logger.warn('Detected stale cache: status file indicates running but no pianobar process found');
+              
+              // Clear the stale cache
+              const correctedStatus = {
+                status: 'stopped',
+                isPianobarRunning: false,
+                isPlaying: false,
+                updateTime: Date.now(),
+                stopTime: Date.now(),
+                fromCache: false,
+                note: 'Corrected stale cache on server startup'
+              };
+              
+              fs.writeFileSync(this.pianobarStatusFile, JSON.stringify(correctedStatus, null, 2));
+              logger.info('Cleared stale status cache on server startup');
+            } else {
+              logger.info('Status cache is consistent with actual process state');
+            }
+          }
+        } catch (parseError) {
+          logger.warn(`Error parsing status file during startup verification: ${parseError.message}`);
+        }
+      } else {
+        logger.info('No status cache file found on startup');
+      }
+    } catch (error) {
+      logger.error(`Error during startup verification: ${error.message}`);
+    }
+  }
+
+  /**
    * Implementation of getting status
    * @private
    */
   async _getStatusImpl(silent = false) {
     try {
-      // Create a default status based on our internal state variables
+      // IMPORTANT: Always verify actual process state first
+      const actuallyRunning = await this._checkPianobarProcess();
+      
+      // If our internal state disagrees with reality, fix it
+      if (this.isPianobarRunning !== actuallyRunning) {
+        if (!silent) {
+          logger.warn(`Process state mismatch detected. Internal state: ${this.isPianobarRunning}, Actual: ${actuallyRunning}. Correcting...`);
+        }
+        this.isPianobarRunning = actuallyRunning;
+        
+        // If process isn't running, we can't be playing
+        if (!actuallyRunning) {
+          this.isPlaying = false;
+          
+          // Clear stale status cache when we detect process is not running
+          try {
+            const correctedStatus = {
+              status: 'stopped',
+              isPianobarRunning: false,
+              isPlaying: false,
+              updateTime: Date.now(),
+              stopTime: Date.now(),
+              fromCache: false
+            };
+            
+            fs.writeFileSync(this.pianobarStatusFile, JSON.stringify(correctedStatus, null, 2));
+            if (!silent) {
+              logger.info('Cleared stale status cache - pianobar process not running');
+            }
+          } catch (writeError) {
+            logger.warn(`Failed to clear stale status cache: ${writeError.message}`);
+          }
+        }
+      }
+      
+      // Create a status based on verified state
       let statusData = {
         status: this.isPianobarRunning ? (this.isPlaying ? 'playing' : 'paused') : 'stopped',
         isPianobarRunning: this.isPianobarRunning,

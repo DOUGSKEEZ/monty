@@ -754,6 +754,26 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Update pianobar status directly from WebSocket
+  const updatePianobarStatus = (newStatusData) => {
+    setPianobar(prev => ({
+      ...prev,
+      ...newStatusData,
+      loading: false,
+      error: null
+    }));
+  };
+  
+  // Update pianobar stations list directly
+  const updatePianobarStations = (stations) => {
+    setPianobar(prev => ({
+      ...prev,
+      stations: stations || [],
+      loading: false,
+      error: null
+    }));
+  };
+
   // Context value
   const value = {
     weather,
@@ -776,6 +796,8 @@ export const AppProvider = ({ children }) => {
       controlPianobar,
       connectBluetooth,
       disconnectBluetooth,
+      updatePianobarStatus,
+      updatePianobarStations
     },
   };
 

@@ -67,13 +67,31 @@ router.post('/initialize', async (req, res) => {
   }
 });
 
-// Get current status - reads from the status file, doesn't check processes
+// Get current status - verify actual process state and clear stale cache
 router.get('/status', async (req, res) => {
   try {
     // Check if this is a silent request
     const silent = req.query.silent === 'true';
     
-    // Read status from file instead of checking processes
+    // IMPORTANT: Always verify actual process state first
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
+    
+    let actuallyRunning = false;
+    try {
+      const { stdout } = await execPromise('pgrep pianobar');
+      actuallyRunning = stdout.trim().length > 0;
+    } catch (error) {
+      // pgrep returns exit code 1 when no processes found
+      actuallyRunning = false;
+    }
+    
+    if (!silent) {
+      logger.debug(`Process verification: pianobar actually running = ${actuallyRunning}`);
+    }
+    
+    // Read status from file
     let statusData = {
       status: 'stopped',
       isPianobarRunning: false,
@@ -84,17 +102,59 @@ router.get('/status', async (req, res) => {
     
     if (fs.existsSync(statusFilePath)) {
       try {
-        statusData = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'));
-        statusData.fromCache = true;
+        const cachedStatus = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'));
+        
+        // Check if cached status disagrees with reality
+        if (cachedStatus.isPianobarRunning && !actuallyRunning) {
+          if (!silent) {
+            logger.warn('Detected stale cache: status file indicates running but no pianobar process found');
+          }
+          
+          // Clear the stale cache
+          statusData = {
+            status: 'stopped',
+            isPianobarRunning: false,
+            isPlaying: false,
+            updateTime: Date.now(),
+            stopTime: Date.now(),
+            fromCache: false,
+            note: 'Corrected stale cache based on process verification'
+          };
+          
+          fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2));
+          if (!silent) {
+            logger.info('Cleared stale status cache - pianobar process not running');
+          }
+        } else {
+          // Use cached data but ensure it reflects reality
+          statusData = {
+            ...cachedStatus,
+            isPianobarRunning: actuallyRunning,
+            isPlaying: actuallyRunning && cachedStatus.isPlaying,
+            fromCache: true,
+            updateTime: Date.now()
+          };
+        }
         
         if (!silent) {
           logger.debug(`Read status from file: ${JSON.stringify(statusData)}`);
         }
       } catch (parseError) {
         logger.warn(`Error parsing status file: ${parseError.message}`);
+        // Use default status based on process verification
+        statusData.isPianobarRunning = actuallyRunning;
+        statusData.isPlaying = actuallyRunning;
+        statusData.status = actuallyRunning ? 'playing' : 'stopped';
       }
-    } else if (!silent) {
-      logger.debug('Status file does not exist, using default status');
+    } else {
+      // No status file - use process verification
+      statusData.isPianobarRunning = actuallyRunning;
+      statusData.isPlaying = actuallyRunning;
+      statusData.status = actuallyRunning ? 'playing' : 'stopped';
+      
+      if (!silent) {
+        logger.debug('Status file does not exist, using process verification');
+      }
     }
     
     if (!silent) {
