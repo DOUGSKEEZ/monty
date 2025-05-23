@@ -10,6 +10,7 @@ function PianobarPage() {
   const [showOperationMessage, setShowOperationMessage] = useState(false);
   const [operationMessage, setOperationMessage] = useState('');
   const [buttonLocked, setButtonLocked] = useState(false);
+  const [buttonAction, setButtonAction] = useState(null); // 'starting' or 'stopping'
   
   // WebSocket state
   const [wsConnected, setWsConnected] = useState(false);
@@ -189,6 +190,7 @@ function PianobarPage() {
     });
     
     setButtonLocked(true);
+    setButtonAction('starting');
     showOperation('Starting Pandora player...');
     
     try {
@@ -206,7 +208,10 @@ function PianobarPage() {
       console.error('Error starting player:', error);
     } finally {
       hideOperation();
-      setTimeout(() => setButtonLocked(false), 2000); // Keep locked for 2 more seconds
+      setTimeout(() => {
+        setButtonLocked(false);
+        setButtonAction(null);
+      }, 2000); // Keep locked for 2 more seconds
     }
   };
   
@@ -225,6 +230,7 @@ function PianobarPage() {
     });
     
     setButtonLocked(true);
+    setButtonAction('stopping');
     showOperation('Stopping Pandora player...');
     
     try {
@@ -242,7 +248,10 @@ function PianobarPage() {
       console.error('Error stopping player:', error);
     } finally {
       hideOperation();
-      setTimeout(() => setButtonLocked(false), 2000); // Keep locked for 2 more seconds
+      setTimeout(() => {
+        setButtonLocked(false);
+        setButtonAction(null);
+      }, 2000); // Keep locked for 2 more seconds
     }
   };
   
@@ -408,29 +417,43 @@ function PianobarPage() {
               'handler': playerOn ? 'handleStopPlayer' : 'handleStartPlayer'
             });
             
-            return playerOn ? (
+            // Determine button text based on current action or state
+            const getButtonText = () => {
+              if (buttonAction === 'starting') return 'Starting...';
+              if (buttonAction === 'stopping') return 'Stopping...';
+              if (buttonLocked) return buttonAction ? `${buttonAction}...` : 'Processing...';
+              const text = playerOn ? 'Turn Off' : 'Turn On';
+              
+              console.log('🎯 Button text decision:', {
+                'buttonAction': buttonAction,
+                'buttonLocked': buttonLocked,
+                'playerOn': playerOn,
+                'finalText': buttonAction ? `${buttonAction}...` : text
+              });
+              
+              return text;
+            };
+            
+            // Determine which handler to use (based on current state when clicked)
+            const getClickHandler = () => {
+              return playerOn ? handleStopPlayer : handleStartPlayer;
+            };
+            
+            // Determine button color
+            const getButtonColor = () => {
+              if (buttonLocked || pianobar.loading || showOperationMessage) {
+                return 'bg-gray-400 cursor-not-allowed';
+              }
+              return playerOn ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600';
+            };
+            
+            return (
               <button 
-                onClick={handleStopPlayer}
-                className={`px-4 py-2 rounded text-white ${
-                  buttonLocked || pianobar.loading || showOperationMessage
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-red-500 hover:bg-red-600'
-                }`}
+                onClick={getClickHandler()}
+                className={`px-4 py-2 rounded text-white ${getButtonColor()}`}
                 disabled={buttonLocked || pianobar.loading || showOperationMessage}
               >
-                {buttonLocked || showOperationMessage ? 'Stopping...' : 'Turn Off'}
-              </button>
-            ) : (
-              <button 
-                onClick={handleStartPlayer}
-                className={`px-4 py-2 rounded text-white ${
-                  buttonLocked || pianobar.loading || showOperationMessage
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-green-500 hover:bg-green-600'
-                }`}
-                disabled={buttonLocked || pianobar.loading || showOperationMessage}
-              >
-                {buttonLocked || showOperationMessage ? 'Starting...' : 'Turn On'}
+                {getButtonText()}
               </button>
             );
           })()}

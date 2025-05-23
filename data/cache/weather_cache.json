@@ -1,5 +1,5 @@
 {
-  "timestamp": 1747977948838,
+  "timestamp": 1747978767757,
   "data": {
     "location": {
       "name": "Silverthorne",
@@ -10,10 +10,10 @@
       }
     },
     "temperature": {
-      "current": 48,
-      "feelsLike": 45,
-      "min": 48,
-      "max": 48
+      "current": 46,
+      "feelsLike": 42,
+      "min": 46,
+      "max": 46
     },
     "weather": {
       "main": "Clouds",
@@ -21,14 +21,14 @@
       "icon": "02n"
     },
     "wind": {
-      "speed": 7.74,
-      "direction": 165
+      "speed": 8.41,
+      "direction": 160
     },
-    "humidity": 49,
+    "humidity": 52,
     "pressure": 1017,
     "sunrise": 1747914267000,
     "sunset": 1747966741000,
     "timezone": -21600,
-    "fetchTime": 1747977948838
+    "fetchTime": 1747978767757
   }
 }
