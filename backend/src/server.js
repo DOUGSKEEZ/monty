@@ -110,9 +110,13 @@ process.on('uncaughtException', (err) => {
   // Don't exit, just log
 });
 
-// Serve static files from frontend build in production
+// Serve static files from frontend build in production or frontend/public in development
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../../frontend/build')));
+} else {
+  // In development, serve files from frontend/public for testing
+  app.use(express.static(path.join(__dirname, '../../frontend/public')));
+  console.log('[DEBUG] Serving static files from frontend/public in development mode');
 }
 
 // Add metrics endpoint
