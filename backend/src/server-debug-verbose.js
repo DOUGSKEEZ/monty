@@ -1,74 +1,30 @@
-console.log('[DEBUG] Loading modules...');
-
 const prometheusMetrics = require("./services/PrometheusMetricsService");
-console.log('[DEBUG] Loaded PrometheusMetricsService');
-
 const metricsMiddleware = require("./middleware/metricsMiddleware");
-console.log('[DEBUG] Loaded metricsMiddleware');
-
 const express = require('express');
-console.log('[DEBUG] Loaded express');
-
 const cors = require('cors');
-console.log('[DEBUG] Loaded cors');
-
 const bodyParser = require('body-parser');
-console.log('[DEBUG] Loaded bodyParser');
-
 const path = require('path');
-console.log('[DEBUG] Loaded path');
-
 const dotenv = require('dotenv');
-console.log('[DEBUG] Loaded dotenv');
-
 const logger = require('./utils/logger');
-console.log('[DEBUG] Loaded logger');
-
 const http = require('http');
-console.log('[DEBUG] Loaded http');
-
 const process = require('process');
-console.log('[DEBUG] Loaded process');
-
 const config = require('./utils/config');
-console.log('[DEBUG] Loaded config');
-
 const serviceRegistry = require('./utils/ServiceRegistry');
-console.log('[DEBUG] Loaded serviceRegistry');
-
 const CircuitBreaker = require('./utils/CircuitBreaker');
-console.log('[DEBUG] Loaded CircuitBreaker');
-
 const serviceWatchdog = require('./utils/ServiceWatchdog');
-console.log('[DEBUG] Loaded serviceWatchdog');
-
 const RetryHelper = require('./utils/RetryHelper');
-console.log('[DEBUG] Loaded RetryHelper');
-
-console.log('[DEBUG] About to load PianobarWebsocketIntegration...');
 const { initializePianobarWebsocket } = require('./services/PianobarWebsocketIntegration');
-console.log('[DEBUG] Loaded PianobarWebsocketIntegration');
-
-console.log('[DEBUG] About to load PianobarCommandInterface...');
 const { createPianobarCommandInterface } = require('./services/PianobarCommandInterface');
-console.log('[DEBUG] Loaded PianobarCommandInterface');
 
 // Load environment variables
-console.log('[DEBUG] About to load environment variables...');
 dotenv.config();
-console.log('[DEBUG] Environment variables loaded');
 
 // Initialize Express app
-console.log('[DEBUG] Creating Express app...');
 const app = express();
 const PORT = process.env.PORT || 3001;
-console.log(`[DEBUG] PORT set to ${PORT}`);
 
 // Middleware
-console.log('[DEBUG] Setting up middleware...');
-
 // Configure CORS - Allow specific origins
-console.log('[DEBUG] Configuring CORS...');
 app.use(cors({
   origin: [
     'http://localhost:3000',
@@ -79,20 +35,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
-console.log('[DEBUG] CORS configured');
-
-console.log('[DEBUG] Setting up bodyParser...');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-console.log('[DEBUG] bodyParser configured');
-
-console.log('[DEBUG] Setting up HTTP logger...');
 app.use(logger.httpLogger); // Add HTTP request logging
-console.log('[DEBUG] HTTP logger configured');
-
-console.log('[DEBUG] Setting up metrics middleware...');
 app.use(metricsMiddleware); // Add metrics middleware
-console.log('[DEBUG] Metrics middleware configured');
 
 // Add request logger for debugging
 app.use((req, res, next) => {
@@ -119,35 +65,13 @@ if (process.env.NODE_ENV === 'production') {
 app.get('/metrics', prometheusMetrics.getMetricsHandler());
 
 // Import routes
-console.log('[DEBUG] Importing routes...');
-
-console.log('[DEBUG] About to require configRoutes...');
 const configRoutes = require('./routes/config');
-console.log('[DEBUG] configRoutes imported');
-
-console.log('[DEBUG] About to require shadeRoutes...');
 const shadeRoutes = require('./routes/shades');
-console.log('[DEBUG] shadeRoutes imported');
-
-console.log('[DEBUG] About to require weatherRoutes...');
 const weatherRoutes = require('./routes/weather');
-console.log('[DEBUG] weatherRoutes imported');
-
-console.log('[DEBUG] About to require schedulerRoutes...');
 const schedulerRoutes = require('./routes/scheduler');
-console.log('[DEBUG] schedulerRoutes imported');
-
-console.log('[DEBUG] About to require musicRoutes...');
 const musicRoutes = require('./routes/music');
-console.log('[DEBUG] musicRoutes imported');
-
-console.log('[DEBUG] About to require bluetoothRoutes...');
 const bluetoothRoutes = require('./routes/bluetooth');
-console.log('[DEBUG] bluetoothRoutes imported');
-
-console.log('[DEBUG] About to require pianobarRoutes - THIS MIGHT BE THE PROBLEM...');
 const pianobarRoutes = require('./routes/pianobar');
-console.log('[DEBUG] pianobarRoutes imported successfully!');
 
 // API Routes
 app.get('/api/health', async (req, res) => {
@@ -586,17 +510,17 @@ app.use((err, req, res, next) => {
 });
 
 // Create HTTP server
-console.log('[DEBUG] About to create HTTP server...');
 const server = http.createServer(app);
-console.log('[DEBUG] HTTP server created successfully');
 
 // Initialize Pianobar Command Interface - with additional debug logging
 console.log('DEBUG: About to create pianobarRetryHelper');
-
-// RetryHelper is exported as a singleton, not as a constructor
-// So we use the singleton directly instead of trying to create a new instance
-const pianobarRetryHelper = RetryHelper;
-console.log('DEBUG: Using RetryHelper singleton');
+const pianobarRetryHelper = new RetryHelper({
+  operationPrefix: 'pianobar',
+  maxRetries: 3,
+  initialDelay: 1000,
+  backoffFactor: 2
+});
+console.log('DEBUG: pianobarRetryHelper created');
 
 // Create PianobarCommandInterface singleton with try/catch for every step
 console.log('DEBUG: About to create PianobarCommandInterface');
@@ -619,29 +543,26 @@ try {
   console.error(error.stack);
 }
 
-// Initialize WebSocket for real-time pianobar updates
-console.log('[DEBUG] About to initialize WebSocket for pianobar updates');
+// Temporarily disable WebSocket to debug startup issues
+console.log('Temporarily disabling WebSocket initialization to debug startup issues');
+/*
 setTimeout(() => {
-  console.log('[DEBUG] In setTimeout callback for WebSocket initialization');
   initializePianobarWebsocket(server)
     .then(result => {
-      console.log('[DEBUG] WebSocket initialization promise resolved');
       if (result.success) {
         logger.info('PianobarWebsocketService initialized successfully');
-        console.log('[DEBUG] WebSocket initialization successful');
       } else {
         logger.warn(`PianobarWebsocketService initialization warning: ${result.message}`);
-        console.log(`[DEBUG] WebSocket initialization warning: ${result.message}`);
       }
     })
     .catch(err => {
       logger.error(`Error initializing PianobarWebsocketService: ${err.message}`);
-      console.error(`[ERROR] WebSocket initialization failed: ${err.message}`);
     });
 }, 3000); // Delay by 3 seconds to allow server to start first
+*/
 
-// Log that we're starting with both command interface and WebSocket
-logger.info('Starting with PianobarCommandInterface and WebSocket support');
+// Log that we're starting with just the command interface for debugging
+logger.info('Starting with PianobarCommandInterface only - WebSocket disabled for debugging');
 
 // Graceful shutdown handler
 function gracefulShutdown(signal) {

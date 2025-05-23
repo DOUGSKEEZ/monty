@@ -443,12 +443,20 @@ class PianobarCommandInterface {
 let instance = null;
 function createPianobarCommandInterface(config = {}, retryHelper, serviceWatchdog) {
   if (!instance) {
+    console.log('DEBUG: Creating new PianobarCommandInterface instance');
     instance = new PianobarCommandInterface(config, retryHelper, serviceWatchdog);
     
-    // Initialize asynchronously but don't block
-    instance.initialize().catch(err => {
-      logger.error(`Async initialization error: ${err.message}`);
-    });
+    // Initialize asynchronously but don't block - unless skipAsyncInit is set
+    if (!config.skipAsyncInit) {
+      console.log('DEBUG: Starting async initialization of PianobarCommandInterface');
+      instance.initialize().catch(err => {
+        logger.error(`Async initialization error: ${err.message}`);
+      });
+    } else {
+      console.log('DEBUG: Skipping async initialization of PianobarCommandInterface due to skipAsyncInit flag');
+    }
+  } else {
+    console.log('DEBUG: Returning existing PianobarCommandInterface instance');
   }
   return instance;
 }

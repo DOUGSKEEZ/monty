@@ -7,24 +7,48 @@
 
 const express = require('express');
 const router = express.Router();
-const { createPianobarCommandInterface } = require('../services/PianobarCommandInterface');
-const logger = require('../utils/logger').getModuleLogger('pianobar-routes');
 const fs = require('fs');
 const path = require('path');
+const logger = require('../utils/logger').getModuleLogger('pianobar-routes');
 
-// Get the command interface singleton instance with debug logging
-let commandInterface;
-try {
-  console.log('About to get PianobarCommandInterface in routes');
-  commandInterface = createPianobarCommandInterface(
-    { verbose: true },
-    null, // No RetryHelper
-    null  // No ServiceWatchdog
-  );
-  console.log('Successfully got PianobarCommandInterface in routes');
-} catch (error) {
-  console.error(`Error getting PianobarCommandInterface in routes: ${error.message}`);
-  console.error(error.stack);
+// Import PianobarCommandInterface factory but don't create instance yet
+console.log('[DEBUG] Importing createPianobarCommandInterface in routes');
+const { createPianobarCommandInterface } = require('../services/PianobarCommandInterface');
+console.log('[DEBUG] Successfully imported createPianobarCommandInterface in routes');
+
+// Defer creation of command interface until first use
+let commandInterface = null;
+
+function getCommandInterface() {
+  if (!commandInterface) {
+    try {
+      console.log('[DEBUG] Creating PianobarCommandInterface in routes (lazy initialization)');
+      commandInterface = createPianobarCommandInterface(
+        { 
+          verbose: true,
+          skipAsyncInit: true  // Skip async initialization to prevent blocking
+        },
+        null, // No RetryHelper
+        null  // No ServiceWatchdog
+      );
+      console.log('[DEBUG] Successfully created PianobarCommandInterface in routes');
+    } catch (error) {
+      console.error(`[ERROR] Error creating PianobarCommandInterface in routes: ${error.message}`);
+      console.error(error.stack);
+      // Return a mock interface that logs errors but doesn't fail
+      return {
+        initialize: () => Promise.resolve({ success: false, error: 'Not initialized' }),
+        sendCommand: () => Promise.resolve({ success: false, error: 'Not initialized' }),
+        play: () => Promise.resolve({ success: false, error: 'Not initialized' }),
+        pause: () => Promise.resolve({ success: false, error: 'Not initialized' }),
+        next: () => Promise.resolve({ success: false, error: 'Not initialized' }),
+        love: () => Promise.resolve({ success: false, error: 'Not initialized' }),
+        selectStation: () => Promise.resolve({ success: false, error: 'Not initialized' }),
+        quit: () => Promise.resolve({ success: false, error: 'Not initialized' })
+      };
+    }
+  }
+  return commandInterface;
 }
 
 // Status file path
@@ -34,7 +58,8 @@ const stationsFilePath = path.join(process.env.HOME || '/home/monty', 'monty/dat
 // Initialize pianobar
 router.post('/initialize', async (req, res) => {
   try {
-    const result = await commandInterface.initialize();
+    const cmd = getCommandInterface();
+    const result = await cmd.initialize();
     res.json(result);
   } catch (error) {
     logger.error(`Error initializing pianobar: ${error.message}`);
@@ -149,8 +174,9 @@ router.post('/start', async (req, res) => {
 // Stop pianobar - send quit command
 router.post('/stop', async (req, res) => {
   try {
-    // Send quit command via the command interface
-    const result = await commandInterface.quit();
+    // Get command interface and send quit command
+    const cmd = getCommandInterface();
+    const result = await cmd.quit();
     
     // Update status file regardless of command result
     try {
@@ -182,8 +208,9 @@ router.post('/stop', async (req, res) => {
 // Play - send play command
 router.post('/play', async (req, res) => {
   try {
-    // Send play command via the command interface
-    const result = await commandInterface.play();
+    // Get command interface and send play command
+    const cmd = getCommandInterface();
+    const result = await cmd.play();
     
     // Update status if command was successful
     if (result.success) {
@@ -221,8 +248,9 @@ router.post('/play', async (req, res) => {
 // Pause - send pause command
 router.post('/pause', async (req, res) => {
   try {
-    // Send pause command via the command interface
-    const result = await commandInterface.pause();
+    // Get command interface and send pause command
+    const cmd = getCommandInterface();
+    const result = await cmd.pause();
     
     // Update status if command was successful
     if (result.success) {
@@ -260,8 +288,9 @@ router.post('/pause', async (req, res) => {
 // Next - skip to next song
 router.post('/next', async (req, res) => {
   try {
-    // Send next command via the command interface
-    const result = await commandInterface.next();
+    // Get command interface and send next command
+    const cmd = getCommandInterface();
+    const result = await cmd.next();
     res.json(result);
   } catch (error) {
     logger.error(`Error skipping to next song: ${error.message}`);
@@ -272,8 +301,9 @@ router.post('/next', async (req, res) => {
 // Love - love current song
 router.post('/love', async (req, res) => {
   try {
-    // Send love command via the command interface
-    const result = await commandInterface.love();
+    // Get command interface and send love command
+    const cmd = getCommandInterface();
+    const result = await cmd.love();
     res.json(result);
   } catch (error) {
     logger.error(`Error loving song: ${error.message}`);
@@ -383,8 +413,9 @@ router.post('/select-station', async (req, res) => {
       });
     }
     
-    // Send station selection command via the command interface
-    const result = await commandInterface.selectStation(stationId);
+    // Get command interface and send station selection command
+    const cmd = getCommandInterface();
+    const result = await cmd.selectStation(stationId);
     res.json(result);
   } catch (error) {
     logger.error(`Error selecting station: ${error.message}`);
@@ -403,8 +434,9 @@ router.post('/command', async (req, res) => {
       });
     }
     
-    // Send raw command via the command interface
-    const result = await commandInterface.sendCommand(command);
+    // Get command interface and send raw command
+    const cmd = getCommandInterface();
+    const result = await cmd.sendCommand(command);
     res.json(result);
   } catch (error) {
     logger.error(`Error sending command: ${error.message}`);
@@ -415,45 +447,38 @@ router.post('/command', async (req, res) => {
 // Health check
 router.get('/health', async (req, res) => {
   try {
-    // Check if command interface is initialized
+    // Create simplified health check that doesn't require command interface
+    const fifoPath = path.join(process.env.HOME || '/home/monty', '.config/pianobar/ctl');
+    
+    // Check if FIFO exists
+    let fifoExists = false;
+    let isFifo = false;
+    
+    try {
+      fifoExists = fs.existsSync(fifoPath);
+      if (fifoExists) {
+        isFifo = fs.statSync(fifoPath).isFIFO();
+      }
+    } catch (error) {
+      logger.warn(`Error checking FIFO: ${error.message}`);
+    }
+    
+    // Build health status
     const healthStatus = {
-      status: commandInterface.isInitialized ? 'ok' : 'warning',
-      message: commandInterface.isInitialized 
-        ? 'PianobarCommandInterface is initialized' 
-        : 'PianobarCommandInterface is not yet initialized',
+      status: fifoExists && isFifo ? 'ok' : 'warning',
+      message: fifoExists && isFifo 
+        ? 'Pianobar interface ready' 
+        : 'Pianobar interface has issues with FIFO',
       details: {
-        isInitialized: commandInterface.isInitialized,
-        fifoPath: commandInterface.pianobarCtl,
+        fifoExists,
+        isFifo,
+        fifoPath,
+        commandInterfaceCreated: commandInterface !== null,
         lastUpdated: Date.now()
       }
     };
     
-    // Check if FIFO exists
-    try {
-      const fifoExists = fs.existsSync(commandInterface.pianobarCtl);
-      let isFifo = false;
-      
-      if (fifoExists) {
-        try {
-          isFifo = fs.statSync(commandInterface.pianobarCtl).isFIFO();
-        } catch (statError) {
-          logger.warn(`Error checking if file is FIFO: ${statError.message}`);
-        }
-      }
-      
-      healthStatus.details.fifoExists = fifoExists;
-      healthStatus.details.isFifo = isFifo;
-      
-      if (!fifoExists || !isFifo) {
-        healthStatus.status = 'warning';
-        healthStatus.message = 'FIFO issue detected';
-      }
-    } catch (error) {
-      healthStatus.status = 'warning';
-      healthStatus.details.fifoCheckError = error.message;
-    }
-    
-    res.status(healthStatus.status === 'ok' ? 200 : 200).json(healthStatus);
+    res.json(healthStatus);
   } catch (error) {
     logger.error(`Error checking pianobar health: ${error.message}`);
     res.status(200).json({ 

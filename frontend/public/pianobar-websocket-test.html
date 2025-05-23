@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pianobar WebSocket Control Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-gap: 20px;
+    }
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+    h1 {
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #2c3e50;
+      margin-top: 20px;
+    }
+    .connection-status {
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    .connected {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .connecting {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+    pre {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      overflow: auto;
+      max-height: 300px;
+      font-size: 14px;
+      border: 1px solid #e9ecef;
+    }
+    button {
+      padding: 8px 16px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+    .control-panel {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+      margin-bottom: 20px;
+    }
+    .player-info {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+      margin-bottom: 20px;
+    }
+    .player-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .player-controls button {
+      flex: 1;
+      min-width: 80px;
+    }
+    .now-playing {
+      margin-bottom: 15px;
+    }
+    .now-playing h3 {
+      margin-bottom: 5px;
+      color: #2c3e50;
+    }
+    .now-playing p {
+      margin: 5px 0;
+    }
+    .rating {
+      display: inline-block;
+      margin-left: 10px;
+      color: #e74c3c;
+    }
+    .stations-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    .station-item {
+      padding: 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .station-item:hover {
+      background-color: #e9ecef;
+    }
+    .current-station {
+      background-color: #d4edda;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+    }
+    .error {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 7px;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 10px;
+      background-color: #3498db;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pianobar WebSocket Control Panel</h1>
+  
+  <div id="connection-status" class="connection-status disconnected">
+    Disconnected
+  </div>
+  
+  <div>
+    <button id="connect-btn">Connect</button>
+    <button id="disconnect-btn" disabled>Disconnect</button>
+  </div>
+  
+  <h2>Server Address</h2>
+  <input type="text" id="server-url" value="ws://192.168.0.15:3001/api/pianobar/ws">
+  
+  <div class="container">
+    <div>
+      <h2>Player Controls</h2>
+      <div class="control-panel">
+        <div class="player-controls">
+          <button id="play-pause-btn" disabled>Play/Pause</button>
+          <button id="next-btn" disabled>Next</button>
+          <button id="love-btn" disabled>Love</button>
+          <button id="ban-btn" disabled>Ban</button>
+          <button id="tired-btn" disabled>Tired</button>
+        </div>
+        
+        <h3>Stations</h3>
+        <button id="load-stations-btn" disabled>Load Stations</button>
+        <div id="stations-list" class="stations-list"></div>
+      </div>
+      
+      <h2>Now Playing</h2>
+      <div id="now-playing" class="player-info">
+        <div class="now-playing">
+          <h3>No Song Playing</h3>
+          <p>Connect to see current playback</p>
+        </div>
+      </div>
+    </div>
+    
+    <div>
+      <h2>Event Log</h2>
+      <pre id="log"></pre>
+    </div>
+  </div>
+  
+  <script>
+    // DOM Elements
+    const connectBtn = document.getElementById('connect-btn');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const statusEl = document.getElementById('connection-status');
+    const logEl = document.getElementById('log');
+    const serverUrlInput = document.getElementById('server-url');
+    const playPauseBtn = document.getElementById('play-pause-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const loveBtn = document.getElementById('love-btn');
+    const banBtn = document.getElementById('ban-btn');
+    const tiredBtn = document.getElementById('tired-btn');
+    const loadStationsBtn = document.getElementById('load-stations-btn');
+    const stationsListEl = document.getElementById('stations-list');
+    const nowPlayingEl = document.getElementById('now-playing');
+    
+    // WebSocket instance
+    let ws = null;
+    let currentState = {
+      status: 'stopped',
+      song: null,
+      artist: null,
+      album: null,
+      stationName: null,
+      songDuration: null,
+      rating: null,
+      stations: []
+    };
+    
+    // Log function
+    function log(message, isError = false) {
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.textContent = `[${timestamp}] ${message}`;
+      if (isError) {
+        entry.style.color = 'red';
+      }
+      logEl.appendChild(entry);
+      // Scroll to bottom
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    
+    // Update now playing info
+    function updateNowPlaying() {
+      if (currentState.status === 'playing' && currentState.song) {
+        nowPlayingEl.innerHTML = `
+          <div class="now-playing">
+            <h3>${currentState.song || 'Unknown Title'}</h3>
+            <p><strong>Artist:</strong> ${currentState.artist || 'Unknown Artist'}</p>
+            <p><strong>Album:</strong> ${currentState.album || 'Unknown Album'}</p>
+            <p><strong>Station:</strong> ${currentState.stationName || 'Unknown Station'}</p>
+            ${currentState.rating ? `<p><strong>Rating:</strong> <span class="rating">❤️</span></p>` : ''}
+          </div>
+        `;
+      } else if (currentState.status === 'paused' && currentState.song) {
+        nowPlayingEl.innerHTML = `
+          <div class="now-playing">
+            <h3>${currentState.song || 'Unknown Title'} <span class="badge">PAUSED</span></h3>
+            <p><strong>Artist:</strong> ${currentState.artist || 'Unknown Artist'}</p>
+            <p><strong>Album:</strong> ${currentState.album || 'Unknown Album'}</p>
+            <p><strong>Station:</strong> ${currentState.stationName || 'Unknown Station'}</p>
+            ${currentState.rating ? `<p><strong>Rating:</strong> <span class="rating">❤️</span></p>` : ''}
+          </div>
+        `;
+      } else {
+        nowPlayingEl.innerHTML = `
+          <div class="now-playing">
+            <h3>No Song Playing</h3>
+            <p>${currentState.status === 'stopped' ? 'Playback stopped' : 'Connect to see current playback'}</p>
+          </div>
+        `;
+      }
+    }
+    
+    // Update stations list
+    function updateStationsList() {
+      stationsListEl.innerHTML = '';
+      
+      if (currentState.stations && currentState.stations.length > 0) {
+        currentState.stations.forEach(station => {
+          const isCurrentStation = station.name === currentState.stationName;
+          const stationEl = document.createElement('div');
+          stationEl.className = `station-item ${isCurrentStation ? 'current-station' : ''}`;
+          stationEl.textContent = station.name;
+          stationEl.addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              sendCommand(`s${station.id}`);
+              log(`Switching to station: ${station.name}`);
+            }
+          });
+          stationsListEl.appendChild(stationEl);
+        });
+      } else {
+        stationsListEl.innerHTML = '<p>No stations available</p>';
+      }
+    }
+    
+    // Enable/disable control buttons
+    function setControlsEnabled(enabled) {
+      playPauseBtn.disabled = !enabled;
+      nextBtn.disabled = !enabled;
+      loveBtn.disabled = !enabled;
+      banBtn.disabled = !enabled;
+      tiredBtn.disabled = !enabled;
+      loadStationsBtn.disabled = !enabled;
+    }
+    
+    // Send command to pianobar
+    function sendCommand(command) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const message = {
+          type: 'command',
+          command: command
+        };
+        ws.send(JSON.stringify(message));
+        log(`Sent command: ${command}`);
+      } else {
+        log('Cannot send command, not connected', true);
+      }
+    }
+    
+    // Connect to WebSocket
+    connectBtn.addEventListener('click', () => {
+      // Disable connect button and enable disconnect button
+      connectBtn.disabled = true;
+      disconnectBtn.disabled = false;
+      
+      // Update status
+      statusEl.className = 'connection-status connecting';
+      statusEl.textContent = 'Connecting...';
+      
+      try {
+        // Get server URL from input
+        const serverUrl = serverUrlInput.value.trim();
+        log(`Connecting to ${serverUrl}`);
+        
+        // Create WebSocket
+        ws = new WebSocket(serverUrl);
+        
+        // Connection opened
+        ws.addEventListener('open', (event) => {
+          log('Connected to server');
+          statusEl.className = 'connection-status connected';
+          statusEl.textContent = 'Connected';
+          setControlsEnabled(true);
+        });
+        
+        // Listen for messages
+        ws.addEventListener('message', (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            log(`Received message type: ${data.type}`);
+            
+            if (data.type === 'status') {
+              // Update current state with status data
+              currentState = {...currentState, ...data.data};
+              log(`Player status: ${currentState.status}`);
+              updateNowPlaying();
+            } else if (data.type === 'event') {
+              log(`Event: ${data.data.eventType}`);
+              
+              // Handle specific events
+              if (data.data.eventType === 'songstart') {
+                currentState.song = data.data.title;
+                currentState.artist = data.data.artist;
+                currentState.album = data.data.album;
+                currentState.stationName = data.data.stationName;
+                currentState.songDuration = data.data.songDuration;
+                currentState.rating = data.data.rating === '+1';
+                currentState.status = 'playing';
+                updateNowPlaying();
+              } else if (data.data.eventType === 'songlove') {
+                currentState.rating = true;
+                updateNowPlaying();
+              } else if (data.data.eventType === 'songban') {
+                log('Song banned');
+              } else if (data.data.eventType === 'usergetstations') {
+                currentState.stations = data.data.stations || [];
+                log(`Received ${currentState.stations.length} stations`);
+                updateStationsList();
+              } else if (data.data.eventType === 'stationchange') {
+                currentState.stationName = data.data.stationName;
+                updateNowPlaying();
+                updateStationsList();
+              } else if (data.data.eventType === 'playbackstart') {
+                currentState.status = 'playing';
+                updateNowPlaying();
+              } else if (data.data.eventType === 'playbackpause') {
+                currentState.status = 'paused';
+                updateNowPlaying();
+              } else if (data.data.eventType === 'playbackstop') {
+                currentState.status = 'stopped';
+                updateNowPlaying();
+              }
+            } else if (data.type === 'ping') {
+              // Just a keepalive, no need to log
+            }
+          } catch (e) {
+            log(`Error parsing message: ${e.message}`, true);
+            log(`Raw message: ${event.data}`);
+          }
+        });
+        
+        // Connection closed
+        ws.addEventListener('close', (event) => {
+          log(`Connection closed: ${event.code} ${event.reason}`);
+          statusEl.className = 'connection-status disconnected';
+          statusEl.textContent = 'Disconnected';
+          connectBtn.disabled = false;
+          disconnectBtn.disabled = true;
+          setControlsEnabled(false);
+          ws = null;
+        });
+        
+        // Connection error
+        ws.addEventListener('error', (event) => {
+          log('WebSocket error', true);
+          statusEl.className = 'connection-status disconnected';
+          statusEl.textContent = 'Error';
+        });
+      } catch (error) {
+        log(`Error creating WebSocket: ${error.message}`, true);
+        statusEl.className = 'connection-status disconnected';
+        statusEl.textContent = 'Error';
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+      }
+    });
+    
+    // Disconnect button
+    disconnectBtn.addEventListener('click', () => {
+      if (ws) {
+        log('Disconnecting...');
+        ws.close();
+      }
+    });
+    
+    // Control buttons
+    playPauseBtn.addEventListener('click', () => {
+      sendCommand('p');
+    });
+    
+    nextBtn.addEventListener('click', () => {
+      sendCommand('n');
+    });
+    
+    loveBtn.addEventListener('click', () => {
+      sendCommand('+');
+    });
+    
+    banBtn.addEventListener('click', () => {
+      sendCommand('-');
+    });
+    
+    tiredBtn.addEventListener('click', () => {
+      sendCommand('t');
+    });
+    
+    loadStationsBtn.addEventListener('click', () => {
+      sendCommand('s');
+    });
+    
+    // Auto-detect server URL
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    const port = '3001'; // Use the backend port
+    const detectedUrl = `${protocol}//${host}:${port}/api/pianobar/ws`;
+    serverUrlInput.value = detectedUrl;
+    log(`Auto-detected server URL: ${detectedUrl}`);
+    
+    // Log page load
+    log('Page loaded');
+  </script>
+</body>
+</html>
