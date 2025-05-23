@@ -134,6 +134,10 @@ class PianobarWebsocketService {
    */
   setupWatchers() {
     try {
+      logger.info(`Setting up watchers for:`);
+      logger.info(`  Status file: ${this.statusFile}`);
+      logger.info(`  Event directory: ${this.eventDir}`);
+      
       // Watch status file for changes
       const statusWatcher = chokidar.watch(this.statusFile, {
         persistent: true,
@@ -163,35 +167,74 @@ class PianobarWebsocketService {
       });
       
       // Watch event directory for new event files
-      const eventWatcher = chokidar.watch(`${this.eventDir}/*.json`, {
+      // Use absolute path for better compatibility
+      const absoluteEventDir = path.resolve(this.eventDir);
+      logger.info(`🔍 Setting up file watcher for: ${absoluteEventDir}`);
+      logger.info(`📁 Event directory exists: ${fs.existsSync(absoluteEventDir)}`);
+      
+      // Check directory permissions
+      try {
+        const stats = fs.statSync(absoluteEventDir);
+        logger.info(`📋 Directory permissions: ${stats.mode.toString(8)}`);
+        logger.info(`📂 Directory is readable: ${fs.constants.R_OK & stats.mode ? 'YES' : 'NO'}`);
+      } catch (err) {
+        logger.error(`❌ Cannot access event directory: ${err.message}`);
+      }
+      
+      const eventWatcher = chokidar.watch(absoluteEventDir, {
         persistent: true,
         ignoreInitial: true,
+        usePolling: true,  // Enable polling for better filesystem compatibility
         awaitWriteFinish: {
-          stabilityThreshold: 300,
-          pollInterval: 100
-        }
+          stabilityThreshold: 100,  // Reduced for faster detection
+          pollInterval: 50
+        },
+        depth: 0  // Only watch files in the directory, not subdirectories
       });
       
-      eventWatcher.on('add', (filePath) => {
-        try {
-          const eventData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          logger.debug(`New event file: ${path.basename(filePath)}`);
+      // Add comprehensive event listeners for debugging
+      eventWatcher
+        .on('add', (filePath) => {
+          logger.info(`🔔 Event file ADDED: ${path.basename(filePath)}`);
+          // Only process .json files
+          if (!filePath.endsWith('.json')) {
+            logger.debug(`⏭️ Skipping non-JSON file: ${path.basename(filePath)}`);
+            return;
+          }
           
-          // Process the event based on type
-          this.processEvent(eventData);
-          
-          // Broadcast to all clients
-          this.broadcast({
-            type: 'event',
-            data: eventData
-          });
-          
-          // Remove the event file after processing
-          fs.unlinkSync(filePath);
-        } catch (error) {
-          logger.error(`Error processing event file: ${error.message}`);
-        }
-      });
+          try {
+            const eventData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            logger.info(`📤 Broadcasting event: ${eventData.eventType} - ${eventData.title || 'no title'}`);
+            
+            // Process the event based on type
+            this.processEvent(eventData);
+            
+            // Broadcast to all clients
+            this.broadcast({
+              type: 'event',
+              data: eventData
+            });
+            
+            // Remove the event file after processing
+            fs.unlinkSync(filePath);
+            logger.debug(`🗑️ Cleaned up event file: ${path.basename(filePath)}`);
+          } catch (error) {
+            logger.error(`❌ Error processing event file: ${error.message}`);
+          }
+        })
+        .on('change', (filePath) => {
+          logger.debug(`📝 Event file CHANGED: ${path.basename(filePath)}`);
+        })
+        .on('unlink', (filePath) => {
+          logger.debug(`🗑️ Event file REMOVED: ${path.basename(filePath)}`);
+        })
+        .on('error', (error) => {
+          logger.error(`❌ Chokidar watcher error: ${error.message}`);
+        })
+        .on('ready', () => {
+          logger.info(`✅ Event file watcher ready, watching: ${absoluteEventDir}`);
+          logger.info(`🔍 Watcher is polling: ${eventWatcher.options.usePolling}`);
+        });
       
       logger.info('File watchers set up for status and events');
     } catch (error) {
@@ -367,25 +410,70 @@ EVENT_DIR="${this.eventDir}"
 # Make sure the event directory exists
 mkdir -p "$EVENT_DIR"
 
+# Function to parse key=value pairs from stdin
+parse_pianobar_data() {
+  local line
+  declare -A data
+  
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+      local key="\${BASH_REMATCH[1]}"
+      local value="\${BASH_REMATCH[2]}"
+      data["$key"]="$value"
+    fi
+  done
+  
+  # Export parsed values
+  TITLE="\${data[title]:-}"
+  ARTIST="\${data[artist]:-}"  
+  ALBUM="\${data[album]:-}"
+  STATION_NAME="\${data[stationName]:-}"
+  SONG_DURATION="\${data[songDuration]:-}"
+  SONG_PLAYED="\${data[songPlayed]:-}"
+  RATING="\${data[rating]:-}"
+  DETAIL_URL="\${data[detailUrl]:-}"
+  COVER_ART="\${data[coverArt]:-}"
+  
+  # Parse station list for usergetstations events
+  STATIONS_JSON="[]"
+  if [[ "\${data[stationCount]:-}" =~ ^[0-9]+$ ]]; then
+    local station_count="\${data[stationCount]}"
+    local stations=""
+    for ((i=0; i<station_count; i++)); do
+      local station="\${data[station$i]:-}"
+      if [[ -n "$station" ]]; then
+        stations="$stations,\\"$station\\""
+      fi
+    done
+    if [[ -n "$stations" ]]; then
+      STATIONS_JSON="[\${stations:1}]"  # Remove leading comma
+    fi
+  fi
+}
+
 # Function to write event to JSON file
 write_event() {
   EVENT_TYPE="$1"
   TIMESTAMP=$(date +%s%3N)
   EVENT_FILE="$EVENT_DIR/$EVENT_TYPE-$TIMESTAMP.json"
   
-  # Create JSON with all information from pianobar
+  # Parse pianobar data from stdin
+  parse_pianobar_data
+  
+  # Create properly formatted JSON
   cat > "$EVENT_FILE" << EOF
 {
   "eventType": "$EVENT_TYPE",
   "title": "$TITLE",
   "artist": "$ARTIST",
   "album": "$ALBUM",
-  "stationName": "$STATIONNAME",
-  "stationId": "$STATIONID",
-  "songDuration": "$SONGDURATION",
-  "songPlayed": "$SONGPLAYED",
+  "stationName": "$STATION_NAME",
+  "songDuration": "$SONG_DURATION",
+  "songPlayed": "$SONG_PLAYED",
   "rating": "$RATING",
-  "detailUrl": "$DETAILURL",
+  "detailUrl": "$DETAIL_URL",
+  "coverArt": "$COVER_ART",
+  "stations": $STATIONS_JSON,
   "timestamp": $TIMESTAMP
 }
 EOF

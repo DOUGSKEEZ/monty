@@ -551,4 +551,49 @@ router.get('/health', async (req, res) => {
   }
 });
 
+// Debug endpoint to check event files and WebSocket service
+router.get('/debug-events', async (req, res) => {
+  try {
+    const eventDir = path.join(process.env.HOME || '/home/monty', '.config/pianobar/event_data');
+    
+    let files = [];
+    let error = null;
+    
+    try {
+      files = fs.readdirSync(eventDir);
+    } catch (readError) {
+      error = `Cannot read event directory: ${readError.message}`;
+    }
+    
+    const fileDetails = files.slice(-10).map(f => {
+      try {
+        const filePath = path.join(eventDir, f);
+        const stats = fs.statSync(filePath);
+        return {
+          name: f,
+          size: stats.size,
+          mtime: stats.mtime,
+          age: Date.now() - stats.mtime.getTime()
+        };
+      } catch (statError) {
+        return {
+          name: f,
+          error: statError.message
+        };
+      }
+    });
+    
+    res.json({ 
+      eventDir,
+      totalFiles: files.length,
+      recentFiles: fileDetails,
+      error,
+      timestamp: Date.now()
+    });
+  } catch (error) {
+    logger.error(`Debug events error: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

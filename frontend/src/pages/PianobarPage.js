@@ -3,7 +3,7 @@ import { useAppContext } from '../utils/AppContext';
 
 function PianobarPage() {
   // Get state from context
-  const { pianobar, actions } = useAppContext();
+  const { pianobar, currentSong, actions } = useAppContext();
   
   // Component state
   const [selectedStation, setSelectedStation] = useState('');
@@ -14,15 +14,33 @@ function PianobarPage() {
   
   // WebSocket state
   const [wsConnected, setWsConnected] = useState(false);
-  const [currentSong, setCurrentSong] = useState({
-    title: '',
-    artist: '',
-    album: '',
-    stationName: '',
-    songDuration: 0,
-    rating: 0
-  });
   const wsRef = useRef(null);
+
+  // Helper functions (moved to top to avoid hoisting issues)
+  const isPlayerOn = () => {
+    const result = pianobar.isRunning;
+    // Only log during button operations to reduce console noise
+    if (buttonLocked || showOperationMessage) {
+      console.log('isPlayerOn() check during operation:', {
+        'pianobar.isRunning': pianobar.isRunning,
+        'pianobar.status': pianobar.status,
+        'buttonLocked': buttonLocked,
+        'result': result
+      });
+    }
+    return result;
+  };
+
+  const isPlaying = () => {
+    return isPlayerOn() && pianobar.isPlaying;
+  };
+
+  // Format time in MM:SS format
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
   
   // Update selected station when pianobar status changes
   useEffect(() => {
@@ -30,6 +48,25 @@ function PianobarPage() {
       setSelectedStation(pianobar.status.stationId);
     }
   }, [pianobar.status]);
+
+  // Real-time progress tracking - increment songPlayed every second while playing
+  useEffect(() => {
+    let progressInterval = null;
+    
+    if (isPlayerOn() && isPlaying() && currentSong.songDuration > 0) {
+      progressInterval = setInterval(() => {
+        actions.updateCurrentSong({
+          songPlayed: Math.min(currentSong.songPlayed + 1, currentSong.songDuration)
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+    };
+  }, [isPlayerOn(), isPlaying(), currentSong.songDuration, actions]);
   
   // Check pianobar status when component mounts
   useEffect(() => {
@@ -72,17 +109,23 @@ function PianobarPage() {
             album: data.data.album,
             stationName: data.data.stationName,
             songDuration: data.data.songDuration,
-            rating: data.data.rating
+            songPlayed: data.data.songPlayed,
+            rating: data.data.rating,
+            coverArt: data.data.coverArt,
+            detailUrl: data.data.detailUrl
           });
           
-          // Update current song info
-          setCurrentSong({
+          // Update current song info in AppContext (persists across navigation)
+          actions.updateCurrentSong({
             title: data.data.title || '',
             artist: data.data.artist || '',
             album: data.data.album || '',
             stationName: data.data.stationName || '',
             songDuration: parseInt(data.data.songDuration) || 0,
-            rating: data.data.rating || 0
+            songPlayed: parseInt(data.data.songPlayed) || 0,
+            rating: parseInt(data.data.rating) || 0,
+            coverArt: data.data.coverArt || '',
+            detailUrl: data.data.detailUrl || ''
           });
           
           // Also update in global state for consistency
@@ -105,7 +148,8 @@ function PianobarPage() {
           }
         } else if (data.data.eventType === 'songlove') {
           console.log('SONG LOVE EVENT received');
-          setCurrentSong(prev => ({...prev, rating: 1}));
+          // Update rating in AppContext
+          actions.updateCurrentSong({ rating: 1 });
         } else if (data.data.eventType === 'songfinish') {
           console.log('SONG FINISH EVENT received');
         } else if (data.data.eventType === 'stationchange') {
@@ -153,26 +197,6 @@ function PianobarPage() {
     }
     
     return [];
-  };
-  
-  // Helper to check if player is on
-  const isPlayerOn = () => {
-    const result = pianobar.isRunning;
-    // Only log during button operations to reduce console noise
-    if (buttonLocked || showOperationMessage) {
-      console.log('isPlayerOn() check during operation:', {
-        'pianobar.isRunning': pianobar.isRunning,
-        'pianobar.status': pianobar.status,
-        'buttonLocked': buttonLocked,
-        'result': result
-      });
-    }
-    return result;
-  };
-  
-  // Helper to check if player is playing
-  const isPlaying = () => {
-    return isPlayerOn() && pianobar.isPlaying;
   };
   
   // Start the player
@@ -363,7 +387,7 @@ function PianobarPage() {
   const hideOperation = () => {
     setShowOperationMessage(false);
   };
-  
+
   const { song, artist, album, station } = getSongInfo();
 
   return (
@@ -459,32 +483,100 @@ function PianobarPage() {
           })()}
         </div>
         
-        {/* Song Info (Hidden when player is off) */}
+        {/* Now Playing Section (Hidden when player is off) */}
         <div className={isPlayerOn() ? '' : 'opacity-50'}>
-          <div className="mb-4">
-            <p className="text-lg font-semibold">Now Playing</p>
-            {/* Prefer WebSocket data when available, fallback to API data */}
-            <p className="text-xl font-bold" data-testid="song-title">
-              {currentSong.title || song || 'No song playing'}
-            </p>
-            {(currentSong.artist || artist) && (
-              <p data-testid="song-artist">{currentSong.artist || artist}</p>
-            )}
-            {(currentSong.album || album) && (
-              <p className="text-sm text-gray-600" data-testid="song-album">
-                Album: {currentSong.album || album}
-              </p>
-            )}
-            {(currentSong.stationName || station) && (
-              <p className="text-sm text-gray-600" data-testid="song-station">
-                Station: {currentSong.stationName || station}
-              </p>
-            )}
-            {currentSong.rating > 0 && (
-              <p className="text-sm text-red-500 flex items-center mt-1">
-                <span className="mr-1">Loved</span> <span className="text-red-500">❤️</span>
-              </p>
-            )}
+          <div className="mb-6">
+            <p className="text-lg font-semibold mb-4">Now Playing</p>
+            
+            {/* Album Art + Song Details Layout */}
+            <div className="flex items-start space-x-4">
+              {/* Album Art */}
+              <div className="flex-shrink-0">
+                {currentSong.coverArt ? (
+                  <img 
+                    src={currentSong.coverArt} 
+                    alt={`${currentSong.album || 'Album'} cover`}
+                    className="w-32 h-32 rounded-lg shadow-lg object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-lg shadow-lg bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
+                    <span className="text-white text-4xl">🎵</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Song Details */}
+              <div className="flex-grow min-w-0">
+                {/* Title */}
+                <h3 className="text-xl font-bold truncate" data-testid="song-title">
+                  {currentSong.title || song || 'No song playing'}
+                </h3>
+                
+                {/* Artist */}
+                {(currentSong.artist || artist) && (
+                  <p className="text-lg text-gray-700 truncate" data-testid="song-artist">
+                    {currentSong.artist || artist}
+                  </p>
+                )}
+                
+                {/* Album */}
+                {(currentSong.album || album) && (
+                  <p className="text-sm text-gray-600 truncate" data-testid="song-album">
+                    {currentSong.album || album}
+                  </p>
+                )}
+                
+                {/* Station */}
+                {(currentSong.stationName || station) && (
+                  <p className="text-sm text-blue-600 font-medium truncate" data-testid="song-station">
+                    📻 {currentSong.stationName || station}
+                  </p>
+                )}
+                
+                {/* Loved Indicator */}
+                {currentSong.rating > 0 && (
+                  <div className="flex items-center mt-2">
+                    <span className="text-sm text-red-500 flex items-center">
+                      <span className="mr-1">Loved</span> 
+                      <span className="text-red-500 animate-pulse">❤️</span>
+                    </span>
+                  </div>
+                )}
+                
+                {/* Song Progress Bar */}
+                {currentSong.songDuration > 0 && (
+                  <div className="mt-4">
+                    <div className="flex justify-between text-sm text-gray-500 mb-1">
+                      <span>{formatTime(currentSong.songPlayed || 0)}</span>
+                      <span>{formatTime(currentSong.songDuration)}</span>
+                    </div>
+                    <div className="w-full bg-gray-300 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+                        style={{ 
+                          width: `${Math.min(100, (currentSong.songPlayed / currentSong.songDuration) * 100)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Pandora Link */}
+                {currentSong.detailUrl && (
+                  <a 
+                    href={currentSong.detailUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-400 hover:text-blue-300 mt-3 inline-block transition-colors"
+                  >
+                    View on Pandora →
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
           
           {/* Playback Controls */}

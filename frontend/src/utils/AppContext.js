@@ -62,6 +62,19 @@ export const AppProvider = ({ children }) => {
     error: null,
   });
 
+  // Current song state (persists across page navigation)
+  const [currentSong, setCurrentSong] = useState({
+    title: '',
+    artist: '',
+    album: '',
+    stationName: '',
+    rating: 0,
+    songDuration: 0,
+    songPlayed: 0,
+    coverArt: '',
+    detailUrl: ''
+  });
+
   // Load initial data
   useEffect(() => {
     // Initial data loading
@@ -774,6 +787,29 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
+  // Update current song data from WebSocket events
+  const updateCurrentSong = (songData) => {
+    setCurrentSong(prev => ({
+      ...prev,
+      ...songData
+    }));
+  };
+
+  // Clear current song data
+  const clearCurrentSong = () => {
+    setCurrentSong({
+      title: '',
+      artist: '',
+      album: '',
+      stationName: '',
+      rating: 0,
+      songDuration: 0,
+      songPlayed: 0,
+      coverArt: '',
+      detailUrl: ''
+    });
+  };
+
   // Context value
   const value = {
     weather,
@@ -782,6 +818,7 @@ export const AppProvider = ({ children }) => {
     music,
     bluetooth,
     pianobar,
+    currentSong,
     actions: {
       refreshWeather: loadWeatherData,
       refreshShades: loadShadeData,
@@ -797,7 +834,9 @@ export const AppProvider = ({ children }) => {
       connectBluetooth,
       disconnectBluetooth,
       updatePianobarStatus,
-      updatePianobarStations
+      updatePianobarStations,
+      updateCurrentSong,
+      clearCurrentSong
     },
   };
 
