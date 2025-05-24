@@ -12,6 +12,9 @@ function PianobarPage() {
   const [buttonLocked, setButtonLocked] = useState(false);
   const [buttonAction, setButtonAction] = useState(null); // 'starting' or 'stopping'
   
+  // Love animation state
+  const [isAnimatingLove, setIsAnimatingLove] = useState(false);
+  
   // WebSocket state
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef(null);
@@ -279,20 +282,30 @@ function PianobarPage() {
     }
   };
   
-  // Send control command
-  const handleCommand = async (command) => {
+  
+  // Request fresh station list from pianobar
+  const handleRefreshStations = async () => {
     if (!isPlayerOn()) return;
     
+    showOperation('Refreshing station list...');
+    
     try {
-      await actions.controlPianobar('command', { command });
+      // Send 's' command to pianobar to request fresh station list
+      console.log('Sending station list request command to pianobar');
+      await actions.controlPianobar('command', { command: 's' });
       
-      // Refresh pianobar status after command
-      await actions.refreshPianobar();
+      // The WebSocket will receive the 'usergetstations' event and update the dropdown
+      console.log('Station list request sent - waiting for WebSocket update');
     } catch (error) {
-      console.error(`Error sending command ${command}:`, error);
+      console.error('Error requesting station list:', error);
+    } finally {
+      // Hide operation message after a short delay to allow WebSocket update
+      setTimeout(() => {
+        hideOperation();
+      }, 2000);
     }
   };
-  
+
   // Change station
   const handleChangeStation = async () => {
     if (!selectedStation || !isPlayerOn()) return;
@@ -351,15 +364,21 @@ function PianobarPage() {
   const handleLove = async () => {
     if (!isPlayerOn()) return;
     
+    // 🎯 OPTIMISTIC UI - Immediate visual feedback!
+    setIsAnimatingLove(true);
+    actions.updateCurrentSong({ rating: 1 });
+    
+    // Remove animation class after animation completes
+    setTimeout(() => setIsAnimatingLove(false), 800);
+    
     try {
-      // Always use the REST API for commands
+      // Send REST command in background
       await actions.controlPianobar('love');
-      console.log('Sent love command via REST API');
-      
-      // We don't need to update local state immediately anymore
-      // WebSocket will send a songlove event that will update the UI
+      console.log('❤️ Love command sent via REST API');
     } catch (error) {
       console.error('Error loving song:', error);
+      // Revert optimistic update on failure
+      actions.updateCurrentSong({ rating: 0 });
     }
   };
   
@@ -531,8 +550,12 @@ function PianobarPage() {
                 
                 {/* Station */}
                 {(currentSong.stationName || station) && (
-                  <p className="text-sm text-blue-600 font-medium truncate" data-testid="song-station">
-                    📻 {currentSong.stationName || station}
+                  <p className="text-sm text-blue-600 font-medium truncate flex items-center space-x-1" data-testid="song-station">
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
+                      <path d="M6 10.5a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5H7.5V12a2.25 2.25 0 004.5 0v-.75h-.75a.75.75 0 010-1.5h1.5a.75.75 0 01.75.75V12a3.75 3.75 0 11-7.5 0v-1.5z" />
+                    </svg>
+                    <span className="truncate">{currentSong.stationName || station}</span>
                   </p>
                 )}
                 
@@ -583,17 +606,19 @@ function PianobarPage() {
           <div className="flex space-x-4 my-4">
             <button 
               onClick={handleLove}
-              className={`p-2 rounded-full ${
+              className={`p-2 rounded-full transition-all duration-300 ${
                 !isPlayerOn() 
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : currentSong.rating > 0 
                     ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
                     : 'bg-red-500 hover:bg-red-600 text-white'
-              }`}
+              } ${isAnimatingLove ? 'animate-love' : ''}`}
               disabled={!isPlayerOn()}
               title={currentSong.rating > 0 ? "Loved Song" : "Love This Song"}
             >
-              ❤️
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+              </svg>
             </button>
             <button 
               onClick={handlePlayPause}
@@ -605,7 +630,15 @@ function PianobarPage() {
               disabled={!isPlayerOn()}
               title={isPlaying() ? 'Pause' : 'Play'}
             >
-              {isPlaying() ? '⏸️' : '▶️'}
+              {isPlaying() ? (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                </svg>
+              )}
             </button>
             <button 
               onClick={handleNext}
@@ -617,14 +650,21 @@ function PianobarPage() {
               disabled={!isPlayerOn()}
               title="Next Song"
             >
-              ⏭️
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5.055 7.06c-1.25-.714-2.805.189-2.805 1.628v8.123c0 1.44 1.555 2.342 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.342 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256L14.805 7.06C13.555 6.346 12 7.25 12 8.688v2.34L5.055 7.06z" />
+              </svg>
             </button>
             <button 
               onClick={() => actions.refreshPianobar()}
               className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full"
               title="Refresh Status"
             >
-              🔄
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                <path d="M21 3v5h-5"></path>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                <path d="M3 21v-5h5"></path>
+              </svg>
             </button>
           </div>
           
@@ -632,11 +672,30 @@ function PianobarPage() {
           <div className="mt-6">
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium">Select Station</label>
-              {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
-                <span className="text-xs text-amber-600">
-                  {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
-                </span>
-              )}
+              <div className="flex items-center space-x-2">
+                {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
+                  <span className="text-xs text-amber-600">
+                    {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
+                  </span>
+                )}
+                <button
+                  onClick={handleRefreshStations}
+                  className={`px-2 py-1 text-xs rounded ${
+                    isPlayerOn() 
+                      ? 'bg-purple-200 hover:bg-purple-300 text-purple-700' 
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                  disabled={!isPlayerOn() || pianobar.loading || showOperationMessage}
+                  title="Request fresh station list from Pandora"
+                >
+                  <div className="flex items-center space-x-1">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                    </svg>
+                    <span>Get Stations</span>
+                  </div>
+                </button>
+              </div>
             </div>
             <div className="flex space-x-2">
               <select 
@@ -662,6 +721,12 @@ function PianobarPage() {
                 Change
               </button>
             </div>
+            {/* Show current station count */}
+            {isPlayerOn() && Array.isArray(pianobar.stations) && pianobar.stations.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {pianobar.stations.length} station{pianobar.stations.length !== 1 ? 's' : ''} available
+              </p>
+            )}
           </div>
         </div>
       </div>

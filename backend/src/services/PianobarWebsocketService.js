@@ -315,6 +315,27 @@ class PianobarWebsocketService {
         };
         break;
         
+      case 'usergetstations':
+        logger.info(`Station list updated: ${eventData.stations?.length || 0} stations received`);
+        logger.info(`🔍 Station data received: ${JSON.stringify(eventData.stations?.slice(0, 3) || [])}...`);
+        // Update the stations cache file with fresh data
+        try {
+          const stationsData = {
+            stations: eventData.stations || [],
+            fetchTime: Date.now()
+          };
+          const stationsFile = path.join(__dirname, '../../../data/cache/pianobar_stations.json');
+          logger.info(`📁 Writing to stations file: ${stationsFile}`);
+          logger.info(`📄 File exists before write: ${fs.existsSync(stationsFile)}`);
+          fs.writeFileSync(stationsFile, JSON.stringify(stationsData, null, 2));
+          logger.info(`✅ Updated stations cache with ${stationsData.stations.length} stations at ${stationsFile}`);
+          logger.info(`📄 File exists after write: ${fs.existsSync(stationsFile)}`);
+        } catch (error) {
+          logger.error(`❌ Failed to update stations cache: ${error.message}`);
+          logger.error(`❌ Error stack: ${error.stack}`);
+        }
+        break;
+        
       default:
         logger.debug(`Unhandled event type: ${eventData.eventType}`);
     }
