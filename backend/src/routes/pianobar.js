@@ -16,8 +16,12 @@ console.log('[DEBUG] Importing createPianobarCommandInterface in routes');
 const { createPianobarCommandInterface } = require('../services/PianobarCommandInterface');
 console.log('[DEBUG] Successfully imported createPianobarCommandInterface in routes');
 
+// Import ServiceFactory to access actual PianobarService
+const { createActualPianobarService } = require('../utils/ServiceFactory');
+
 // Defer creation of command interface until first use
 let commandInterface = null;
+let actualPianobarService = null;
 
 function getCommandInterface() {
   if (!commandInterface) {
@@ -49,6 +53,30 @@ function getCommandInterface() {
     }
   }
   return commandInterface;
+}
+
+function getActualPianobarService() {
+  if (!actualPianobarService) {
+    try {
+      console.log('[DEBUG] Creating actual PianobarService in routes (lazy initialization)');
+      actualPianobarService = createActualPianobarService();
+      console.log('[DEBUG] Successfully created actual PianobarService in routes');
+    } catch (error) {
+      console.error(`[ERROR] Error creating actual PianobarService in routes: ${error.message}`);
+      console.error(error.stack);
+      // Return a mock service that logs errors but doesn't fail
+      return {
+        getState: () => ({
+          version: 0,
+          timestamp: Date.now(),
+          player: { isRunning: false, isPlaying: false, status: 'stopped' },
+          currentSong: { title: null, artist: null, album: null, stationName: null, songDuration: null, songPlayed: null, rating: null, coverArt: null, detailUrl: null },
+          stations: []
+        })
+      };
+    }
+  }
+  return actualPianobarService;
 }
 
 // Status file path
@@ -182,6 +210,50 @@ router.get('/status', async (req, res) => {
         error: error.message,
         fromCache: true
       } 
+    });
+  }
+});
+
+// Get central state from PianobarService
+router.get('/state', async (req, res) => {
+  try {
+    const pianobarService = getActualPianobarService();
+    const state = pianobarService.getState();
+    
+    logger.debug(`Central state retrieved: version ${state.version}`);
+    
+    res.json({
+      success: true,
+      data: state
+    });
+  } catch (error) {
+    logger.error(`Error getting central state: ${error.message}`);
+    
+    // Return default state on error
+    res.status(200).json({
+      success: true,
+      data: {
+        version: 0,
+        timestamp: Date.now(),
+        player: {
+          isRunning: false,
+          isPlaying: false,
+          status: 'stopped'
+        },
+        currentSong: {
+          title: null,
+          artist: null,
+          album: null,
+          stationName: null,
+          songDuration: null,
+          songPlayed: null,
+          rating: null,
+          coverArt: null,
+          detailUrl: null
+        },
+        stations: [],
+        error: error.message
+      }
     });
   }
 });

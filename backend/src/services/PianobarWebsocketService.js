@@ -35,6 +35,9 @@ class PianobarWebsocketService {
       updateTime: Date.now()
     };
     
+    // Reference to PianobarService for central state management
+    this.pianobarService = null;
+    
     // Setup WebSocket handlers
     this.setupWebSocketHandlers();
     
@@ -45,6 +48,15 @@ class PianobarWebsocketService {
     this.ensureEventDirectory();
     
     logger.info('PianobarWebsocketService initialized');
+  }
+  
+  /**
+   * Set the PianobarService instance for central state management
+   * @param {Object} pianobarService - The PianobarService instance
+   */
+  setPianobarService(pianobarService) {
+    this.pianobarService = pianobarService;
+    logger.info('PianobarService reference set for central state management');
   }
   
   /**
@@ -101,6 +113,29 @@ class PianobarWebsocketService {
               type: 'status',
               data: this.currentStatus
             });
+          } else if (data.type === 'GET_STATE') {
+            // Handle request for central state
+            if (this.pianobarService) {
+              try {
+                const state = this.pianobarService.getState();
+                this.sendToClient(ws, {
+                  type: 'STATE_UPDATE',
+                  data: state
+                });
+                logger.debug(`Sent central state to client: version ${state.version}`);
+              } catch (error) {
+                logger.error(`Error getting central state for client: ${error.message}`);
+                this.sendToClient(ws, {
+                  type: 'ERROR',
+                  message: 'Failed to get central state'
+                });
+              }
+            } else {
+              this.sendToClient(ws, {
+                type: 'ERROR',
+                message: 'PianobarService not available'
+              });
+            }
           }
         } catch (error) {
           logger.warn(`Error processing client message: ${error.message}`);
@@ -255,7 +290,35 @@ class PianobarWebsocketService {
     switch (eventData.eventType) {
       case 'songstart':
         logger.info(`Now playing: ${eventData.artist} - ${eventData.title}`);
-        // Update current status with song info
+        
+        // Update central state if PianobarService is available
+        if (this.pianobarService) {
+          this.pianobarService.updateCentralState({
+            player: {
+              isRunning: true,
+              isPlaying: true,
+              status: 'playing'
+            },
+            currentSong: {
+              title: eventData.title || null,
+              artist: eventData.artist || null,
+              album: eventData.album || null,
+              stationName: eventData.stationName || null,
+              songDuration: eventData.songDuration || null,
+              songPlayed: eventData.songPlayed || null,
+              rating: eventData.rating || null,
+              coverArt: eventData.coverArt || null,
+              detailUrl: eventData.detailUrl || null
+            }
+          }, 'websocket-songstart').then(() => {
+            // Broadcast state update after central state is updated
+            this.broadcastStateUpdate();
+          }).catch(err => {
+            logger.error(`Error updating central state in songstart: ${err.message}`);
+          });
+        }
+        
+        // Keep legacy currentStatus update for backward compatibility
         this.currentStatus = {
           ...this.currentStatus,
           status: 'playing',
@@ -393,6 +456,27 @@ class PianobarWebsocketService {
     }
     
     logger.debug(`Broadcast sent to ${this.clients.size} clients`);
+  }
+  
+  /**
+   * Broadcast central state update to all connected clients
+   */
+  broadcastStateUpdate() {
+    if (!this.pianobarService) {
+      logger.warn('Cannot broadcast state update: PianobarService not set');
+      return;
+    }
+    
+    try {
+      const state = this.pianobarService.getState();
+      this.broadcast({
+        type: 'STATE_UPDATE',
+        data: state
+      });
+      logger.debug(`State update broadcasted: version ${state.version}`);
+    } catch (error) {
+      logger.error(`Error broadcasting state update: ${error.message}`);
+    }
   }
   
   /**

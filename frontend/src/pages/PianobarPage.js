@@ -18,6 +18,9 @@ function PianobarPage() {
   // WebSocket state
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef(null);
+  
+  // Version tracking for STATE_UPDATE messages
+  const lastVersionRef = useRef(-1);
 
   // Helper functions (moved to top to avoid hoisting issues)
   const isPlayerOn = () => {
@@ -85,6 +88,10 @@ function PianobarPage() {
     websocket.onopen = () => {
       console.log('Pianobar WebSocket connected');
       setWsConnected(true);
+      
+      // Immediately request current state
+      websocket.send(JSON.stringify({ type: 'GET_STATE' }));
+      console.log('Requested current state from server');
     };
     
     websocket.onmessage = (event) => {
@@ -157,6 +164,47 @@ function PianobarPage() {
           console.log('SONG FINISH EVENT received');
         } else if (data.data.eventType === 'stationchange') {
           console.log('STATION CHANGE EVENT received:', data.data.stationName);
+        }
+      } else if (data.type === 'STATE_UPDATE') {
+        console.log('STATE_UPDATE received:', data.data);
+        
+        // Check version to prevent out-of-order updates
+        const newVersion = data.data.version || 0;
+        const currentVersion = lastVersionRef.current;
+        
+        console.log(`State update: v${currentVersion} -> v${newVersion}`);
+        
+        if (newVersion > currentVersion) {
+          // Accept this update
+          lastVersionRef.current = newVersion;
+          console.log('State update ACCEPTED - updating both pianobar and currentSong state');
+          
+          // Update pianobar state from server central state
+          actions.updatePianobarStatus({
+            isRunning: data.data.player.isRunning,
+            isPlaying: data.data.player.isPlaying,
+            status: {
+              ...pianobar.status,
+              status: data.data.player.status
+            }
+          });
+          
+          // Update currentSong state from server central state
+          actions.updateCurrentSong({
+            title: data.data.currentSong.title || '',
+            artist: data.data.currentSong.artist || '',
+            album: data.data.currentSong.album || '',
+            stationName: data.data.currentSong.stationName || '',
+            songDuration: parseInt(data.data.currentSong.songDuration) || 0,
+            songPlayed: parseInt(data.data.currentSong.songPlayed) || 0,
+            rating: parseInt(data.data.currentSong.rating) || 0,
+            coverArt: data.data.currentSong.coverArt || '',
+            detailUrl: data.data.currentSong.detailUrl || ''
+          });
+          
+          console.log('State update applied successfully');
+        } else {
+          console.log(`State update REJECTED - version ${newVersion} <= current ${currentVersion}`);
         }
       }
     };

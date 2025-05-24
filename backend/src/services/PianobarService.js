@@ -597,16 +597,15 @@ class PianobarService extends IPianobarService {
         this.isPianobarRunning = false;
         this.isPlaying = false;
         
-        // Update status file
-        this.saveStatus({
-          status: 'stopped',
-          isPianobarRunning: false,
-          isPlaying: false,
-          updateTime: Date.now(),
-          exitCode: code,
-          exitSignal: signal
-        }).catch(err => {
-          logger.error(`Error updating status after process exit: ${err.message}`);
+        // Update central state
+        this.updateCentralState({
+          player: {
+            isRunning: false,
+            isPlaying: false,
+            status: 'stopped'
+          }
+        }, 'process-exit').catch(err => {
+          logger.error(`Error updating central state after process exit: ${err.message}`);
         });
       });
       
@@ -622,16 +621,16 @@ class PianobarService extends IPianobarService {
         throw new Error('Failed to start pianobar process');
       }
       
-      // Update status
+      // Update central state
       this.isPianobarRunning = true;
       this.isPlaying = true;
-      await this.saveStatus({
-        status: 'playing',
-        isPianobarRunning: true,
-        isPlaying: true,
-        updateTime: Date.now(),
-        startTime: Date.now()
-      });
+      await this.updateCentralState({
+        player: {
+          isRunning: true,
+          isPlaying: true,
+          status: 'playing'
+        }
+      }, 'start-pianobar');
       
       // Select default station if configured
       if (this.defaultStation && this.defaultStation !== '0') {
@@ -754,14 +753,14 @@ class PianobarService extends IPianobarService {
       this.isPlaying = false;
       this.pianobarProcess = null;
       
-      // Update status file
-      await this.saveStatus({
-        status: 'stopped',
-        isPianobarRunning: false,
-        isPlaying: false,
-        updateTime: Date.now(),
-        stopTime: Date.now()
-      });
+      // Update central state
+      await this.updateCentralState({
+        player: {
+          isRunning: false,
+          isPlaying: false,
+          status: 'stopped'
+        }
+      }, 'stop-pianobar');
       
       // Record metrics
       if (prometheusMetrics) {
@@ -914,38 +913,41 @@ class PianobarService extends IPianobarService {
         logger.info(`[${operationId}] Command sent successfully in ${duration}ms`);
       }
       
-      // Update status based on command
+      // Update central state based on command
       if (command === 'P') {
         this.isPlaying = true;
-        await this.saveStatus({
-          status: 'playing',
-          isPianobarRunning: true,
-          isPlaying: true,
-          updateTime: Date.now()
-        });
+        await this.updateCentralState({
+          player: {
+            isRunning: true,
+            isPlaying: true,
+            status: 'playing'
+          }
+        }, 'play-command');
         if (prometheusMetrics) {
           prometheusMetrics.recordGauge('pianobar', 'status', 1);
         }
       } else if (command === 'S') {
         this.isPlaying = false;
-        await this.saveStatus({
-          status: 'paused',
-          isPianobarRunning: true,
-          isPlaying: false,
-          updateTime: Date.now()
-        });
+        await this.updateCentralState({
+          player: {
+            isRunning: true,
+            isPlaying: false,
+            status: 'paused'
+          }
+        }, 'pause-command');
         if (prometheusMetrics) {
           prometheusMetrics.recordGauge('pianobar', 'status', 0.5);
         }
       } else if (command === 'q') {
         this.isPlaying = false;
         this.isPianobarRunning = false;
-        await this.saveStatus({
-          status: 'stopped',
-          isPianobarRunning: false,
-          isPlaying: false,
-          updateTime: Date.now()
-        });
+        await this.updateCentralState({
+          player: {
+            isRunning: false,
+            isPlaying: false,
+            status: 'stopped'
+          }
+        }, 'quit-command');
         if (prometheusMetrics) {
           prometheusMetrics.recordGauge('pianobar', 'status', 0);
         }
@@ -1400,6 +1402,83 @@ class PianobarService extends IPianobarService {
     // Skip creating the event script since we're using status files directly
     logger.info(`Not writing event script - we're using the existing config file`);
     return true;
+  }
+  
+  /**
+   * Safely update central state with version increment
+   */
+  async updateCentralState(updates, source = 'unknown') {
+    // Wait for lock to be released
+    while (this.stateLock) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
+    try {
+      this.stateLock = true;
+      
+      const oldVersion = this.centralState.version;
+      
+      // Deep merge updates into central state
+      if (updates.player) {
+        this.centralState.player = { ...this.centralState.player, ...updates.player };
+      }
+      if (updates.currentSong) {
+        this.centralState.currentSong = { ...this.centralState.currentSong, ...updates.currentSong };
+      }
+      if (updates.stations) {
+        this.centralState.stations = [...updates.stations];
+      }
+      
+      // Increment version and update timestamp
+      this.centralState.version = oldVersion + 1;
+      this.centralState.timestamp = Date.now();
+      
+      logger.debug(`Central state updated by ${source}: v${oldVersion} -> v${this.centralState.version}`);
+      
+      // Persist state to file
+      await this.persistState();
+      
+      return this.centralState.version;
+    } finally {
+      this.stateLock = false;
+    }
+  }
+  
+  /**
+   * Get a copy of current state
+   */
+  getState() {
+    return JSON.parse(JSON.stringify(this.centralState));
+  }
+  
+  /**
+   * Save central state to pianobar_status.json with new structure
+   */
+  async persistState() {
+    try {
+      const stateToSave = {
+        ...this.centralState,
+        // Legacy compatibility fields
+        status: this.centralState.player.status,
+        isPianobarRunning: this.centralState.player.isRunning,
+        isPlaying: this.centralState.player.isPlaying,
+        updateTime: this.centralState.timestamp
+      };
+      
+      // Make sure the parent directory exists
+      const statusDir = path.dirname(this.pianobarStatusFile);
+      if (!fs.existsSync(statusDir)) {
+        fs.mkdirSync(statusDir, { recursive: true });
+      }
+      
+      // Write to file
+      fs.writeFileSync(this.pianobarStatusFile, JSON.stringify(stateToSave, null, 2), 'utf8');
+      
+      return true;
+    } catch (error) {
+      logger.error(`Error persisting central state: ${error.message}`);
+      return false;
+    }
   }
   
   /**

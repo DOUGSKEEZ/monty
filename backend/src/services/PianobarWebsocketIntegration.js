@@ -105,6 +105,16 @@ async function initializePianobarWebsocket(server, options = {}) {
       });
       console.log('[DEBUG] WebSocket service created');
       
+      // Connect PianobarService to WebSocket service for central state management
+      try {
+        const { createActualPianobarService } = require('../utils/ServiceFactory');
+        const pianobarService = createActualPianobarService();
+        websocketService.setPianobarService(pianobarService);
+        console.log('[DEBUG] PianobarService connected to WebSocket service');
+      } catch (error) {
+        console.warn(`[WARN] Failed to connect PianobarService to WebSocket: ${error.message}`);
+      }
+      
       // Create the event command script with retry
       const eventScriptPath = path.join(process.env.HOME || '/home/monty', '.config/pianobar/eventcmd.sh');
       const configPath = path.join(process.env.HOME || '/home/monty', '.config/pianobar/config');

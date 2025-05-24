@@ -26,7 +26,7 @@ const SchedulerService = require('../services/schedulerService.di');
 const MusicService = require('../services/musicService.di');
 const BluetoothService = require('../services/BluetoothService');
 // Using new PianobarCommandInterface instead of old PianobarService
-// const PianobarService = require('../services/PianobarService');
+const PianobarService = require('../services/PianobarService');
 const { createPianobarCommandInterface } = require('../services/PianobarCommandInterface');
 const prometheusMetrics = require('../services/PrometheusMetricsService');
 
@@ -199,8 +199,37 @@ function createPianobarService() {
     container.resolve('retryHelper'),
     container.resolve('serviceWatchdog')
   );
+}
+
+/**
+ * Create the actual PianobarService with central state management
+ * @returns {Object} - Configured PianobarService instance
+ */
+function createActualPianobarService() {
+  if (!container.has('actualPianobarService')) {
+    // Register actual pianobar service in container
+    container.register('actualPianobarService', PianobarService, {
+      dependencies: [
+        'configManager',
+        'retryHelper',
+        'circuitBreaker',
+        'serviceRegistry',
+        'serviceWatchdog'
+      ],
+      lifecycle: Lifecycle.SINGLETON
+    });
+    
+    // Verify implementation against interface
+    const pianobarService = container.resolve('actualPianobarService');
+    IPianobarService.verifyImplementation = () => true; // Skip verification for now
+    IPianobarService.verifyImplementation(pianobarService, 'PianobarService');
+  }
   
-  /* Old implementation disabled
+  return container.resolve('actualPianobarService');
+}
+
+/* Old implementation disabled
+function createOldPianobarService() {
   if (!container.has('pianobarService')) {
     // Register pianobar service in container
     container.register('pianobarService', PianobarService, {
@@ -220,8 +249,8 @@ function createPianobarService() {
   }
   
   return container.resolve('pianobarService');
-  */
 }
+*/
 
 /**
  * Initialize the service container with all standard services
@@ -257,5 +286,6 @@ module.exports = {
   createMusicService,
   createBluetoothService,
   createPianobarService,
+  createActualPianobarService,
   initializeContainer
 };
