@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarApi } from './api';
+import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarApi, stateApi } from './api';
 
 // Create context
 const AppContext = createContext();
@@ -62,18 +62,36 @@ export const AppProvider = ({ children }) => {
     error: null,
   });
 
-  // Current song state (persists across page navigation)
-  const [currentSong, setCurrentSong] = useState({
-    title: '',
-    artist: '',
-    album: '',
-    stationName: '',
-    rating: 0,
-    songDuration: 0,
-    songPlayed: 0,
-    coverArt: '',
-    detailUrl: ''
+  // Current song state with localStorage persistence
+  const [currentSong, setCurrentSong] = useState(() => {
+    // Try to load from localStorage first
+    try {
+      const stored = localStorage.getItem('monty_currentSong');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        console.log('🎵 Loaded currentSong from localStorage:', parsed);
+        return parsed;
+      }
+    } catch (error) {
+      console.warn('Failed to load currentSong from localStorage:', error);
+    }
+    
+    // Default state if no localStorage data
+    return {
+      title: '',
+      artist: '',
+      album: '',
+      stationName: '',
+      rating: 0,
+      songDuration: 0,
+      songPlayed: 0,
+      coverArt: '',
+      detailUrl: ''
+    };
   });
+
+  // Persistent state management
+  const [lastSyncTime, setLastSyncTime] = useState(Date.now());
 
   // Load initial data
   useEffect(() => {
@@ -85,6 +103,9 @@ export const AppProvider = ({ children }) => {
     loadBluetoothStatus();
     loadPianobarData();
     
+    // Load persistent state from backend
+    loadBackendState();
+    
     // Set up interval to refresh data periodically
     const refreshInterval = setInterval(() => {
       loadWeatherData(false);
@@ -93,8 +114,14 @@ export const AppProvider = ({ children }) => {
       // Bluetooth status is refreshed separately
     }, 60000); // Refresh every minute
     
+    // Set up background state sync every 30 seconds
+    const syncInterval = setInterval(() => {
+      syncStateToBackend();
+    }, 30000);
+    
     return () => {
       clearInterval(refreshInterval);
+      clearInterval(syncInterval);
     };
   }, []); // CRITICAL: Remove the dependency array that was causing re-renders
   
@@ -787,17 +814,33 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
-  // Update current song data from WebSocket events
+  // Update current song data from WebSocket events with persistence
   const updateCurrentSong = (songData) => {
-    setCurrentSong(prev => ({
-      ...prev,
-      ...songData
-    }));
+    const newSongData = {
+      ...currentSong,
+      ...songData,
+      lastUpdated: Date.now()
+    };
+    
+    setCurrentSong(newSongData);
+    
+    // Persist to localStorage immediately
+    try {
+      localStorage.setItem('monty_currentSong', JSON.stringify(newSongData));
+      console.log('💾 Saved currentSong to localStorage:', newSongData);
+    } catch (error) {
+      console.warn('Failed to save currentSong to localStorage:', error);
+    }
+    
+    // Debounced backend sync (only sync significant changes)
+    if (shouldSyncToBackend(songData)) {
+      debouncedBackendSync(newSongData);
+    }
   };
 
-  // Clear current song data
+  // Clear current song data with persistence
   const clearCurrentSong = () => {
-    setCurrentSong({
+    const clearedState = {
       title: '',
       artist: '',
       album: '',
@@ -806,8 +849,75 @@ export const AppProvider = ({ children }) => {
       songDuration: 0,
       songPlayed: 0,
       coverArt: '',
-      detailUrl: ''
-    });
+      detailUrl: '',
+      lastUpdated: Date.now()
+    };
+    
+    setCurrentSong(clearedState);
+    
+    // Clear from localStorage
+    try {
+      localStorage.removeItem('monty_currentSong');
+      console.log('🗑️ Cleared currentSong from localStorage');
+    } catch (error) {
+      console.warn('Failed to clear currentSong from localStorage:', error);
+    }
+    
+    // Sync cleared state to backend
+    syncStateToBackend({ currentSong: clearedState });
+  };
+  
+  // Load state from backend API
+  const loadBackendState = async () => {
+    try {
+      const backendState = await stateApi.getState();
+      console.log('🔄 Loaded state from backend:', backendState);
+      
+      // Only update if backend has newer data
+      if (backendState.currentSong && 
+          (!currentSong.lastUpdated || 
+           backendState.currentSong.lastUpdated > currentSong.lastUpdated)) {
+        
+        setCurrentSong(backendState.currentSong);
+        
+        // Update localStorage with backend data
+        localStorage.setItem('monty_currentSong', JSON.stringify(backendState.currentSong));
+        console.log('⬇️ Updated localStorage with newer backend data');
+      }
+    } catch (error) {
+      console.warn('Failed to load state from backend:', error);
+    }
+  };
+  
+  // Sync state to backend API
+  const syncStateToBackend = async (stateToSync = null) => {
+    try {
+      const stateData = stateToSync || { currentSong };
+      
+      const result = await stateApi.updateState(stateData);
+      setLastSyncTime(result.lastUpdated);
+      console.log('⬆️ Synced state to backend:', result);
+    } catch (error) {
+      console.warn('Failed to sync state to backend:', error);
+    }
+  };
+  
+  // Debounced backend sync (prevent too many API calls)
+  let syncTimeout = null;
+  const debouncedBackendSync = (songData) => {
+    clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => {
+      syncStateToBackend({ currentSong: songData });
+    }, 5000); // Sync 5 seconds after last update
+  };
+  
+  // Check if we should sync to backend (only for significant changes)
+  const shouldSyncToBackend = (songData) => {
+    // Sync for new songs, rating changes, or every 30 seconds during playback
+    return songData.title || 
+           songData.artist || 
+           songData.rating !== undefined || 
+           (Date.now() - lastSyncTime > 30000);
   };
 
   // Context value

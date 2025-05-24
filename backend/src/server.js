@@ -153,6 +153,10 @@ console.log('[DEBUG] About to require pianobarRoutes - THIS MIGHT BE THE PROBLEM
 const pianobarRoutes = require('./routes/pianobar');
 console.log('[DEBUG] pianobarRoutes imported successfully!');
 
+console.log('[DEBUG] About to require stateRoutes...');
+const stateRoutes = require('./routes/state');
+console.log('[DEBUG] stateRoutes imported');
+
 // API Routes
 app.get('/api/health', async (req, res) => {
   // Enhanced health check that verifies key system components
@@ -570,6 +574,7 @@ app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/music', musicRoutes);
 app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);
+app.use('/api/state', stateRoutes);
 
 // Catch-all route for client-side routing (production only)
 if (process.env.NODE_ENV === 'production') {

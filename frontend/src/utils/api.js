@@ -421,3 +421,36 @@ export const configApi = {
       body: JSON.stringify({ key, value }),
     }),
 };
+
+// State API endpoints for persistent state management
+export const stateApi = {
+  /**
+   * Get current application state
+   * @returns {Promise<Object>} - Application state
+   */
+  getState: () => 
+    fetchApi('/state'),
+  
+  /**
+   * Update specific state key
+   * @param {string} key - State key (e.g., 'currentSong')
+   * @param {any} value - State value
+   * @returns {Promise<Object>} - Result
+   */
+  updateKey: (key, value) => 
+    fetchApi(`/state/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }),
+  
+  /**
+   * Bulk update multiple state keys
+   * @param {Object} updates - Object with key-value pairs to update
+   * @returns {Promise<Object>} - Result
+   */
+  updateState: (updates) => 
+    fetchApi('/state', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }),
+};
