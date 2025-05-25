@@ -1,25 +1,25 @@
 {
-  "version": 5,
-  "timestamp": 1748145863386,
+  "version": 29,
+  "timestamp": 1748149797756,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "Blame It on My Youth",
-    "artist": "Brad Mehldau",
-    "album": "The Art of the Trio, Vol. 1",
+    "title": "Café Melodies",
+    "artist": "Cafe lounge, Good Morning Jazz Academy & Cozy Café Jazz",
+    "album": "Sunrise at the Piano",
     "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "377",
+    "songDuration": "120",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://mediaserver-cont-sv5-1-v4v6.pandora.com/images/f6/08/49/95/18654e4a99f0d548386ddbde/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/brad-mehldau/art-of-trio-vol-1/blame-it-on-my-youth/TRh9h9593w9chKV?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://mediaserver-cont-sv5-2-v4v6.pandora.com/images/24/40/bf/51/c46e46d3992cf931c2f6251c/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/cafe-lounge-good-morning-jazz-academy-cozy-caf-jazz/sunrise-at-piano/caf-melodies/TRcXrrxt4fc49dw?dc=1777&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748145863386
+  "updateTime": 1748149797756
 }

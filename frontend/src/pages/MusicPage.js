@@ -45,6 +45,12 @@ function MusicPage() {
   // This is a backup in case the main fix with [bluetooth] dependency doesn't work
   const [renderTrigger, setRenderTrigger] = useState(0);
   
+  // Bluetooth Progress Bar State
+  const [bluetoothProgress, setBluetoothProgress] = useState(0);
+  const [bluetoothProgressComplete, setBluetoothProgressComplete] = useState(false);
+  const bluetoothProgressStartTime = useRef(null);
+  const bluetoothAnimationFrameId = useRef(null);
+  
   useEffect(() => {
     console.log('INDIVIDUAL BLUETOOTH PROPERTIES CHANGED - Triggering re-render');
     setRenderTrigger(Date.now());
@@ -109,6 +115,181 @@ function MusicPage() {
     
     console.log('Local state synced with context state');
   }, [bluetooth.isConnected, bluetooth.connectionInProgress, bluetooth.disconnecting]);
+  
+  // Bluetooth Progress Bar Animation
+  useEffect(() => {
+    // "System Startup" realistic progress function with checkpoint pauses
+    const getSystemStartupProgress = (elapsed) => {
+      const maxTime = 22000; // 22 seconds total
+      const maxProgress = 90; // Stop at 90% until audio ready
+      
+      if (elapsed >= maxTime) return maxProgress;
+      
+      // System Startup Phases:
+      // Phase 1: Quick early tasks (0% → 20% in 2 seconds)
+      // Phase 2: Pause at 20% for 500ms
+      // Phase 3: Normal speed (20% → 45% in 6 seconds)  
+      // Phase 4: Pause at 45% for 500ms
+      // Phase 5: Normal speed (45% → 65% in 6 seconds)
+      // Phase 6: Pause at 65% for 500ms  
+      // Phase 7: Final phase (65% → 90% in 7 seconds)
+      
+      const phase1End = 2000;    // 2s - Quick setup
+      const pause1End = 2500;    // 500ms pause at 20%
+      const phase3End = 8500;    // 6s normal speed
+      const pause2End = 9000;    // 500ms pause at 45%
+      const phase5End = 15000;   // 6s normal speed  
+      const pause3End = 15500;   // 500ms pause at 65%
+      const phase7End = 22000;   // 7s final phase
+      
+      if (elapsed <= phase1End) {
+        // Phase 1: Quick early tasks (0% → 20%)
+        return (elapsed / phase1End) * 20;
+      }
+      else if (elapsed <= pause1End) {
+        // Phase 2: Pause at 20%
+        return 20;
+      }
+      else if (elapsed <= phase3End) {
+        // Phase 3: Normal speed (20% → 45%)
+        const phaseElapsed = elapsed - pause1End;
+        const phaseDuration = phase3End - pause1End;
+        return 20 + ((phaseElapsed / phaseDuration) * 25);
+      }
+      else if (elapsed <= pause2End) {
+        // Phase 4: Pause at 45%
+        return 45;
+      }
+      else if (elapsed <= phase5End) {
+        // Phase 5: Normal speed (45% → 65%)
+        const phaseElapsed = elapsed - pause2End;
+        const phaseDuration = phase5End - pause2End;
+        return 45 + ((phaseElapsed / phaseDuration) * 20);
+      }
+      else if (elapsed <= pause3End) {
+        // Phase 6: Pause at 65%
+        return 65;
+      }
+      else {
+        // Phase 7: Final phase (65% → 90%)
+        const phaseElapsed = elapsed - pause3End;
+        const phaseDuration = phase7End - pause3End;
+        return 65 + ((phaseElapsed / phaseDuration) * 25);
+      }
+    };
+    
+    const animateProgress = () => {
+      // INSTANT COMPLETION: Check if connected - jump to 100% immediately
+      if (bluetooth.isConnected) {
+        setBluetoothProgress(100);
+        setBluetoothProgressComplete(true);
+        if (bluetoothAnimationFrameId.current) {
+          cancelAnimationFrame(bluetoothAnimationFrameId.current);
+          bluetoothAnimationFrameId.current = null;
+        }
+        return;
+      }
+      
+      if (!bluetooth.connectionInProgress) {
+        // Not connecting - clear animation
+        if (bluetoothAnimationFrameId.current) {
+          cancelAnimationFrame(bluetoothAnimationFrameId.current);
+          bluetoothAnimationFrameId.current = null;
+        }
+        bluetoothProgressStartTime.current = null;
+        setBluetoothProgress(0);
+        setBluetoothProgressComplete(false);
+        return;
+      }
+      
+      // Start timing if not already started
+      if (!bluetoothProgressStartTime.current) {
+        bluetoothProgressStartTime.current = Date.now();
+      }
+      
+      const elapsed = Date.now() - bluetoothProgressStartTime.current;
+      const newProgress = getSystemStartupProgress(elapsed);
+      
+      setBluetoothProgress(newProgress);
+      
+      // Continue animation if still connecting and not at 100%
+      if (bluetooth.connectionInProgress && newProgress < 100) {
+        bluetoothAnimationFrameId.current = requestAnimationFrame(animateProgress);
+      }
+    };
+    
+    // PRIORITY 1: Check if connection completed first
+    if (bluetooth.isConnected) {
+      console.log('🎯 Bluetooth connected - instant completion!');
+      setBluetoothProgress(100);
+      setBluetoothProgressComplete(true);
+      localStorage.removeItem('bluetooth-progress-start');
+      if (bluetoothAnimationFrameId.current) {
+        cancelAnimationFrame(bluetoothAnimationFrameId.current);
+        bluetoothAnimationFrameId.current = null;
+      }
+      return; // Exit early - don't continue animation
+    }
+    
+    // PRIORITY 2: Start or continue animation if connecting
+    if (bluetooth.connectionInProgress) {
+      // Store start time to survive navigation
+      const storageKey = 'bluetooth-progress-start';
+      if (!bluetoothProgressStartTime.current) {
+        const storedStartTime = localStorage.getItem(storageKey);
+        if (storedStartTime) {
+          bluetoothProgressStartTime.current = parseInt(storedStartTime, 10);
+        } else {
+          bluetoothProgressStartTime.current = Date.now();
+          localStorage.setItem(storageKey, bluetoothProgressStartTime.current.toString());
+        }
+      }
+      
+      animateProgress();
+    } else {
+      // PRIORITY 3: Connection stopped - clean up
+      localStorage.removeItem('bluetooth-progress-start');
+      if (bluetoothAnimationFrameId.current) {
+        cancelAnimationFrame(bluetoothAnimationFrameId.current);
+        bluetoothAnimationFrameId.current = null;
+      }
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (bluetoothAnimationFrameId.current) {
+        cancelAnimationFrame(bluetoothAnimationFrameId.current);
+      }
+    };
+  }, [bluetooth.connectionInProgress, bluetooth.isConnected]);
+  
+  // Cleanup Effect: Reset progress bar state on disconnect/reconnect cycles
+  useEffect(() => {
+    // Reset progress when connection stops (connectionInProgress goes false)
+    if (!bluetooth.connectionInProgress && bluetoothProgress > 0 && bluetoothProgress < 100) {
+      console.log('🔄 Connection stopped - resetting progress bar to 0%');
+      setBluetoothProgress(0);
+      setBluetoothProgressComplete(false);
+      bluetoothProgressStartTime.current = null;
+    }
+    
+    // Reset progress when Bluetooth disconnects (isConnected goes false)
+    if (!bluetooth.isConnected && bluetoothProgressComplete) {
+      console.log('🔌 Bluetooth disconnected - resetting progress bar state');
+      setTimeout(() => {
+        setBluetoothProgress(0);
+        setBluetoothProgressComplete(false);
+        bluetoothProgressStartTime.current = null;
+      }, 1000); // Small delay for visual feedback
+    }
+    
+    // Start fresh when starting a new connection attempt
+    if (bluetooth.connectionInProgress && bluetoothProgress === 0 && !bluetoothProgressStartTime.current) {
+      console.log('🚀 New connection attempt - ensuring fresh start at 0%');
+      setBluetoothProgress(0);
+      setBluetoothProgressComplete(false);
+    }
+  }, [bluetooth.connectionInProgress, bluetooth.isConnected, bluetoothProgress, bluetoothProgressComplete]);
   
   // Helper to check if player is on
   const isPlayerOn = () => {
@@ -616,26 +797,31 @@ function MusicPage() {
               showConnectingMessage: showConnectingMessage
             })}
             
-            {/* FIXED BUTTON LOGIC: Context now properly triggers re-renders */}
-            {/* We still keep the local state as a fallback for extra reliability */}
+            {/* NEW ROUND BUBBLE BLUETOOTH BUTTON */}
             {(bluetooth.disconnecting || localBluetoothState.disconnecting) ? (
-              /* Disconnecting state */
+              /* Disconnecting state - flashing yellow */
               <button 
-                className="px-4 py-2 rounded text-white bg-orange-500"
+                className="p-3 rounded-full bg-yellow-400 animate-bluetooth-flash"
                 disabled={true}
+                title="Disconnecting from Bluetooth"
               >
-                Disconnecting...
+                <svg className="w-6 h-6 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
               </button>
             ) : (bluetooth.connectionInProgress || localBluetoothState.connectionInProgress) ? (
-              /* Connecting state */
+              /* Connecting state - flashing yellow */
               <button 
-                className="px-4 py-2 rounded text-white bg-yellow-500"
+                className="p-3 rounded-full bg-yellow-400 animate-bluetooth-flash"
                 disabled={true}
+                title="Connecting to Bluetooth"
               >
-                Connecting...
+                <svg className="w-6 h-6 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
               </button>
             ) : bluetooth.isConnected ? (
-              /* Connected state */
+              /* Connected state - pulsing blue */
               <button 
                 onClick={() => {
                   // WORKAROUND: Update local state first for immediate UI feedback
@@ -649,13 +835,16 @@ function MusicPage() {
                   // Then call the actual disconnect function
                   handleDisconnectBluetooth();
                 }}
-                className="px-4 py-2 rounded text-white bg-red-500 hover:bg-red-600"
+                className="p-3 rounded-full bg-blue-500 hover:bg-blue-600 animate-bluetooth-pulse"
                 disabled={false}
+                title="Connected - Click to disconnect"
               >
-                Disconnect
+                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
               </button>
             ) : (
-              /* Not connected state */
+              /* Not connected state - pale red */
               <button 
                 onClick={() => {
                   // WORKAROUND: Directly update our local component state first
@@ -672,10 +861,13 @@ function MusicPage() {
                   // Then call the actual connect function
                   handleConnectBluetooth();
                 }}
-                className="px-4 py-2 rounded text-white bg-blue-500 hover:bg-blue-600"
+                className="p-3 rounded-full bg-gray-200 hover:bg-gray-300"
                 disabled={false}
+                title="Not connected - Click to connect"
               >
-                Connect
+                <svg className="w-6 h-6 text-red-300 opacity-60" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
               </button>
             )}
             
@@ -737,18 +929,34 @@ function MusicPage() {
             </div>
           )}
           
-          {/* Progress indicator */}
-          {bluetoothStatusInfo.showProgress && (
-            <div className="mt-1">
-              <p className="text-sm text-amber-600 animate-pulse">
+          {/* Animated Progress Bar */}
+          {bluetooth.connectionInProgress && !bluetooth.disconnecting && (
+            <div className="mt-3">
+              <p className="text-sm text-amber-600 animate-pulse mb-2">
                 <span className="inline-block mr-2">⚠️</span>
-                {bluetooth.connectionInProgress ? 
-                  'Waking up speakers from sleep mode - may take up to 30 seconds' :
-                  'Finalizing audio connection - please wait'}
+                Klipsch The Fives speakers pair from a power-saving mode so this process may take awhile - up to 30 seconds tops
               </p>
-              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-2">
-                <div className="h-full bg-blue-500 animate-pulse" style={{ width: '100%' }}></div>
+              <div className="flex items-center mb-2">
+                <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 transition-all duration-300"
+                    style={{ width: `${bluetoothProgress}%` }}
+                  ></div>
+                </div>
+                {bluetoothProgressComplete && (
+                  <div className="ml-2 text-green-500 text-xl">✓</div>
+                )}
               </div>
+            </div>
+          )}
+          
+          {/* Disconnecting Message */}
+          {bluetooth.disconnecting && (
+            <div className="mt-3">
+              <p className="text-sm text-amber-600 animate-pulse mb-2">
+                <span className="inline-block mr-2">⚠️</span>
+                Disconnecting from Klipsch The Fives... Un momento.
+              </p>
             </div>
           )}
         </div>

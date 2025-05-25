@@ -29,3 +29,22 @@
 .animate-love {
   animation: love-pulse 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
+
+/* Bluetooth Button Animations 🔵 */
+@keyframes bluetooth-pulse { 
+  0%, 100% { opacity: 1; } 
+  50% { opacity: 0.6; } 
+}
+
+@keyframes bluetooth-flash { 
+  0%, 100% { background-color: #fbbf24; } 
+  50% { background-color: #f59e0b; } 
+}
+
+.animate-bluetooth-pulse { 
+  animation: bluetooth-pulse 2s infinite; 
+}
+
+.animate-bluetooth-flash { 
+  animation: bluetooth-flash 1s infinite; 
+}
