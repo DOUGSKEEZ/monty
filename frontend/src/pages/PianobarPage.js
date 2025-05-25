@@ -3,7 +3,7 @@ import { useAppContext } from '../utils/AppContext';
 
 function PianobarPage() {
   // Get state from context
-  const { pianobar, currentSong, actions } = useAppContext();
+  const { pianobar, currentSong, bluetooth, actions } = useAppContext();
   
   // Component state
   const [selectedStation, setSelectedStation] = useState('');
@@ -21,6 +21,12 @@ function PianobarPage() {
   
   // Version tracking for STATE_UPDATE messages
   const lastVersionRef = useRef(-1);
+
+  // Bluetooth Progress Bar State
+  const [bluetoothProgress, setBluetoothProgress] = useState(0);
+  const [bluetoothProgressComplete, setBluetoothProgressComplete] = useState(false);
+  const bluetoothProgressStartTime = useRef(null);
+  const bluetoothAnimationFrameId = useRef(null);
 
   // Helper functions (moved to top to avoid hoisting issues)
   const isPlayerOn = () => {
@@ -277,6 +283,182 @@ function PianobarPage() {
     };
   }, []);
   
+  // Bluetooth Progress Bar Animation
+  useEffect(() => {
+    // "System Startup" realistic progress function with checkpoint pauses
+    const getSystemStartupProgress = (elapsed) => {
+      const maxTime = 22000; // 22 seconds total
+      const maxProgress = 90; // Stop at 90% until audio ready
+      
+      if (elapsed >= maxTime) return maxProgress;
+      
+      // System Startup Phases:
+      // Phase 1: Quick early tasks (0% → 20% in 2 seconds)
+      // Phase 2: Pause at 20% for 500ms
+      // Phase 3: Normal speed (20% → 45% in 6 seconds)  
+      // Phase 4: Pause at 45% for 500ms
+      // Phase 5: Normal speed (45% → 65% in 6 seconds)
+      // Phase 6: Pause at 65% for 500ms  
+      // Phase 7: Final phase (65% → 90% in 7 seconds)
+      
+      const phase1End = 2000;    // 2s - Quick setup
+      const pause1End = 2500;    // 500ms pause at 20%
+      const phase3End = 8500;    // 6s normal speed
+      const pause2End = 9000;    // 500ms pause at 45%
+      const phase5End = 15000;   // 6s normal speed  
+      const pause3End = 15500;   // 500ms pause at 65%
+      const phase7End = 22000;   // 7s final phase
+      
+      if (elapsed <= phase1End) {
+        // Phase 1: Quick early tasks (0% → 20%)
+        return (elapsed / phase1End) * 20;
+      }
+      else if (elapsed <= pause1End) {
+        // Phase 2: Pause at 20%
+        return 20;
+      }
+      else if (elapsed <= phase3End) {
+        // Phase 3: Normal speed (20% → 45%)
+        const phaseElapsed = elapsed - pause1End;
+        const phaseDuration = phase3End - pause1End;
+        return 20 + ((phaseElapsed / phaseDuration) * 25);
+      }
+      else if (elapsed <= pause2End) {
+        // Phase 4: Pause at 45%
+        return 45;
+      }
+      else if (elapsed <= phase5End) {
+        // Phase 5: Normal speed (45% → 65%)
+        const phaseElapsed = elapsed - pause2End;
+        const phaseDuration = phase5End - pause2End;
+        return 45 + ((phaseElapsed / phaseDuration) * 20);
+      }
+      else if (elapsed <= pause3End) {
+        // Phase 6: Pause at 65%
+        return 65;
+      }
+      else {
+        // Phase 7: Final phase (65% → 90%)
+        const phaseElapsed = elapsed - pause3End;
+        const phaseDuration = phase7End - pause3End;
+        return 65 + ((phaseElapsed / phaseDuration) * 25);
+      }
+    };
+    
+    const animateProgress = () => {
+      // PRIORITY 1: Check if connection completed first
+      if (bluetooth.isConnected) {
+        console.log('🎯 Bluetooth connected - instant completion!');
+        setBluetoothProgress(100);
+        setBluetoothProgressComplete(true);
+        if (bluetoothAnimationFrameId.current) {
+          cancelAnimationFrame(bluetoothAnimationFrameId.current);
+          bluetoothAnimationFrameId.current = null;
+        }
+        return;
+      }
+      
+      if (!bluetooth.connectionInProgress) {
+        // Not connecting - clear animation
+        if (bluetoothAnimationFrameId.current) {
+          cancelAnimationFrame(bluetoothAnimationFrameId.current);
+          bluetoothAnimationFrameId.current = null;
+        }
+        bluetoothProgressStartTime.current = null;
+        setBluetoothProgress(0);
+        setBluetoothProgressComplete(false);
+        return;
+      }
+      
+      // Start timing if not already started
+      if (!bluetoothProgressStartTime.current) {
+        bluetoothProgressStartTime.current = Date.now();
+      }
+      
+      const elapsed = Date.now() - bluetoothProgressStartTime.current;
+      const newProgress = getSystemStartupProgress(elapsed);
+      
+      setBluetoothProgress(newProgress);
+      
+      // Continue animation if still connecting and not at 100%
+      if (bluetooth.connectionInProgress && newProgress < 100) {
+        bluetoothAnimationFrameId.current = requestAnimationFrame(animateProgress);
+      }
+    };
+    
+    // PRIORITY 1: Check if connection completed first
+    if (bluetooth.isConnected) {
+      console.log('🎯 Bluetooth connected - instant completion!');
+      setBluetoothProgress(100);
+      setBluetoothProgressComplete(true);
+      localStorage.removeItem('bluetooth-progress-start');
+      if (bluetoothAnimationFrameId.current) {
+        cancelAnimationFrame(bluetoothAnimationFrameId.current);
+        bluetoothAnimationFrameId.current = null;
+      }
+      return; // Exit early - don't continue animation
+    }
+    
+    // PRIORITY 2: Start or continue animation if connecting
+    if (bluetooth.connectionInProgress) {
+      // Store start time to survive navigation
+      const storageKey = 'bluetooth-progress-start';
+      if (!bluetoothProgressStartTime.current) {
+        const storedStartTime = localStorage.getItem(storageKey);
+        if (storedStartTime) {
+          bluetoothProgressStartTime.current = parseInt(storedStartTime, 10);
+        } else {
+          bluetoothProgressStartTime.current = Date.now();
+          localStorage.setItem(storageKey, bluetoothProgressStartTime.current.toString());
+        }
+      }
+      
+      animateProgress();
+    } else {
+      // PRIORITY 3: Connection stopped - clean up
+      localStorage.removeItem('bluetooth-progress-start');
+      if (bluetoothAnimationFrameId.current) {
+        cancelAnimationFrame(bluetoothAnimationFrameId.current);
+        bluetoothAnimationFrameId.current = null;
+      }
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (bluetoothAnimationFrameId.current) {
+        cancelAnimationFrame(bluetoothAnimationFrameId.current);
+      }
+    };
+  }, [bluetooth.connectionInProgress, bluetooth.isConnected]);
+  
+  // Cleanup Effect: Reset progress bar state on disconnect/reconnect cycles
+  useEffect(() => {
+    // Reset progress when connection stops (connectionInProgress goes false)
+    if (!bluetooth.connectionInProgress && bluetoothProgress > 0 && bluetoothProgress < 100) {
+      console.log('🔄 Connection stopped - resetting progress bar to 0%');
+      setBluetoothProgress(0);
+      setBluetoothProgressComplete(false);
+      bluetoothProgressStartTime.current = null;
+    }
+    
+    // Reset progress when Bluetooth disconnects (isConnected goes false)
+    if (!bluetooth.isConnected && bluetoothProgressComplete) {
+      console.log('🔌 Bluetooth disconnected - resetting progress bar state');
+      setTimeout(() => {
+        setBluetoothProgress(0);
+        setBluetoothProgressComplete(false);
+        bluetoothProgressStartTime.current = null;
+      }, 1000); // Small delay for visual feedback
+    }
+    
+    // Start fresh when starting a new connection attempt
+    if (bluetooth.connectionInProgress && bluetoothProgress === 0 && !bluetoothProgressStartTime.current) {
+      console.log('🚀 New connection attempt - ensuring fresh start at 0%');
+      setBluetoothProgress(0);
+      setBluetoothProgressComplete(false);
+    }
+  }, [bluetooth.connectionInProgress, bluetooth.isConnected, bluetoothProgress, bluetoothProgressComplete]);
+  
   // Helper function to parse station list
   const parseStationList = (stationsData) => {
     if (Array.isArray(stationsData)) {
@@ -407,30 +589,6 @@ function PianobarPage() {
       }, 2000); // Keep locked for 2 more seconds
     }
   };
-  
-  
-  // Request fresh station list from pianobar
-  const handleRefreshStations = async () => {
-    if (!isPlayerOn()) return;
-    
-    showOperation('Refreshing station list...');
-    
-    try {
-      // Send 's' command to pianobar to request fresh station list
-      console.log('Sending station list request command to pianobar');
-      await actions.controlPianobar('command', { command: 's' });
-      
-      // The WebSocket will receive the 'usergetstations' event and update the dropdown
-      console.log('Station list request sent - waiting for WebSocket update');
-    } catch (error) {
-      console.error('Error requesting station list:', error);
-    } finally {
-      // Hide operation message after a short delay to allow WebSocket update
-      setTimeout(() => {
-        hideOperation();
-      }, 2000);
-    }
-  };
 
   // Change station
   const handleChangeStation = async () => {
@@ -533,6 +691,53 @@ function PianobarPage() {
     setShowOperationMessage(false);
   };
 
+  // Bluetooth connection handlers
+  const handleConnectBluetooth = async () => {
+    // Don't allow multiple connection attempts
+    if (bluetooth.connectionInProgress || bluetooth.disconnecting) {
+      console.log('Connection already in progress, ignoring click');
+      return;
+    }
+    
+    console.log('Starting Bluetooth connection process...');
+    
+    try {
+      const result = await actions.connectBluetooth();
+      console.log('Connect result:', result);
+      
+      if (result) {
+        console.log('Bluetooth connection successful');
+      } else {
+        console.warn('Bluetooth connection failed or timed out');
+      }
+    } catch (error) {
+      console.error('Error connecting to Bluetooth:', error);
+    }
+  };
+
+  const handleDisconnectBluetooth = async () => {
+    // Don't allow multiple disconnect attempts
+    if (bluetooth.disconnecting || bluetooth.connectionInProgress) {
+      console.log('Operation already in progress, ignoring disconnect click');
+      return;
+    }
+    
+    console.log('Disconnecting from Bluetooth speakers...');
+    
+    try {
+      const result = await actions.disconnectBluetooth();
+      console.log('Disconnect result:', result);
+      
+      if (result) {
+        console.log('Bluetooth disconnection successful');
+      } else {
+        console.warn('Bluetooth disconnection failed');
+      }
+    } catch (error) {
+      console.error('Error disconnecting from Bluetooth:', error);
+    }
+  };
+
   const { song, artist, album, station } = getSongInfo();
 
   return (
@@ -579,18 +784,56 @@ function PianobarPage() {
             Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
           </h2>
           <div className="flex items-center space-x-3">
-            <button 
-              onClick={() => actions.refreshPianobar()}
-              className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full"
-              title="Refresh Status"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                <path d="M21 3v5h-5"></path>
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                <path d="M3 21v-5h5"></path>
-              </svg>
-            </button>
+            {/* Bluetooth Button */}
+            {bluetooth.disconnecting ? (
+              /* Disconnecting state - flashing yellow */
+              <button 
+                className="p-3 rounded-full bg-yellow-400 animate-bluetooth-flash"
+                disabled={true}
+                title="Disconnecting from Bluetooth"
+              >
+                <svg className="w-6 h-6 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
+              </button>
+            ) : bluetooth.connectionInProgress ? (
+              /* Connecting state - flashing yellow */
+              <button 
+                className="p-3 rounded-full bg-yellow-400 animate-bluetooth-flash"
+                disabled={true}
+                title="Connecting to Bluetooth"
+              >
+                <svg className="w-6 h-6 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
+              </button>
+            ) : bluetooth.isConnected ? (
+              /* Connected state - pulsing blue */
+              <button 
+                onClick={handleDisconnectBluetooth}
+                className="p-3 rounded-full bg-blue-500 hover:bg-blue-600 animate-bluetooth-pulse"
+                disabled={false}
+                title="Connected - Click to disconnect"
+              >
+                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
+              </button>
+            ) : (
+              /* Not connected state - pale red */
+              <button 
+                onClick={handleConnectBluetooth}
+                className="p-3 rounded-full bg-gray-200 hover:bg-gray-300"
+                disabled={false}
+                title="Not connected - Click to connect"
+              >
+                <svg className="w-6 h-6 text-red-300 opacity-60" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
+              </button>
+            )}
+            
+            {/* Turn On/Off Button */}
             {(() => {
             const playerOn = isPlayerOn();
             console.log('🎛️ Button render decision:', {
@@ -651,6 +894,38 @@ function PianobarPage() {
           })()}
           </div>
         </div>
+        
+        {/* Bluetooth Contextual Status Message Area */}
+        {(bluetooth.connectionInProgress || bluetooth.disconnecting) && (
+          <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-4">
+            {bluetooth.connectionInProgress && !bluetooth.disconnecting && (
+              <>
+                <p className="text-amber-700 animate-pulse mb-2">
+                  ⚠️ The Fives speakers pair from a sleep mode - this process may take up to 30 seconds
+                </p>
+                
+                {/* Progress Bar (Connecting Only) */}
+                <div className="flex items-center mb-2">
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 transition-all duration-300"
+                      style={{ width: `${bluetoothProgress}%` }}
+                    ></div>
+                  </div>
+                  {bluetoothProgressComplete && (
+                    <div className="ml-2 text-green-500 text-xl">✓</div>
+                  )}
+                </div>
+              </>
+            )}
+            
+            {bluetooth.disconnecting && (
+              <p className="text-amber-700 animate-pulse">
+                ⚠️ Disconnecting from Klipsch The Fives... Un momento.
+              </p>
+            )}
+          </div>
+        )}
         
         {/* Now Playing Section (Hidden when player is off) */}
         <div className={isPlayerOn() ? '' : 'opacity-50'}>
@@ -815,30 +1090,11 @@ function PianobarPage() {
           <div className="mt-6">
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium">Select Station</label>
-              <div className="flex items-center space-x-2">
-                {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
-                  <span className="text-xs text-amber-600">
-                    {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
-                  </span>
-                )}
-                <button
-                  onClick={handleRefreshStations}
-                  className={`px-2 py-1 text-xs rounded ${
-                    isPlayerOn() 
-                      ? 'bg-purple-200 hover:bg-purple-300 text-purple-700' 
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                  disabled={!isPlayerOn() || pianobar.loading || showOperationMessage}
-                  title="Request fresh station list from Pandora"
-                >
-                  <div className="flex items-center space-x-1">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-                    </svg>
-                    <span>Get Stations</span>
-                  </div>
-                </button>
-              </div>
+              {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
+                <span className="text-xs text-amber-600">
+                  {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
+                </span>
+              )}
             </div>
             <div className="flex space-x-2">
               <select 
@@ -852,6 +1108,18 @@ function PianobarPage() {
                   <option key={index} value={index}>{station}</option>
                 ))}
               </select>
+              <button 
+                onClick={() => actions.refreshPianobar()}
+                className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full"
+                title="Refresh Status"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                  <path d="M21 3v5h-5"></path>
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                  <path d="M3 21v-5h5"></path>
+                </svg>
+              </button>
               <button
                 onClick={handleChangeStation}
                 className={`px-4 py-2 rounded ${

@@ -1,25 +1,25 @@
 {
-  "version": 29,
-  "timestamp": 1748149797756,
+  "version": 60,
+  "timestamp": 1748152824748,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "Café Melodies",
-    "artist": "Cafe lounge, Good Morning Jazz Academy & Cozy Café Jazz",
-    "album": "Sunrise at the Piano",
+    "title": "Soul Trane (feat. Hank Jones, Kenny Barron, Todd Coolman & Adam Nussbaum)",
+    "artist": "The James Moody And Hank Jones Quartet",
+    "album": "Our Delight",
     "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "120",
+    "songDuration": "569",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://mediaserver-cont-sv5-2-v4v6.pandora.com/images/24/40/bf/51/c46e46d3992cf931c2f6251c/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/cafe-lounge-good-morning-jazz-academy-cozy-caf-jazz/sunrise-at-piano/caf-melodies/TRcXrrxt4fc49dw?dc=1777&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://cont-1.p-cdn.us/images/81/cc/75/0b/3cec43a9b07ba477e0bdfe19/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/james-moody-hank-jones-quartet/our-delight/soul-trane-feat-hank-jones-kenny-barron-todd-coolman-adam-nussbaum/TRgJbf422ZgzttV?dc=1777&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748149797756
+  "updateTime": 1748152824748
 }
