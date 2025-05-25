@@ -1,25 +1,25 @@
 {
-  "version": 10,
-  "timestamp": 1748137873823,
+  "version": 5,
+  "timestamp": 1748145863386,
   "player": {
     "isRunning": true,
-    "isPlaying": false,
-    "status": "paused"
+    "isPlaying": true,
+    "status": "playing"
   },
   "currentSong": {
-    "title": "Summertime",
-    "artist": "Jack Jezzro & The Beegie Adair Trio",
-    "album": "Jazz On Broadway",
+    "title": "Blame It on My Youth",
+    "artist": "Brad Mehldau",
+    "album": "The Art of the Trio, Vol. 1",
     "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "298",
+    "songDuration": "377",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://cont-1.p-cdn.us/images/6b/91/4d/96/ee4d45eea1df5d0f721d194c/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/jack-jezzro-beegie-adair-trio/jazz-on-broadway/summertime/TR3pcVhZf4l46xk?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://mediaserver-cont-sv5-1-v4v6.pandora.com/images/f6/08/49/95/18654e4a99f0d548386ddbde/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/brad-mehldau/art-of-trio-vol-1/blame-it-on-my-youth/TRh9h9593w9chKV?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
-  "status": "paused",
+  "status": "playing",
   "isPianobarRunning": true,
-  "isPlaying": false,
-  "updateTime": 1748137873823
+  "isPlaying": true,
+  "updateTime": 1748145863386
 }

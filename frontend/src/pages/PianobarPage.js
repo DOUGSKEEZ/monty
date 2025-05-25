@@ -576,7 +576,7 @@ function PianobarPage() {
       <div className="bg-white p-6 rounded shadow">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">
-            Player Status: {isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}
+            Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
           </h2>
           <div className="flex items-center space-x-3">
             <button 
