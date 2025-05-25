@@ -462,20 +462,31 @@ class PianobarWebsocketService {
    * Broadcast central state update to all connected clients
    */
   broadcastStateUpdate() {
+    logger.info('[DEBUG-BROADCAST] broadcastStateUpdate() CALLED!');
     if (!this.pianobarService) {
       logger.warn('Cannot broadcast state update: PianobarService not set');
       return;
     }
     
     try {
+      logger.info(`[DEBUG-BROADCAST] PianobarService exists: ${!!this.pianobarService}`);
+      logger.info(`[DEBUG-BROADCAST] getState method exists: ${typeof this.pianobarService.getState}`);
+      
       const state = this.pianobarService.getState();
+      
+      logger.info(`[DEBUG-BROADCAST] State retrieved: ${JSON.stringify(state)}`);
+      logger.info(`[DEBUG-BROADCAST] Broadcasting state version: ${state?.version}`);
+      logger.info(`[DEBUG-BROADCAST] Number of clients: ${this.clients.size}`);
+      
       this.broadcast({
         type: 'STATE_UPDATE',
         data: state
       });
-      logger.debug(`State update broadcasted: version ${state.version}`);
+      
+      logger.debug(`State update broadcasted: version ${state?.version}`);
     } catch (error) {
       logger.error(`Error broadcasting state update: ${error.message}`);
+      logger.error(`Error stack: ${error.stack}`);
     }
   }
   

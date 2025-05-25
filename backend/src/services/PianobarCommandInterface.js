@@ -242,10 +242,10 @@ class PianobarCommandInterface {
             await execPromise(`mkfifo ${this.pianobarCtl}`);
           }
           
-          // Always ensure permissions are correct - use 644 (owner read/write, others read only)
-          // Using 644 rather than 666 prevents FIFO writes from blocking indefinitely
-          await execPromise(`chmod 644 ${this.pianobarCtl}`);
-          logger.info(`Set FIFO permissions to 644 for ${this.pianobarCtl}`);
+          // Always ensure permissions are correct - use 666 (read/write for all users)
+          // Using 666 allows non-blocking writes when no reader is attached
+          await execPromise(`chmod 666 ${this.pianobarCtl}`);
+          logger.info(`Set FIFO permissions to 666 for ${this.pianobarCtl}`);
           
           return true;
         } catch (error) {

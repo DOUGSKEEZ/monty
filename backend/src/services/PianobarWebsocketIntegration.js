@@ -105,12 +105,27 @@ async function initializePianobarWebsocket(server, options = {}) {
       });
       console.log('[DEBUG] WebSocket service created');
       
+      // Store the instance for later retrieval
+      websocketServiceInstance = websocketService;
+      
       // Connect PianobarService to WebSocket service for central state management
       try {
-        const { createActualPianobarService } = require('../utils/ServiceFactory');
-        const pianobarService = createActualPianobarService();
-        websocketService.setPianobarService(pianobarService);
-        console.log('[DEBUG] PianobarService connected to WebSocket service');
+        // Get the actual PianobarService instance from the service registry
+        const pianobarService = serviceRegistry.getAllServices().find(s => s.name === 'PianobarService');
+        if (pianobarService && pianobarService.instance) {
+          websocketService.setPianobarService(pianobarService.instance);
+          console.log('[DEBUG] Connected actual PianobarService instance to WebSocket');
+        } else {
+          // Fallback: try to create it
+          try {
+            const { createActualPianobarService } = require('../utils/ServiceFactory');
+            const service = createActualPianobarService();
+            websocketService.setPianobarService(service);
+            console.log('[DEBUG] Created and connected PianobarService to WebSocket');
+          } catch (err) {
+            console.error('[ERROR] Failed to connect PianobarService:', err.message);
+          }
+        }
       } catch (error) {
         console.warn(`[WARN] Failed to connect PianobarService to WebSocket: ${error.message}`);
       }
@@ -129,6 +144,7 @@ async function initializePianobarWebsocket(server, options = {}) {
       console.log('[DEBUG] About to register WebSocket service with ServiceRegistry');
       serviceRegistry.register('PianobarWebsocketService', {
         instance: websocketService,
+        getInstance: () => websocketService,
         isCore: false,
         status: 'ready',
         checkHealth: async () => {
@@ -269,4 +285,15 @@ async function setupPianobarEventHandling(websocketService, eventScriptPath, con
   });
 }
 
-module.exports = { initializePianobarWebsocket };
+// Export function to get the WebSocket service instance
+let websocketServiceInstance = null;
+
+function getWebSocketServiceInstance() {
+  return websocketServiceInstance;
+}
+
+// Update the existing export
+module.exports = { 
+  initializePianobarWebsocket,
+  getWebSocketServiceInstance 
+};

@@ -51,6 +51,30 @@ class PianobarService extends IPianobarService {
     this.isPlaying = false;
     this.pianobarProcess = null;
     
+    // Initialize central state management
+    this.centralState = {
+      version: 0,
+      timestamp: Date.now(),
+      player: {
+        isRunning: false,
+        isPlaying: false,
+        status: 'stopped'
+      },
+      currentSong: {
+        title: null,
+        artist: null,
+        album: null,
+        stationName: null,
+        songDuration: null,
+        songPlayed: null,
+        rating: null,
+        coverArt: null,
+        detailUrl: null
+      },
+      stations: []
+    };
+    this.stateLock = false;
+    
     // Register with ServiceRegistry
     if (this.serviceRegistry) {
       this.serviceRegistry.register('PianobarService', {
@@ -396,12 +420,12 @@ class PianobarService extends IPianobarService {
       // Create new FIFO if needed
       if (needNewFifo) {
         await execPromise(`mkfifo ${this.pianobarCtl}`);
-        await execPromise(`chmod 644 ${this.pianobarCtl}`);
-        logger.info(`Created FIFO control file at ${this.pianobarCtl} with owner read/write permissions (644)`);
+        await execPromise(`chmod 666 ${this.pianobarCtl}`);
+        logger.info(`Created FIFO control file at ${this.pianobarCtl} with read/write permissions for all (666)`);
       } else {
         // Just ensure proper permissions
-        await execPromise(`chmod 644 ${this.pianobarCtl}`);
-        logger.debug(`Ensured FIFO permissions at ${this.pianobarCtl} (644)`);
+        await execPromise(`chmod 666 ${this.pianobarCtl}`);
+        logger.debug(`Ensured FIFO permissions at ${this.pianobarCtl} (666)`);
       }
       
       return true;

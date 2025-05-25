@@ -76,8 +76,24 @@ function PianobarPage() {
   
   // Check pianobar status when component mounts
   useEffect(() => {
+    console.log('🚀 PianobarPage mounted - initializing...');
+    
     // Initial status check
     actions.refreshPianobar();
+    
+    // If WebSocket isn't connected after 2 seconds, refresh again
+    setTimeout(() => {
+      if (!wsConnected) {
+        console.log('⚠️ WebSocket not connected after 2s, refreshing state...');
+        actions.refreshPianobar();
+      }
+    }, 2000);
+    
+    // Request current state from WebSocket when it connects
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log('📡 Requesting current state from WebSocket');
+      wsRef.current.send(JSON.stringify({ type: 'GET_STATE' }));
+    }
   }, []);
   
   // Setup WebSocket connection for real-time updates
@@ -92,17 +108,29 @@ function PianobarPage() {
       // Immediately request current state
       websocket.send(JSON.stringify({ type: 'GET_STATE' }));
       console.log('Requested current state from server');
+      
+      // Also refresh via API as backup
+      actions.refreshPianobar();
     };
     
     websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      
+      // ADD THIS COMPREHENSIVE LOGGING
+      console.log('=== WEBSOCKET MESSAGE RECEIVED ===');
+      console.log('Message type:', data.type);
+      console.log('Full message:', JSON.stringify(data));
+      console.log('================================');
+      
       console.log('WebSocket message received:', data);
       
       if (data.type === 'status') {
         console.log('Status update received:', data.data);
+        console.log('>>> Processing status update, NOT STATE_UPDATE');
+        
         // Update player status
         actions.updatePianobarStatus({
-          isRunning: true,
+          isRunning: data.data.isPianobarRunning || (data.data.status !== 'stopped'),
           isPlaying: data.data.status === 'playing',
           status: {
             ...pianobar.status,
@@ -179,6 +207,10 @@ function PianobarPage() {
           lastVersionRef.current = newVersion;
           console.log('State update ACCEPTED - updating both pianobar and currentSong state');
           
+          // ADD DEBUGGING HERE
+          console.log('BEFORE update - pianobar state:', JSON.stringify(pianobar));
+          console.log('Update payload - isRunning:', data.data.player.isRunning);
+          
           // Update pianobar state from server central state
           actions.updatePianobarStatus({
             isRunning: data.data.player.isRunning,
@@ -188,6 +220,14 @@ function PianobarPage() {
               status: data.data.player.status
             }
           });
+          
+          // ADD DEBUGGING HERE
+          console.log('AFTER updatePianobarStatus called');
+          // Note: The state might not update immediately due to React's async nature
+          setTimeout(() => {
+            console.log('AFTER update (delayed) - pianobar state:', JSON.stringify(pianobar));
+            console.log('isPlayerOn() result:', isPlayerOn());
+          }, 100);
           
           // Update currentSong state from server central state
           actions.updateCurrentSong({
@@ -292,6 +332,8 @@ function PianobarPage() {
   
   // Stop the player
   const handleStopPlayer = async () => {
+    console.log('🔴🔴🔴 handleStopPlayer FUNCTION CALLED!');
+    
     // Prevent rapid clicking
     if (buttonLocked || showOperationMessage) {
       console.log('⚠️ Button locked or operation in progress, ignoring click');
@@ -312,13 +354,33 @@ function PianobarPage() {
       const result = await actions.controlPianobar('stop');
       if (result) {
         console.log('Pianobar stopped successfully');
+        
+        // ADD THIS: Force immediate state update
+        actions.updatePianobarStatus({
+          isRunning: false,
+          isPlaying: false,
+          status: {
+            ...pianobar.status,
+            status: 'stopped'
+          }
+        });
+        console.log('Forced local state update to stopped');
       } else {
         console.error('Failed to stop pianobar');
       }
       
-      // Wait a moment before refreshing to avoid race conditions
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await actions.refreshPianobar();
+      // REMOVE the refresh that might be overwriting our state
+      // Comment out or remove these lines:
+      // await new Promise(resolve => setTimeout(resolve, 1000));
+      // await actions.refreshPianobar();
+      
+      // Instead, just wait a bit for UI to settle
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('Player state after local update:', {
+        'pianobar.isRunning': pianobar.isRunning,
+        'isPlayerOn()': isPlayerOn()
+      });
     } catch (error) {
       console.error('Error stopping player:', error);
     } finally {
@@ -326,6 +388,10 @@ function PianobarPage() {
       setTimeout(() => {
         setButtonLocked(false);
         setButtonAction(null);
+        console.log('Button unlocked, final state:', {
+          'pianobar.isRunning': pianobar.isRunning,
+          'isPlayerOn()': isPlayerOn()
+        });
       }, 2000); // Keep locked for 2 more seconds
     }
   };
@@ -540,7 +606,17 @@ function PianobarPage() {
             
             return (
               <button 
-                onClick={getClickHandler()}
+                onClick={() => {
+                  console.log('🖱️ BUTTON CLICKED!');
+                  const handler = playerOn ? handleStopPlayer : handleStartPlayer;
+                  console.log('🎮 BUTTON CLICK - Handler selected:', {
+                    playerOn,
+                    handlerName: playerOn ? 'handleStopPlayer' : 'handleStartPlayer',
+                    buttonLocked,
+                    showOperationMessage
+                  });
+                  handler();
+                }}
                 className={`px-4 py-2 rounded text-white ${getButtonColor()}`}
                 disabled={buttonLocked || pianobar.loading || showOperationMessage}
               >

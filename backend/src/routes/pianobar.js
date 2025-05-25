@@ -10,6 +10,10 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger').getModuleLogger('pianobar-routes');
+const fetch = require('node-fetch');
+const PORT = process.env.PORT || 3001;
+
+let cachedWebSocketService = null;
 
 // Import PianobarCommandInterface factory but don't create instance yet
 console.log('[DEBUG] Importing createPianobarCommandInterface in routes');
@@ -18,6 +22,9 @@ console.log('[DEBUG] Successfully imported createPianobarCommandInterface in rou
 
 // Import ServiceFactory to access actual PianobarService
 const { createActualPianobarService } = require('../utils/ServiceFactory');
+
+// Import ServiceRegistry to access WebSocket service
+const serviceRegistry = require('../utils/ServiceRegistry');
 
 // Defer creation of command interface until first use
 let commandInterface = null;
@@ -77,6 +84,75 @@ function getActualPianobarService() {
     }
   }
   return actualPianobarService;
+}
+
+// Helper function to update central state through PianobarService
+async function updateCentralStateViaService(updates, source) {
+  try {
+    const pianobarService = getActualPianobarService();
+    if (pianobarService && typeof pianobarService.updateCentralState === 'function') {
+      await pianobarService.updateCentralState(updates, source);
+      logger.debug(`Central state updated from route: ${source}`);
+      return true;
+    }
+    logger.warn('Could not update central state: PianobarService not available');
+    return false;
+  } catch (error) {
+    logger.error(`Error updating central state: ${error.message}`);
+    return false;
+  }
+}
+
+function getWebSocketService() {
+  try {
+    // Return cached instance if available
+    if (cachedWebSocketService) {
+      return cachedWebSocketService;
+    }
+    
+    // Try to get from service registry metadata
+    const services = serviceRegistry.getAllServices();
+    
+    for (const service of services) {
+      if (service.name === 'PianobarWebsocketService') {
+        // Check if service has a getInstance method
+        if (service.getInstance && typeof service.getInstance === 'function') {
+          cachedWebSocketService = service.getInstance();
+          logger.info('[DEBUG-WS] Got instance via getInstance()');
+          return cachedWebSocketService;
+        }
+        
+        // Check if service has instance property in checkHealth
+        if (service.checkHealth && typeof service.checkHealth === 'function') {
+          // The checkHealth function might have access to the instance
+          logger.info('[DEBUG-WS] Service has checkHealth, but no direct instance access');
+        }
+        
+        // As a last resort, check if the service registration included the instance
+        // This might be stored elsewhere in the registry
+        logger.info('[DEBUG-WS] No getInstance method or instance property found');
+        break;
+      }
+    }
+    
+    // If not found, try to get it directly from the WebSocket integration
+    try {
+      const { getWebSocketServiceInstance } = require('../services/PianobarWebsocketIntegration');
+      if (getWebSocketServiceInstance) {
+        cachedWebSocketService = getWebSocketServiceInstance();
+        logger.info('[DEBUG-WS] Got instance from PianobarWebsocketIntegration');
+        return cachedWebSocketService;
+      }
+    } catch (err) {
+      logger.debug('[DEBUG-WS] Could not import getWebSocketServiceInstance');
+    }
+    
+    logger.warn('[DEBUG-WS] WebSocket service instance not found');
+    return null;
+  } catch (error) {
+    logger.error(`[DEBUG-WS] Error getting WebSocket service: ${error.message}`);
+    return null;
+  }
 }
 
 // Status file path
@@ -269,12 +345,48 @@ router.post('/start', async (req, res) => {
     exec('nohup pianobar > /tmp/pianobar_stdout.log 2> /tmp/pianobar_stderr.log &', async (error, stdout, stderr) => {
       if (error) {
         logger.error(`Error starting pianobar: ${error.message}`);
+        
+        // Check error logs
+        try {
+          const stderrContent = fs.readFileSync('/tmp/pianobar_stderr.log', 'utf8');
+          logger.error(`Pianobar stderr: ${stderrContent}`);
+        } catch (readErr) {
+          logger.error(`Could not read stderr log: ${readErr.message}`);
+        }
+        
         return res.status(500).json({ 
           success: false, 
           message: `Failed to start pianobar: ${error.message}`,
           error: error.message
         });
       }
+      
+      // Log the PID for debugging
+      logger.info(`Started pianobar command, stdout: ${stdout}, stderr: ${stderr}`);
+      
+      // Add a delay and then check if pianobar actually started
+      setTimeout(async () => {
+        try {
+          const { exec: execCheck } = require('child_process');
+          execCheck('pgrep pianobar', (err, stdout) => {
+            if (err || !stdout.trim()) {
+              logger.error('Pianobar process not found after start attempt');
+              
+              // Try to read error log
+              try {
+                const stderrContent = fs.readFileSync('/tmp/pianobar_stderr.log', 'utf8').slice(-500);
+                logger.error(`Recent pianobar stderr: ${stderrContent}`);
+              } catch (readErr) {
+                logger.error(`Could not read stderr log: ${readErr.message}`);
+              }
+            } else {
+              logger.info(`Pianobar running with PID(s): ${stdout.trim()}`);
+            }
+          });
+        } catch (checkErr) {
+          logger.error(`Error checking pianobar status: ${checkErr.message}`);
+        }
+      }, 3000);
       
       // Update status file
       try {
@@ -287,6 +399,22 @@ router.post('/start', async (req, res) => {
         };
         
         fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
+        
+        // Update central state
+        await updateCentralStateViaService({
+          player: {
+            isRunning: true,
+            isPlaying: true,
+            status: 'playing'
+          }
+        }, 'route-start');
+        
+        // Broadcast state update to all connected clients
+        const wsService = getWebSocketService();
+        if (wsService) {
+          wsService.broadcastStateUpdate();
+          logger.debug('Broadcasted state update after start command');
+        }
       } catch (statusError) {
         logger.warn(`Error updating status file: ${statusError.message}`);
       }
@@ -306,6 +434,17 @@ router.post('/start', async (req, res) => {
 // Stop pianobar - send quit command
 router.post('/stop', async (req, res) => {
   try {
+    // Check if pianobar is actually running first
+    const statusResult = await fetch(`http://localhost:${PORT}/api/pianobar/status?silent=true`).then(r => r.json());
+    if (!statusResult.data.isPianobarRunning) {
+      logger.info('Pianobar already stopped, skipping quit command');
+      return res.json({
+        success: true,
+        message: 'Pianobar is already stopped',
+        isPlaying: false
+      });
+    }
+    
     // Get command interface and send quit command
     const cmd = getCommandInterface();
     const result = await cmd.quit();
@@ -321,6 +460,27 @@ router.post('/stop', async (req, res) => {
       };
       
       fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
+      
+      // Update central state BEFORE broadcasting
+      await updateCentralStateViaService({
+        player: {
+          isRunning: false,
+          isPlaying: false,
+          status: 'stopped'
+        }
+      }, 'route-stop');
+      
+      // Broadcast state update to all connected clients
+      logger.info('[DEBUG-STOP] About to get WebSocket service');
+      const wsService = getWebSocketService();
+      logger.info('[DEBUG-STOP] WebSocket service result:', !!wsService);
+      if (wsService) {
+        logger.info('[DEBUG-STOP] Calling broadcastStateUpdate');
+        wsService.broadcastStateUpdate();
+        logger.debug('Broadcasted state update after stop command');
+      } else {
+        logger.warn('[DEBUG-STOP] No WebSocket service found - cannot broadcast');
+      }
     } catch (statusError) {
       logger.warn(`Error updating status file: ${statusError.message}`);
     }
@@ -365,6 +525,22 @@ router.post('/play', async (req, res) => {
         }
         
         fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
+        
+        // Update central state
+        await updateCentralStateViaService({
+          player: {
+            isRunning: true,
+            isPlaying: true,
+            status: 'playing'
+          }
+        }, 'route-play');
+        
+        // Broadcast state update to all connected clients
+        const wsService = getWebSocketService();
+        if (wsService) {
+          wsService.broadcastStateUpdate();
+          logger.debug('Broadcasted state update after play command');
+        }
       } catch (statusError) {
         logger.warn(`Error updating status file: ${statusError.message}`);
       }
@@ -405,6 +581,22 @@ router.post('/pause', async (req, res) => {
         }
         
         fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
+        
+        // Update central state
+        await updateCentralStateViaService({
+          player: {
+            isRunning: true,
+            isPlaying: false,
+            status: 'paused'
+          }
+        }, 'route-pause');
+        
+        // Broadcast state update to all connected clients
+        const wsService = getWebSocketService();
+        if (wsService) {
+          wsService.broadcastStateUpdate();
+          logger.debug('Broadcasted state update after pause command');
+        }
       } catch (statusError) {
         logger.warn(`Error updating status file: ${statusError.message}`);
       }
@@ -436,6 +628,16 @@ router.post('/love', async (req, res) => {
     // Get command interface and send love command
     const cmd = getCommandInterface();
     const result = await cmd.love();
+    
+    // Update central state if command was successful
+    if (result.success) {
+      await updateCentralStateViaService({
+        currentSong: {
+          rating: 1  // 1 means loved
+        }
+      }, 'route-love');
+    }
+    
     res.json(result);
   } catch (error) {
     logger.error(`Error loving song: ${error.message}`);
@@ -665,6 +867,45 @@ router.get('/debug-events', async (req, res) => {
   } catch (error) {
     logger.error(`Debug events error: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Debug endpoint to check pianobar logs
+router.get('/debug-logs', async (req, res) => {
+  try {
+    const logs = {};
+    
+    // Read stdout
+    try {
+      logs.stdout = fs.readFileSync('/tmp/pianobar_stdout.log', 'utf8').slice(-1000);
+    } catch (e) {
+      logs.stdout = `Error reading stdout: ${e.message}`;
+    }
+    
+    // Read stderr
+    try {
+      logs.stderr = fs.readFileSync('/tmp/pianobar_stderr.log', 'utf8').slice(-1000);
+    } catch (e) {
+      logs.stderr = `Error reading stderr: ${e.message}`;
+    }
+    
+    // Check if process is running
+    const { exec } = require('child_process');
+    exec('pgrep pianobar', (err, stdout) => {
+      logs.isRunning = !err && stdout.trim().length > 0;
+      logs.pids = stdout ? stdout.trim().split('\n') : [];
+      
+      res.json({
+        success: true,
+        logs,
+        timestamp: new Date().toISOString()
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 

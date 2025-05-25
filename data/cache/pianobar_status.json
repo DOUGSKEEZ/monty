@@ -1,7 +1,25 @@
 {
-  "status": "stopped",
-  "isPianobarRunning": false,
-  "isPlaying": false,
-  "updateTime": 1748111635715,
-  "stopTime": 1748111635715
+  "version": 3,
+  "timestamp": 1748132029440,
+  "player": {
+    "isRunning": true,
+    "isPlaying": true,
+    "status": "playing"
+  },
+  "currentSong": {
+    "title": null,
+    "artist": null,
+    "album": null,
+    "stationName": null,
+    "songDuration": null,
+    "songPlayed": null,
+    "rating": null,
+    "coverArt": null,
+    "detailUrl": null
+  },
+  "stations": [],
+  "status": "playing",
+  "isPianobarRunning": true,
+  "isPlaying": true,
+  "updateTime": 1748132029440
 }
