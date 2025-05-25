@@ -51,16 +51,6 @@ function Navbar() {
             Shades
           </Link>
           <Link 
-            to="/music" 
-            className={`px-3 py-2 rounded transition ${
-              isActive('/music') 
-                ? 'bg-blue-700 text-white' 
-                : 'hover:bg-blue-700 hover:text-white'
-            }`}
-          >
-            Music
-          </Link>
-          <Link 
             to="/pianobar" 
             className={`px-3 py-2 rounded transition ${
               isActive('/pianobar') 
@@ -100,13 +90,6 @@ function Navbar() {
               onClick={() => setIsMenuOpen(false)}
             >
               Shades
-            </Link>
-            <Link 
-              to="/music" 
-              className={`px-4 py-2 rounded ${isActive('/music') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Music
             </Link>
             <Link 
               to="/pianobar" 

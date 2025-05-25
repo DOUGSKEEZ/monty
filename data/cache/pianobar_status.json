@@ -1,25 +1,25 @@
 {
-  "version": 60,
-  "timestamp": 1748152824748,
+  "version": 9,
+  "timestamp": 1748154369365,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "Soul Trane (feat. Hank Jones, Kenny Barron, Todd Coolman & Adam Nussbaum)",
-    "artist": "The James Moody And Hank Jones Quartet",
-    "album": "Our Delight",
+    "title": "Three's a Crowd",
+    "artist": "The Dave Brubeck Quartet",
+    "album": "Countdown: Time In Outer Space",
     "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "569",
+    "songDuration": "162",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://cont-1.p-cdn.us/images/81/cc/75/0b/3cec43a9b07ba477e0bdfe19/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/james-moody-hank-jones-quartet/our-delight/soul-trane-feat-hank-jones-kenny-barron-todd-coolman-adam-nussbaum/TRgJbf422ZgzttV?dc=1777&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://mediaserver-cont-dc6-2-v4v6.pandora.com/images/39/33/05/71/69c94dc696d16e8ce7c9fb64/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/dave-brubeck-quartet/countdown-time-in-outer-space/threes-crowd/TRnhVlrz4bV4zxV?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748152824748
+  "updateTime": 1748154369365
 }
