@@ -78,6 +78,18 @@ function PianobarPage() {
   useEffect(() => {
     console.log('🚀 PianobarPage mounted - initializing...');
     
+    // Force fresh state for mobile/tablets
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      console.log('📱 Mobile device detected - forcing fresh state');
+      // Clear any potentially cached state
+      actions.updatePianobarStatus({
+        isRunning: null,
+        isPlaying: null,
+        status: null
+      });
+    }
+    
     // Initial status check
     actions.refreshPianobar();
     
@@ -536,7 +548,7 @@ function PianobarPage() {
         </span>
       </div>
       
-      <h1 className="text-3xl font-bold mb-6">Pandora Music Player</h1>
+      <h1 className="text-3xl font-bold mb-6">Monty's Pianobar</h1>
       
       {/* Error Display */}
       {pianobar.error && (
@@ -566,7 +578,20 @@ function PianobarPage() {
           <h2 className="text-xl font-semibold">
             Player Status: {isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}
           </h2>
-          {(() => {
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={() => actions.refreshPianobar()}
+              className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full"
+              title="Refresh Status"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                <path d="M21 3v5h-5"></path>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                <path d="M3 21v-5h5"></path>
+              </svg>
+            </button>
+            {(() => {
             const playerOn = isPlayerOn();
             console.log('🎛️ Button render decision:', {
               'isPlayerOn()': playerOn,
@@ -624,6 +649,7 @@ function PianobarPage() {
               </button>
             );
           })()}
+          </div>
         </div>
         
         {/* Now Playing Section (Hidden when player is off) */}
@@ -675,9 +701,14 @@ function PianobarPage() {
                 {/* Station */}
                 {(currentSong.stationName || station) && (
                   <p className="text-sm text-blue-600 font-medium truncate flex items-center space-x-1" data-testid="song-station">
-                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
-                      <path d="M6 10.5a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5H7.5V12a2.25 2.25 0 004.5 0v-.75h-.75a.75.75 0 010-1.5h1.5a.75.75 0 01.75.75V12a3.75 3.75 0 11-7.5 0v-1.5z" />
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="2" y="10" width="2" height="4" fill="currentColor"/>
+                      <rect x="5" y="8" width="2" height="8" fill="currentColor"/>
+                      <rect x="8" y="6" width="2" height="12" fill="currentColor"/>
+                      <rect x="11" y="4" width="2" height="16" fill="currentColor"/>
+                      <rect x="14" y="6" width="2" height="12" fill="currentColor"/>
+                      <rect x="17" y="8" width="2" height="8" fill="currentColor"/>
+                      <rect x="20" y="10" width="2" height="4" fill="currentColor"/>
                     </svg>
                     <span className="truncate">{currentSong.stationName || station}</span>
                   </p>
@@ -727,10 +758,10 @@ function PianobarPage() {
           </div>
           
           {/* Playback Controls */}
-          <div className="flex space-x-4 my-4">
+          <div className="flex justify-center space-x-6 my-6">
             <button 
               onClick={handleLove}
-              className={`p-2 rounded-full transition-all duration-300 ${
+              className={`p-4 rounded-full transition-all duration-300 ${
                 !isPlayerOn() 
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : currentSong.rating > 0 
@@ -740,13 +771,13 @@ function PianobarPage() {
               disabled={!isPlayerOn()}
               title={currentSong.rating > 0 ? "Loved Song" : "Love This Song"}
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
               </svg>
             </button>
             <button 
               onClick={handlePlayPause}
-              className={`p-2 rounded-full ${
+              className={`p-4 rounded-full ${
                 isPlayerOn() 
                   ? 'bg-blue-500 hover:bg-blue-600 text-white' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -755,18 +786,18 @@ function PianobarPage() {
               title={isPlaying() ? 'Pause' : 'Play'}
             >
               {isPlaying() ? (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clipRule="evenodd" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
                 </svg>
               )}
             </button>
             <button 
               onClick={handleNext}
-              className={`p-2 rounded-full ${
+              className={`p-4 rounded-full ${
                 isPlayerOn() 
                   ? 'bg-blue-500 hover:bg-blue-600 text-white' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -774,20 +805,8 @@ function PianobarPage() {
               disabled={!isPlayerOn()}
               title="Next Song"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M5.055 7.06c-1.25-.714-2.805.189-2.805 1.628v8.123c0 1.44 1.555 2.342 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.342 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256L14.805 7.06C13.555 6.346 12 7.25 12 8.688v2.34L5.055 7.06z" />
-              </svg>
-            </button>
-            <button 
-              onClick={() => actions.refreshPianobar()}
-              className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full"
-              title="Refresh Status"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                <path d="M21 3v5h-5"></path>
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                <path d="M3 21v-5h5"></path>
               </svg>
             </button>
           </div>

@@ -68,7 +68,7 @@ function Navbar() {
                 : 'hover:bg-blue-700 hover:text-white'
             }`}
           >
-            Pandora
+            Pianobar
           </Link>
           <Link 
             to="/weather" 
@@ -113,7 +113,7 @@ function Navbar() {
               className={`px-4 py-2 rounded ${isActive('/pianobar') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
               onClick={() => setIsMenuOpen(false)}
             >
-              Pandora
+              Pianobar
             </Link>
             <Link 
               to="/weather" 

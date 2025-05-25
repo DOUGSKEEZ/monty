@@ -1,25 +1,25 @@
 {
-  "version": 3,
-  "timestamp": 1748132029440,
+  "version": 10,
+  "timestamp": 1748137873823,
   "player": {
     "isRunning": true,
-    "isPlaying": true,
-    "status": "playing"
+    "isPlaying": false,
+    "status": "paused"
   },
   "currentSong": {
-    "title": null,
-    "artist": null,
-    "album": null,
-    "stationName": null,
-    "songDuration": null,
-    "songPlayed": null,
-    "rating": null,
-    "coverArt": null,
-    "detailUrl": null
+    "title": "Summertime",
+    "artist": "Jack Jezzro & The Beegie Adair Trio",
+    "album": "Jazz On Broadway",
+    "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
+    "songDuration": "298",
+    "songPlayed": "0",
+    "rating": "0",
+    "coverArt": "http://cont-1.p-cdn.us/images/6b/91/4d/96/ee4d45eea1df5d0f721d194c/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/jack-jezzro-beegie-adair-trio/jazz-on-broadway/summertime/TR3pcVhZf4l46xk?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
-  "status": "playing",
+  "status": "paused",
   "isPianobarRunning": true,
-  "isPlaying": true,
-  "updateTime": 1748132029440
+  "isPlaying": false,
+  "updateTime": 1748137873823
 }
