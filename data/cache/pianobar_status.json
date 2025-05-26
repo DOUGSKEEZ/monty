@@ -1,25 +1,25 @@
 {
-  "version": 9,
-  "timestamp": 1748154369365,
+  "version": 51,
+  "timestamp": 1748297472919,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "Three's a Crowd",
-    "artist": "The Dave Brubeck Quartet",
-    "album": "Countdown: Time In Outer Space",
+    "title": "Seattle Song",
+    "artist": "Tord Gustavsen Trio",
+    "album": "Seeing",
     "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "162",
+    "songDuration": "229",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://mediaserver-cont-dc6-2-v4v6.pandora.com/images/39/33/05/71/69c94dc696d16e8ce7c9fb64/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/dave-brubeck-quartet/countdown-time-in-outer-space/threes-crowd/TRnhVlrz4bV4zxV?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://cont-2.p-cdn.us/images/c0/8e/4f/b7/5a3942df9725d020683d7fa1/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/tord-gustavsen-trio/seeing/seattle-song/TRjv962th439hgZ?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748154369365
+  "updateTime": 1748297472919
 }

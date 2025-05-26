@@ -1,0 +1,13 @@
+{
+  "name": "Good Night",
+  "description": "Lower all privacy shades for nighttime",
+  "commands": [
+    {"shade_id": 14, "action": "d", "delay_ms": 750},
+    {"shade_id": 33, "action": "d", "delay_ms": 750},
+    {"shade_id": 40, "action": "d", "delay_ms": 750},
+    {"shade_id": 44, "action": "d", "delay_ms": 750},
+    {"shade_id": 48, "action": "d", "delay_ms": 750}
+  ],
+  "retry_count": 2,
+  "timeout_seconds": 10
+}
