@@ -351,7 +351,7 @@ def get_all_shades() -> list[Dict[str, Any]]:
             SELECT shade_id, remote_id, room, location, facing, type,
                    room || ' ' || location as name
             FROM shades 
-            ORDER BY room, location, shade_id
+            ORDER BY shade_id ASC
         """)
         rows = cursor.fetchall()
         conn.close()

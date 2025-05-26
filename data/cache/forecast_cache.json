@@ -1,5 +1,5 @@
 {
-  "timestamp": 1748290371758,
+  "timestamp": 1748301172374,
   "data": {
     "location": {
       "name": "Silverthorne",
@@ -11,33 +11,6 @@
     },
     "days": [
       {
-        "date": "2025-05-26",
-        "dayOfWeek": "Monday",
-        "min": 47,
-        "max": 47,
-        "weatherMain": "Clouds",
-        "icon": "04d",
-        "hourly": [
-          {
-            "time": "09:00 PM",
-            "timestamp": 1748293200000,
-            "temperature": 47,
-            "feelsLike": 42,
-            "weather": {
-              "main": "Clouds",
-              "description": "overcast clouds",
-              "icon": "04d"
-            },
-            "wind": {
-              "speed": 11.77,
-              "direction": 330
-            },
-            "humidity": 57,
-            "pressure": 1012
-          }
-        ]
-      },
-      {
         "date": "2025-05-27",
         "dayOfWeek": "Tuesday",
         "min": 36,
@@ -48,8 +21,8 @@
           {
             "time": "12:00 AM",
             "timestamp": 1748304000000,
-            "temperature": 48,
-            "feelsLike": 47,
+            "temperature": 46,
+            "feelsLike": 44,
             "weather": {
               "main": "Rain",
               "description": "light rain",
@@ -59,14 +32,14 @@
               "speed": 3.94,
               "direction": 21
             },
-            "humidity": 56,
-            "pressure": 1012
+            "humidity": 62,
+            "pressure": 1014
           },
           {
             "time": "03:00 AM",
             "timestamp": 1748314800000,
-            "temperature": 44,
-            "feelsLike": 42,
+            "temperature": 45,
+            "feelsLike": 44,
             "weather": {
               "main": "Rain",
               "description": "light rain",
@@ -76,14 +49,14 @@
               "speed": 3.29,
               "direction": 199
             },
-            "humidity": 68,
+            "humidity": 66,
             "pressure": 1015
           },
           {
             "time": "06:00 AM",
             "timestamp": 1748325600000,
-            "temperature": 40,
-            "feelsLike": 36,
+            "temperature": 42,
+            "feelsLike": 38,
             "weather": {
               "main": "Clouds",
               "description": "broken clouds",
@@ -93,8 +66,8 @@
               "speed": 5.55,
               "direction": 165
             },
-            "humidity": 80,
-            "pressure": 1019
+            "humidity": 74,
+            "pressure": 1017
           },
           {
             "time": "09:00 AM",
@@ -625,8 +598,8 @@
         "date": "2025-05-31",
         "dayOfWeek": "Saturday",
         "min": 43,
-        "max": 69,
-        "weatherMain": "Clear",
+        "max": 72,
+        "weatherMain": "Clouds",
         "icon": "04d",
         "hourly": [
           {
@@ -747,10 +720,27 @@
             },
             "humidity": 29,
             "pressure": 1015
+          },
+          {
+            "time": "09:00 PM",
+            "timestamp": 1748725200000,
+            "temperature": 72,
+            "feelsLike": 70,
+            "weather": {
+              "main": "Clouds",
+              "description": "broken clouds",
+              "icon": "04d"
+            },
+            "wind": {
+              "speed": 11.34,
+              "direction": 330
+            },
+            "humidity": 25,
+            "pressure": 1012
           }
         ]
       }
     ],
-    "fetchTime": 1748290371758
+    "fetchTime": 1748301172374
   }
 }
