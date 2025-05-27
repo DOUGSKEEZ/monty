@@ -337,7 +337,9 @@ class ServiceRegistry {
           successCount: service.metrics.successCount,
           errorCount: service.metrics.errorCount,
           avgResponseTime: service.metrics.avgResponseTime,
-          lastResponseTime: service.metrics.lastResponseTime
+          lastResponseTime: service.metrics.lastResponseTime,
+          // Include all custom metrics for external services like ShadeCommander
+          ...service.metrics
         }
       };
     });

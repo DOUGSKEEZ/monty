@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 # Import our routers
 from commander.routers import shades, health, scenes
-from commander.interface.arduino_whisperer import cleanup_arduino_connection
+from commander.interface.arduino_whisperer import cleanup_arduino_connection, force_arduino_reconnect
 
 # Configure logging
 logging.basicConfig(
@@ -24,8 +24,17 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("🫡 ShadeCommander starting up...")
     
-    # Smart Arduino connection will auto-connect on first command
-    logger.info("🤖 Smart Arduino Whisperer ready - will auto-connect on first command!")
+    # AUTO-CONNECT TO ARDUINO ON STARTUP
+    logger.info("🔌 Establishing Arduino connection...")
+    try:
+        connection_result = await force_arduino_reconnect()
+        if connection_result["success"]:
+            logger.info("✅ Arduino connected successfully on startup")
+        else:
+            logger.warning("⚠️ Arduino connection failed on startup - will retry on first command")
+    except Exception as e:
+        logger.error(f"❌ Arduino startup connection error: {e}")
+    
     logger.info("🚀 ShadeCommander ready to receive commands!")
     
     yield
@@ -61,10 +70,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware for Node.js communication
+# Add CORS middleware for Node.js and frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3001"],  # Your Node.js server
+    allow_origins=[
+        "http://localhost:3001",        # Node.js backend server
+        "http://192.168.0.15:3001",     # Node.js backend server (IP)
+        "http://localhost:3000",        # React frontend (localhost)
+        "http://192.168.0.15:3000",     # React frontend (IP)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

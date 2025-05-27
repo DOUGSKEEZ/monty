@@ -235,6 +235,10 @@ app.get('/api/dashboard', (req, res) => {
     // Try to get detailed service status if available
     if (serviceRegistry.getDetailedStatus) {
       serviceDetails = serviceRegistry.getDetailedStatus();
+      // Debug: Check ShadeCommander data in serviceDetails
+      if (serviceDetails['shade-commander']) {
+        logger.info(`🔍 Dashboard serviceDetails for shade-commander: ${JSON.stringify(serviceDetails['shade-commander'])}`);
+      }
     }
     
     // Try to get retry statistics if RetryHelper is available
@@ -425,17 +429,28 @@ app.get('/api/dashboard', (req, res) => {
   for (const [name, service] of Object.entries(serviceDetails)) {
     html += `
       <div class="service">
-        <h3>${name} <span class="status ${service.status}"></span></h3>
+        <h3>${name === 'shade-commander' ? 'ShadeCommander' : name} <span class="status ${service.status}"></span></h3>
         <p><strong>Status:</strong> ${service.status}${service.lastError ? ` - ${service.lastError}` : ''}</p>
         <p><strong>Type:</strong> ${service.isCore ? 'Core' : 'Optional'}</p>
         <p><strong>Uptime:</strong> ${service.uptime ? formatUptime(service.uptime) : 'Not started'}</p>
     `;
     
     if (service.metrics) {
-      html += `
-        <p><strong>Metrics:</strong> Success: ${service.metrics.successCount || 0}, Errors: ${service.metrics.errorCount || 0}</p>
-        <p><strong>Avg Response:</strong> ${service.metrics.avgResponseTime ? `${service.metrics.avgResponseTime.toFixed(2)}ms` : 'N/A'}</p>
-      `;
+      // Special handling for ShadeCommander
+      if (name === 'shade-commander') {
+        html += `
+          <p><strong>Arduino:</strong> ${service.metrics.arduinoConnected ? '🟢 Connected' : '🔴 Disconnected'} (${service.metrics.arduinoPort})</p>
+          <p><strong>Active Tasks:</strong> ${service.metrics.activeTasks} background retries</p>
+          <p><strong>Recent Cancellations:</strong> ${service.metrics.recentCancellations}</p>
+          <p><strong>External Service:</strong> FastAPI on port 8000 (no internal metrics)</p>
+          <p><button onclick="reconnectArduino()" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">🔌 Reconnect Arduino</button></p>
+        `;
+      } else {
+        html += `
+          <p><strong>Metrics:</strong> Success: ${service.metrics.successCount || 0}, Errors: ${service.metrics.errorCount || 0}</p>
+          <p><strong>Avg Response:</strong> ${service.metrics.avgResponseTime ? `${service.metrics.avgResponseTime.toFixed(2)}ms` : 'N/A'}</p>
+        `;
+      }
     }
     
     if (retryStats && retryStats.details && retryStats.details[name]) {
@@ -470,12 +485,91 @@ app.get('/api/dashboard', (req, res) => {
           clearTimeout(refreshTimer);
         }
       });
+      
+      // ShadeCommander Arduino reconnect function
+      async function reconnectArduino() {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        button.innerHTML = '⏳ Reconnecting...';
+        button.disabled = true;
+        
+        try {
+          // Call our backend endpoint which will proxy to ShadeCommander
+          const response = await fetch('/api/shade-commander/reconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            button.innerHTML = '✅ Reconnected!';
+            setTimeout(() => location.reload(), 2000); // Refresh to show new status
+          } else {
+            button.innerHTML = '❌ Failed';
+            setTimeout(() => {
+              button.innerHTML = originalText;
+              button.disabled = false;
+            }, 3000);
+          }
+        } catch (error) {
+          button.innerHTML = '❌ Error';
+          setTimeout(() => {
+            button.innerHTML = originalText;
+            button.disabled = false;
+          }, 3000);
+        }
+      }
     </script>
   </body>
   </html>
   `;
   
   res.send(html);
+});
+
+// Debug endpoint to check service registry data
+app.get('/api/debug/services', (req, res) => {
+  try {
+    const services = {};
+    for (const [name, service] of serviceRegistry.services.entries()) {
+      services[name] = {
+        status: service.status,
+        metrics: service.metrics,
+        isCore: service.isCore,
+        uptime: service.uptime
+      };
+    }
+    res.json(services);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ShadeCommander proxy endpoint for Arduino reconnect
+app.post('/api/shade-commander/reconnect', async (req, res) => {
+  try {
+    const axios = require('axios');
+    
+    logger.info('Dashboard requested Arduino reconnection via ShadeCommander');
+    
+    const response = await axios.post('http://192.168.0.15:8000/arduino/reconnect', {}, {
+      timeout: 15000, // Arduino reconnection can take up to 10 seconds
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    logger.info(`Arduino reconnection result: ${response.data.success ? 'Success' : 'Failed'}`);
+    res.json(response.data);
+    
+  } catch (error) {
+    logger.error(`Arduino reconnection failed: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Failed to connect to ShadeCommander for Arduino reconnection'
+    });
+  }
 });
 
 // Register services in the service registry
@@ -539,6 +633,129 @@ serviceRegistry.register('shade-service', {
       };
     } catch (error) {
       return { status: 'error', message: error.message };
+    }
+  }
+});
+
+// ShadeCommander external service (FastAPI on port 8000)
+serviceRegistry.register('shade-commander', {
+  isCore: false,
+  status: 'initializing',
+  checkHealth: async () => {
+    try {
+      const axios = require('axios');
+      
+      // Health check with 5 second timeout
+      const healthResponse = await axios.get('http://192.168.0.15:8000/health', {
+        timeout: 5000
+      });
+      
+      // Get additional Arduino status
+      let arduinoStatus = { connected: false, port: 'Unknown' };
+      let retryStats = { total_active_tasks: 0, recent_cancellations: 0 };
+      
+      try {
+        const arduinoResponse = await axios.get('http://192.168.0.15:8000/arduino/status', {
+          timeout: 3000
+        });
+        // Arduino status is nested under arduino_status in the response
+        if (arduinoResponse.data && arduinoResponse.data.arduino_status) {
+          arduinoStatus = arduinoResponse.data.arduino_status;
+          logger.info(`Arduino status parsed: connected=${arduinoStatus.connected}, port=${arduinoStatus.port}`);
+        }
+      } catch (err) {
+        logger.debug(`Could not fetch Arduino status: ${err.message}`);
+      }
+      
+      try {
+        const retryResponse = await axios.get('http://192.168.0.15:8000/retries', {
+          timeout: 3000
+        });
+        // Parse retry stats correctly
+        if (retryResponse.data) {
+          retryStats = {
+            total_active_tasks: retryResponse.data.total_active_tasks || 0,
+            recent_cancellations: retryResponse.data.recent_cancellations || 0
+          };
+          logger.info(`Retry stats parsed: active=${retryStats.total_active_tasks}, cancellations=${retryStats.recent_cancellations}`);
+        }
+      } catch (err) {
+        logger.debug(`Could not fetch retry stats: ${err.message}`);
+      }
+      
+      const isHealthy = healthResponse.data.status === 'healthy';
+      const isArduinoConnected = arduinoStatus.connected;
+      
+      // Service status only depends on ShadeCommander health, not Arduino
+      let status = isHealthy ? 'ok' : 'error';
+      let message = isHealthy ? 'ShadeCommander responding' : 'ShadeCommander unhealthy';
+      
+      // Add Arduino info to message but don't affect service status
+      if (isHealthy) {
+        if (isArduinoConnected) {
+          message = `ShadeCommander OK, Arduino connected (${arduinoStatus.port})`;
+        } else {
+          message = `ShadeCommander OK, Arduino disconnected (${arduinoStatus.port})`;
+        }
+      }
+      
+      const finalMetrics = {
+        arduinoConnected: isArduinoConnected,
+        arduinoPort: arduinoStatus.port || 'Unknown',
+        activeTasks: retryStats.total_active_tasks || 0,
+        recentCancellations: retryStats.recent_cancellations || 0,
+        uptime: healthResponse.data.uptime_seconds
+      };
+      
+      logger.info(`Final ShadeCommander metrics: ${JSON.stringify(finalMetrics)}`);
+      logger.info(`🚀 CHECKPOINT: About to try ServiceRegistry update...`);
+      
+      // Update service registry with our custom metrics BEFORE returning
+      try {
+        logger.info(`🔍 Updating ServiceRegistry for shade-commander`);
+        const service = serviceRegistry.services.get('shade-commander');
+        if (service) {
+          logger.info(`Before update - service.metrics keys: ${Object.keys(service.metrics || {}).join(', ')}`);
+          service.metrics = {
+            ...service.metrics,
+            // Keep standard metrics for compatibility
+            successCount: service.metrics.successCount || 0,
+            errorCount: service.metrics.errorCount || 0,
+            avgResponseTime: service.metrics.avgResponseTime || 0,
+            // Add our custom ShadeCommander metrics
+            arduinoConnected: finalMetrics.arduinoConnected,
+            arduinoPort: finalMetrics.arduinoPort,
+            activeTasks: finalMetrics.activeTasks,
+            recentCancellations: finalMetrics.recentCancellations,
+            uptime: finalMetrics.uptime
+          };
+          serviceRegistry.services.set('shade-commander', service);
+          logger.info(`✅ Updated ServiceRegistry with ShadeCommander metrics: Arduino=${finalMetrics.arduinoConnected}, Tasks=${finalMetrics.activeTasks}`);
+        } else {
+          logger.error(`❌ Service 'shade-commander' not found in registry! Available services: ${Array.from(serviceRegistry.services.keys()).join(', ')}`);
+        }
+      } catch (updateError) {
+        logger.error(`❌ Error updating ServiceRegistry: ${updateError.message}`);
+      }
+      
+      return {
+        status: status,
+        message: message,
+        metrics: finalMetrics
+      };
+      
+    } catch (error) {
+      // ShadeCommander not responding
+      return {
+        status: 'error',
+        message: `ShadeCommander unavailable: ${error.message}`,
+        metrics: {
+          arduinoConnected: false,
+          arduinoPort: 'N/A',
+          activeTasks: 0,
+          recentCancellations: 0
+        }
+      };
     }
   }
 });

@@ -454,3 +454,31 @@ export const stateApi = {
       body: JSON.stringify(updates),
     }),
 };
+
+// ShadeCommander API configuration with fallback
+console.log('Environment variable REACT_APP_SHADECOMMANDER_URL:', process.env.REACT_APP_SHADECOMMANDER_URL);
+const SHADECOMMANDER_URL = process.env.REACT_APP_SHADECOMMANDER_URL || 'http://192.168.0.15:8000';
+console.log('Final SHADECOMMANDER_URL:', SHADECOMMANDER_URL);
+
+// Direct ShadeCommander API calls (FastAPI external service)
+export const controlShadeCommander = async (shadeId, action) => {
+  console.log(`Using ShadeCommander URL: ${SHADECOMMANDER_URL}`);
+  const response = await fetch(`${SHADECOMMANDER_URL}/shades/${shadeId}/command`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  
+  return response.json();
+};
+
+export const checkShadeCommanderHealth = async () => {
+  const response = await fetch(`${SHADECOMMANDER_URL}/health`);
+  return response.json();
+};

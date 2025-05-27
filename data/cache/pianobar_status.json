@@ -1,25 +1,25 @@
 {
-  "version": 73,
-  "timestamp": 1748302730572,
+  "version": 24,
+  "timestamp": 1748317303576,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "Jazz Fruits Music, Pt. 55",
-    "artist": "Jazz Fruits Music, Formal Chicken & Lofi Fruits Music",
-    "album": "Jazz Fruits Music: Relaxing Piano Study Morning, Coffee Work Ambience",
-    "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "31",
+    "title": "Blue on Black",
+    "artist": "Kenny Wayne Shepherd Band",
+    "album": "Trouble Is...",
+    "stationName": "Blues Guitar Legends Radio",
+    "songDuration": "334",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://mediaserver-cont-sv5-1-v4v6.pandora.com/images/86/eb/98/b4/9aef4d3696c824b355d9b83c/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/jazz-fruits-music-formal-chicken-lofi-fruits-music/jazz-fruits-music-relaxing-piano-study-morning-coffee-work-ambience/jazz-fruits-music-pt-55/TRpZfth73g6rwdK?dc=1777&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://mediaserver-cont-usc-mp1-1-v4v6.pandora.com/images/f1/b9/e7/7c/96174de2905c7f541e9ca3cb/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/kenny-wayne-shepherd-band/trouble-is/blue-on-black/TR4ZVlxZb7Zk2vP?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748302730572
+  "updateTime": 1748317303576
 }

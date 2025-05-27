@@ -12,4 +12,5 @@ source venv/bin/activate
 export PYTHONPATH="/home/monty/monty/shades:$PYTHONPATH"
 
 # Start FastAPI server
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# Use --reload for development, remove for production
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
