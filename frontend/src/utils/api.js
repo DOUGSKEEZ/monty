@@ -482,3 +482,19 @@ export const checkShadeCommanderHealth = async () => {
   const response = await fetch(`${SHADECOMMANDER_URL}/health`);
   return response.json();
 };
+
+export const triggerShadeCommanderScene = async (sceneName) => {
+  console.log(`Triggering scene: ${sceneName} via ShadeCommander`);
+  const response = await fetch(`${SHADECOMMANDER_URL}/scenes/${sceneName}/execute`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  
+  return response.json();
+};

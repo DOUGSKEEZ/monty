@@ -218,30 +218,28 @@ function getHealthMessage(status) {
 }
 
 // Service status dashboard (HTML)
+// In server.js, replace the entire app.get('/api/dashboard', ...) route
 app.get('/api/dashboard', (req, res) => {
-  // Get service health and status information
+  // Initialize data variables
   let serviceHealth = { status: 'ok', services: { byStatus: { ready: 0, warning: 0, error: 0, initializing: 0, pending: 0 } } };
   let serviceDetails = {};
   let retryStats = { operations: 0, totalRetries: 0, successful: 0, failed: 0, criticalFailed: 0, details: {} };
-  let circuitBreakerStats = {};
   let recoveryStats = null;
-  
+
+  // Gather data
   try {
-    // Try to get system health if available
     if (serviceRegistry.getSystemHealth) {
       serviceHealth = serviceRegistry.getSystemHealth();
     }
-    
-    // Try to get detailed service status if available
     if (serviceRegistry.getDetailedStatus) {
       serviceDetails = serviceRegistry.getDetailedStatus();
-      // Debug: Check ShadeCommander data in serviceDetails
       if (serviceDetails['shade-commander']) {
         logger.info(`🔍 Dashboard serviceDetails for shade-commander: ${JSON.stringify(serviceDetails['shade-commander'])}`);
       }
+      if (serviceDetails['SystemMetrics']) {
+        logger.info(`🔍 Dashboard serviceDetails for SystemMetrics: ${JSON.stringify(serviceDetails['SystemMetrics'])}`);
+      }
     }
-    
-    // Try to get retry statistics if RetryHelper is available
     try {
       const RetryHelper = require('./utils/RetryHelper');
       if (RetryHelper && RetryHelper.getRetryStats) {
@@ -250,44 +248,34 @@ app.get('/api/dashboard', (req, res) => {
     } catch (error) {
       console.warn(`Could not load retry stats: ${error.message}`);
     }
-    
-    // Try to get service watchdog recovery statistics if available
     if (serviceWatchdog && serviceWatchdog.getRecoveryStats) {
       recoveryStats = serviceWatchdog.getRecoveryStats();
     }
   } catch (error) {
     console.error(`Error gathering dashboard data: ${error.message}`);
   }
-  
-  // Helper function to get status message
+
+  // Helper functions
   function getStatusMessage(status) {
     switch (status) {
-      case 'ok':
-        return 'All systems operational';
-      case 'warning':
-        return 'System operational with warnings';
-      case 'degraded':
-        return 'System operational in degraded state';
-      case 'critical':
-        return 'Critical system failure';
-      default:
-        return 'System status unknown';
+      case 'ok': return 'All systems operational';
+      case 'warning': return 'System operational with warnings';
+      case 'degraded': return 'System operational in degraded state';
+      case 'critical': return 'Critical system failure';
+      default: return 'System status unknown';
     }
   }
-  
-  // Helper function to format uptime
+
   function formatUptime(seconds) {
     if (!seconds) return 'N/A';
-    
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
     return `${days}d ${hours}h ${minutes}m ${secs}s`;
   }
-  
-  // Simple HTML dashboard
+
+  // Initialize HTML
   let html = `
     <!DOCTYPE html>
     <html>
@@ -323,8 +311,8 @@ app.get('/api/dashboard', (req, res) => {
         </div>
       </div>
   `;
-  
-  // Add service summary section if available
+
+  // Service Summary
   if (serviceHealth && serviceHealth.services) {
     html += `
       <div class="section">
@@ -346,29 +334,22 @@ app.get('/api/dashboard', (req, res) => {
             <td>${serviceHealth.services.byStatus.error || 0}</td>
             <td>${(serviceHealth.services.byStatus.pending || 0) + (serviceHealth.services.byStatus.initializing || 0)}</td>
           </tr>
-    `;
-    
-    // Add core services row if available
-    if (serviceHealth.coreServices) {
-      html += `
-          <tr>
-            <td>Core Services</td>
-            <td>${serviceHealth.coreServices.total || 0}</td>
-            <td>${serviceHealth.coreServices.byStatus.ready || 0}</td>
-            <td>${serviceHealth.coreServices.byStatus.warning || 0}</td>
-            <td>${serviceHealth.coreServices.byStatus.error || 0}</td>
-            <td>${(serviceHealth.coreServices.byStatus.pending || 0) + (serviceHealth.coreServices.byStatus.initializing || 0)}</td>
-          </tr>
-      `;
-    }
-    
-    html += `
+          ${serviceHealth.coreServices ? `
+            <tr>
+              <td>Core Services</td>
+              <td>${serviceHealth.coreServices.total || 0}</td>
+              <td>${serviceHealth.coreServices.byStatus.ready || 0}</td>
+              <td>${serviceHealth.coreServices.byStatus.warning || 0}</td>
+              <td>${serviceHealth.coreServices.byStatus.error || 0}</td>
+              <td>${(serviceHealth.coreServices.byStatus.pending || 0) + (serviceHealth.coreServices.byStatus.initializing || 0)}</td>
+            </tr>
+          ` : ''}
         </table>
       </div>
     `;
   }
-  
-  // Add retry information section if available
+
+  // Retry Information
   if (retryStats) {
     html += `
       <div class="section retry-info">
@@ -382,8 +363,8 @@ app.get('/api/dashboard', (req, res) => {
       </div>
     `;
   }
-  
-  // Add recovery information if available
+
+  // Recovery Information
   if (recoveryStats) {
     html += `
       <div class="section recovery-info">
@@ -392,91 +373,120 @@ app.get('/api/dashboard', (req, res) => {
         <p>Successful Recoveries: ${recoveryStats.overall.successful}</p>
         <p>Failed Recoveries: ${recoveryStats.overall.failed}</p>
         <p>Success Rate: ${recoveryStats.overall.successRate}%</p>
-        
         <h3>Service-specific Recovery Stats</h3>
         <div class="dashboard-grid">
-    `;
-    
-    // Add recovery stats for each service
-    for (const [serviceName, stats] of Object.entries(recoveryStats.services)) {
-      if (stats.attempts > 0) {
-        html += `
-          <div class="service">
-            <h4>${serviceName}</h4>
-            <p>Attempts: ${stats.attempts}</p>
-            <p>Success Rate: ${stats.successRate}%</p>
-            <p>Last Attempt: ${stats.lastAttempt ? new Date(stats.lastAttempt).toLocaleString() : 'N/A'}</p>
-            <p>Last Result: ${stats.lastResult || 'N/A'}</p>
-          </div>
-        `;
-      }
-    }
-    
-    html += `
+          ${Object.entries(recoveryStats.services)
+            .filter(([_, stats]) => stats.attempts > 0)
+            .map(([serviceName, stats]) => `
+              <div class="service">
+                <h4>${serviceName}</h4>
+                <p>Attempts: ${stats.attempts}</p>
+                <p>Success Rate: ${stats.successRate}%</p>
+                <p>Last Attempt: ${stats.lastAttempt ? new Date(stats.lastAttempt).toLocaleString() : 'N/A'}</p>
+                <p>Last Result: ${stats.lastResult || 'N/A'}</p>
+              </div>
+            `).join('')}
         </div>
       </div>
     `;
   }
-  
-  // Add detailed service information
+
+  // Service Details
   html += `
     <div class="section">
       <h2>Service Details</h2>
       <div class="dashboard-grid">
-  `;
-  
-  // Add service detail cards
-  for (const [name, service] of Object.entries(serviceDetails)) {
-    html += `
-      <div class="service">
-        <h3>${name === 'shade-commander' ? 'ShadeCommander' : name} <span class="status ${service.status}"></span></h3>
-        <p><strong>Status:</strong> ${service.status}${service.lastError ? ` - ${service.lastError}` : ''}</p>
-        <p><strong>Type:</strong> ${service.isCore ? 'Core' : 'Optional'}</p>
-        <p><strong>Uptime:</strong> ${service.uptime ? formatUptime(service.uptime) : 'Not started'}</p>
-    `;
-    
-    if (service.metrics) {
-      // Special handling for ShadeCommander
-      if (name === 'shade-commander') {
-        html += `
-          <p><strong>Arduino:</strong> ${service.metrics.arduinoConnected ? '🟢 Connected' : '🔴 Disconnected'} (${service.metrics.arduinoPort})</p>
-          <p><strong>Active Tasks:</strong> ${service.metrics.activeTasks} background retries</p>
-          <p><strong>Recent Cancellations:</strong> ${service.metrics.recentCancellations}</p>
-          <p><strong>External Service:</strong> FastAPI on port 8000 (no internal metrics)</p>
-          <p><button onclick="reconnectArduino()" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">🔌 Reconnect Arduino</button></p>
-        `;
-      } else {
-        html += `
-          <p><strong>Metrics:</strong> Success: ${service.metrics.successCount || 0}, Errors: ${service.metrics.errorCount || 0}</p>
-          <p><strong>Avg Response:</strong> ${service.metrics.avgResponseTime ? `${service.metrics.avgResponseTime.toFixed(2)}ms` : 'N/A'}</p>
-        `;
-      }
-    }
-    
-    if (retryStats && retryStats.details && retryStats.details[name]) {
-      html += `
-        <p><strong>Retry Attempts:</strong> ${retryStats.details[name].attempts}</p>
-        <p><strong>Avg Retries:</strong> ${retryStats.details[name].avgRetries}</p>
-        <p><strong>Last Error:</strong> ${retryStats.details[name].lastError || 'None'}</p>
-      `;
-    }
-    
-    html += `
-      </div>
-    `;
-  }
-  
-  html += `
+        ${Object.entries(serviceDetails).map(([name, service]) => `
+          <div class="service">
+            <h3>${name === 'shade-commander' ? 'ShadeCommander' : name} <span class="status ${service.status}"></span></h3>
+            <p><strong>Status:</strong> ${service.status}${service.lastError ? ` - ${service.lastError}` : ''}</p>
+            <p><strong>Type:</strong> ${service.isCore ? 'Core' : 'Optional'}</p>
+            <p><strong>Uptime:</strong> ${service.uptime ? formatUptime(service.uptime) : 'Not started'}</p>
+            ${service.metrics ? (
+              name === 'shade-commander' ? `
+                <p><strong>Arduino:</strong> ${service.metrics.arduinoConnected ? '🟢 Connected' : '🔴 Disconnected'} (${service.metrics.arduinoPort})</p>
+                <p><strong>Active Tasks:</strong> ${service.metrics.activeTasks} background retries</p>
+                <p><strong>Recent Cancellations:</strong> ${service.metrics.recentCancellations}</p>
+                <p><strong>External Service:</strong> FastAPI on port 8000 (no internal metrics)</p>
+                <p><button onclick="reconnectArduino()" style="background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">🔌 Reconnect Arduino</button></p>
+              ` : name === 'SystemMetrics' ? `
+                <p><strong>CPU Usage:</strong> ${service.metrics.cpuUsage || 'N/A'}%</p>
+                <p><strong>Temperature:</strong> ${service.metrics.temperature || 'N/A'} °C</p>
+                <p><strong>Disk Usage:</strong> ${service.metrics.diskUsage || 'N/A'} of ${service.metrics.diskTotal || 'N/A'}</p>
+                <p><strong>Processes:</strong> ${service.metrics.processes || 'N/A'}</p>
+                <p><strong>Memory Usage:</strong> ${service.metrics.memoryUsage || 'N/A'}</p>
+              ` : `
+                <p><strong>Metrics:</strong> Success: ${service.metrics.successCount || 0}, Errors: ${service.metrics.errorCount || 0}</p>
+                <p><strong>Avg Response:</strong> ${service.metrics.avgResponseTime ? `${service.metrics.avgResponseTime.toFixed(2)}ms` : 'N/A'}</p>
+              `
+            ) : ''}
+            ${retryStats && retryStats.details && retryStats.details[name] ? `
+              <p><strong>Retry Attempts:</strong> ${retryStats.details[name].attempts}</p>
+              <p><strong>Avg Retries:</strong> ${retryStats.details[name].avgRetries}</p>
+              <p><strong>Last Error:</strong> ${retryStats.details[name].lastError || 'None'}</p>
+            ` : ''}
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
-  
-  // Add auto-refresh script
+
+  // System Metrics Chart
+  html += `
+    <div class="section">
+      <h2>System Metrics Chart</h2>
+      <canvas id="systemMetricsChart" width="400" height="200"></canvas>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const ctx = document.getElementById('systemMetricsChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['-40s', '-30s', '-20s', '-10s', 'Now'],
+          datasets: [
+            {
+              label: 'CPU Usage (%)',
+              data: ${JSON.stringify(serviceDetails['SystemMetrics']?.metrics?.cpuUsageHistory || [])},
+              borderColor: '#4CAF50',
+              backgroundColor: 'rgba(76, 175, 80, 0.2)',
+              fill: true
+            },
+            {
+              label: 'Memory Usage (%)',
+              data: ${JSON.stringify(serviceDetails['SystemMetrics']?.metrics?.memoryUsageHistory || [])},
+              borderColor: '#2196F3',
+              backgroundColor: 'rgba(33, 150, 243, 0.2)',
+              fill: true
+            },
+            {
+              label: 'Temperature (°C)',
+              data: ${JSON.stringify(serviceDetails['SystemMetrics']?.metrics?.temperatureHistory || [])},
+              borderColor: '#FF9800',
+              backgroundColor: 'rgba(255, 152, 0, 0.2)',
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true }
+          },
+          plugins: {
+            legend: { position: 'top' },
+            title: { display: true, text: 'System Metrics Over Time' }
+          }
+        }
+      });
+    </script>
+  `;
+
+  // Scripts
   html += `
     <script>
       let autoRefresh = false;
       let refreshTimer;
-      
       document.getElementById('auto-refresh').addEventListener('change', function() {
         autoRefresh = this.checked;
         if (autoRefresh) {
@@ -485,27 +495,20 @@ app.get('/api/dashboard', (req, res) => {
           clearTimeout(refreshTimer);
         }
       });
-      
-      // ShadeCommander Arduino reconnect function
       async function reconnectArduino() {
         const button = event.target;
         const originalText = button.innerHTML;
-        
         button.innerHTML = '⏳ Reconnecting...';
         button.disabled = true;
-        
         try {
-          // Call our backend endpoint which will proxy to ShadeCommander
           const response = await fetch('/api/shade-commander/reconnect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
           });
-          
           const result = await response.json();
-          
           if (result.success) {
             button.innerHTML = '✅ Reconnected!';
-            setTimeout(() => location.reload(), 2000); // Refresh to show new status
+            setTimeout(() => location.reload(), 2000);
           } else {
             button.innerHTML = '❌ Failed';
             setTimeout(() => {
@@ -522,10 +525,10 @@ app.get('/api/dashboard', (req, res) => {
         }
       }
     </script>
-  </body>
-  </html>
+    </body>
+    </html>
   `;
-  
+
   res.send(html);
 });
 
@@ -583,6 +586,9 @@ serviceRegistry.register('config', {
     };
   }
 });
+
+// SystemMetrics service is automatically registered when the module is imported
+require('./services/system-metrics');
 
 serviceRegistry.register('weather-service', {
   isCore: false,

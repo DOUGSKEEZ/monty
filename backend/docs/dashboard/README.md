@@ -18,6 +18,7 @@ The dashboard is a self-contained HTML page that displays:
 
 ### Core Services
 - **config**: Configuration management service
+- **system-metrics**: Real-time system monitoring (CPU, memory, disk, temperature)
 - **weather-service**: OpenWeatherMap integration
 - **scheduler-service**: Automated shade scheduling
 - **shade-service**: Local shade control service
@@ -217,79 +218,115 @@ app.post('/api/my-service/action', async (req, res) => {
 });
 ```
 
-### ⚠️ CRITICAL: ServiceRegistry Custom Metrics Issue
+## System Metrics Integration
 
-**🚨 MAJOR DISCOVERY**: When integrating external services with custom metrics, there's a critical ServiceRegistry filtering bug that causes dashboard display failures.
+### System Metrics Service
+The **system-metrics** service provides real-time monitoring of the Ubuntu Server hardware:
 
-#### The Problem
-The `ServiceRegistry.getDetailedStatus()` method only returns a subset of standard metrics:
-
-```javascript
-// BROKEN - Filters out custom metrics
-metrics: {
-  successCount: service.metrics.successCount,
-  errorCount: service.metrics.errorCount,
-  avgResponseTime: service.metrics.avgResponseTime,
-  lastResponseTime: service.metrics.lastResponseTime
-  // ❌ Custom metrics like arduinoConnected, activeTasks are LOST here!
-}
+#### Displayed Metrics
+```
+System Load: 0.57 (1-minute average)
+Temperature: 50°C (CPU thermal sensor)
+Disk Usage: 12% of 98G (root filesystem)
+Processes: 373 (total running processes)
+Memory Usage: 18% (RAM utilization)
+Swap Usage: 0% (swap file utilization) 
+Users Logged In: 5 (active SSH sessions)
+IPv4 Address: 192.168.0.15 (primary network interface)
 ```
 
-#### Symptoms of This Bug
-- ✅ Health checks work perfectly (logs show correct data)
-- ✅ Custom metrics stored in service registry successfully  
-- ❌ Dashboard shows "undefined" for ALL custom metrics
-- ✅ Standard metrics (successCount, etc.) display correctly
+#### Historical Chart
+The dashboard includes a Chart.js time-series chart showing:
+- **System Load** (green line)
+- **Memory Usage %** (blue line)  
+- **Temperature °C** (orange line)
 
-#### The Fix (Required for External Services)
-Update `src/utils/ServiceRegistry.js` line ~336 in `getDetailedStatus()`:
+Chart displays last 5 data points updated every 60 seconds.
 
-```javascript
-// FIXED - Includes all custom metrics
-metrics: {
-  successCount: service.metrics.successCount,
-  errorCount: service.metrics.errorCount,
-  avgResponseTime: service.metrics.avgResponseTime,
-  lastResponseTime: service.metrics.lastResponseTime,
-  // ✅ Include ALL custom metrics for external services
-  ...service.metrics
-}
-```
+### ⚠️ CRITICAL: ServiceRegistry Custom Metrics Implementation
 
-#### Debugging External Service Integration
-1. **Verify health check data flow**:
+**🚨 MAJOR DISCOVERY**: System metrics revealed critical ServiceRegistry bugs that affect ANY service with custom metrics.
+
+#### The Core Issues Fixed
+
+1. **Metrics Not Passed to Dashboard**
    ```javascript
-   logger.info(`Final metrics: ${JSON.stringify(finalMetrics)}`);
-   ```
-
-2. **Confirm service registry updates**:
-   ```javascript
-   const service = serviceRegistry.services.get('my-service');
-   service.metrics = { ...service.metrics, ...customMetrics };
-   logger.info(`✅ Updated ServiceRegistry: ${JSON.stringify(service.metrics)}`);
-   ```
-
-3. **Check dashboard data source**:
-   ```javascript
-   if (serviceDetails['my-service']) {
-     logger.info(`🔍 Dashboard receives: ${JSON.stringify(serviceDetails['my-service'])}`);
+   // ISSUE: updateHealth() only checked healthResult.details, not healthResult.metrics
+   if (healthResult.details) { /* only checked .details */ }
+   
+   // FIX: Check both details AND metrics
+   if (healthResult.details || healthResult.metrics) {
+     // Merge custom metrics from healthResult.metrics
+     if (healthResult.metrics) {
+       this.services.get(name).metrics = {
+         ...this.services.get(name).metrics,
+         ...healthResult.metrics  // ✅ Include custom metrics
+       };
+     }
    }
    ```
 
-#### Impact for Future External Services
-This issue will affect **ANY external service** (FastAPI, Flask, Spring Boot, etc.) that needs custom metrics beyond the standard Node.js internal service patterns. The ServiceRegistry was designed for internal services and filters external service metrics by default.
+2. **Health Check Results Not Merged**
+   ```javascript
+   // ISSUE: _checkServiceHealth() called updateMetrics() and setStatus() but NOT updateHealth()
+   this.updateMetrics(name, { responseTime, success });
+   this.setStatus(name, serviceStatus, result.message);
+   // Missing: this.updateHealth(name, result);
+   
+   // FIX: Add the missing call
+   this.updateHealth(name, result);  // ✅ Merges custom metrics
+   ```
 
-**Fix Required For**: IoT device monitoring, hardware status, external API metrics, custom performance data, third-party service integration.
+#### Symptoms of These Bugs
+- ✅ Health checks work perfectly (logs show correct data)
+- ✅ Custom metrics collected successfully in service  
+- ❌ Dashboard shows "N/A" for ALL custom metrics
+- ✅ Standard metrics (successCount, etc.) display correctly
+
+#### System Metrics checkHealth() Pattern
+```javascript
+checkHealth: async () => {
+  // Collect system metrics
+  const metrics = {};
+  metrics.load = parseFloat(loadavg.split(' ')[0]);
+  metrics.temperature = parseInt(temp.trim()) / 1000;
+  // ... collect other metrics
+  
+  // Update historical arrays AFTER collecting data
+  systemMetricsService.metrics.loadHistory.push(metrics.load);
+  systemMetricsService.metrics.memoryUsageHistory.push(parseFloat(metrics.memoryUsage));
+  
+  // Merge into service metrics
+  systemMetricsService.metrics = { 
+    ...systemMetricsService.metrics, 
+    ...metrics 
+  };
+  
+  // Return metrics for ServiceRegistry
+  return {
+    status: 'ok',
+    message: 'System metrics collected successfully',
+    metrics: systemMetricsService.metrics  // ✅ Include ALL metrics
+  };
+}
+```
+
+#### Impact for Future Services
+These fixes enable **ANY service** (internal Node.js, external APIs, IoT devices) to display custom metrics properly:
+- **Hardware monitoring**: Temperature, disk usage, network stats
+- **External API metrics**: Response times, cache hit rates, quotas
+- **IoT device status**: Battery levels, connection quality, sensor readings
+- **Performance data**: Custom timings, throughput, error rates
 
 ## Troubleshooting
 
 ### Common Issues
 
-**🚨 CRITICAL: External service shows "undefined" for custom metrics**
-- **Root Cause**: ServiceRegistry filters out custom metrics in `getDetailedStatus()`
-- **Symptoms**: Health checks work, but dashboard shows "undefined" values
-- **Solution**: Update `ServiceRegistry.js` to include `...service.metrics` (see Critical section above)
-- **Debugging**: Check logs for successful health checks vs dashboard display
+**🚨 CRITICAL: Service shows "N/A" or "undefined" for custom metrics**
+- **Root Cause**: ServiceRegistry bugs in `updateHealth()` and `_checkServiceHealth()` methods
+- **Symptoms**: Health checks work, logs show correct data, but dashboard shows "N/A" values
+- **Solution**: Ensure ServiceRegistry includes both fixes from System Metrics section above
+- **Debugging**: Check if `updateHealth(name, result)` is called in `_checkServiceHealth()`
 
 **ShadeCommander shows as "error"**
 - Check if ShadeCommander is running on port 8000
@@ -322,43 +359,80 @@ Backend logs include detailed health check information:
 
 ## Best Practices for External Service Integration
 
-### 1. ServiceRegistry Custom Metrics Pattern
-**Always apply this fix** when adding external services with custom metrics:
+### 1. Custom Metrics Health Check Pattern
+**Use this pattern** for services with custom metrics (system monitoring, IoT devices, external APIs):
 
-```javascript
-// In ServiceRegistry.js getDetailedStatus() method
-metrics: {
-  successCount: service.metrics.successCount,
-  errorCount: service.metrics.errorCount,
-  avgResponseTime: service.metrics.avgResponseTime, 
-  lastResponseTime: service.metrics.lastResponseTime,
-  ...service.metrics  // ✅ Critical: Include ALL custom metrics
-}
-```
-
-### 2. Health Check Implementation for External Services
 ```javascript
 checkHealth: async () => {
-  // Fetch data from external service
-  const customMetrics = await fetchExternalMetrics();
+  // Collect/fetch custom metrics
+  const metrics = {};
+  metrics.customValue1 = await getCustomData();
+  metrics.customValue2 = await getMoreData();
   
-  // Update service registry WITHIN the health check
-  const service = serviceRegistry.services.get('my-service');
-  service.metrics = { ...service.metrics, ...customMetrics };
-  serviceRegistry.services.set('my-service', service);
+  // Update service metrics internally
+  myService.metrics = { 
+    ...myService.metrics,  // Preserve existing metrics
+    ...metrics             // Add custom metrics
+  };
   
-  return { status: 'ok', message: 'Service healthy', metrics: customMetrics };
+  // Return ALL metrics for ServiceRegistry
+  return {
+    status: 'ok',
+    message: 'Service healthy',
+    metrics: myService.metrics  // ✅ Include ALL metrics
+  };
 }
 ```
 
-### 3. CORS Proxy Pattern for Interactive Controls
-Always proxy external service actions through backend to avoid CORS issues.
+### 2. ServiceRegistry Requirements
+**Ensure these fixes are applied** in `src/utils/ServiceRegistry.js`:
 
-### 4. Testing External Service Integration
-1. Verify health checks work: Check logs for metric collection
-2. Confirm service registry storage: Add debug logging  
-3. Test dashboard display: Verify no "undefined" values
-4. Test interactive controls: Verify proxy endpoints work
+```javascript
+// 1. In updateHealth() method - accept healthResult.metrics
+if (healthResult.details || healthResult.metrics) {
+  if (healthResult.metrics) {
+    this.services.get(name).metrics = {
+      ...this.services.get(name).metrics,
+      ...healthResult.metrics  // ✅ Merge custom metrics
+    };
+  }
+}
+
+// 2. In _checkServiceHealth() method - call updateHealth()
+this.setStatus(name, serviceStatus, result.message);
+this.updateHealth(name, result);  // ✅ Required to merge metrics
+```
+
+### 3. System Metrics Collection Examples
+Common patterns for adding hardware/system monitoring:
+
+```javascript
+// File system metrics
+const diskStats = await fs.readFile('/proc/diskstats', 'utf8');
+metrics.diskIOps = parseDiskStats(diskStats);
+
+// Network interface metrics  
+const netStats = await fs.readFile('/proc/net/dev', 'utf8');
+metrics.networkThroughput = parseNetworkStats(netStats);
+
+// Process metrics
+const { stdout } = await execPromise('ps aux --no-headers | wc -l');
+metrics.totalProcesses = parseInt(stdout.trim());
+
+// Custom command metrics
+const { stdout } = await execPromise('uptime');
+metrics.uptime = parseUptime(stdout);
+```
+
+### 4. CORS Proxy Pattern for Interactive Controls
+Always proxy external service actions through backend to avoid CORS issues (essential for FastAPI, Flask, etc.).
+
+### 5. Testing Service Integration
+1. **Verify health checks work**: Check logs for metric collection
+2. **Confirm ServiceRegistry storage**: Add debug logging  
+3. **Test dashboard display**: Verify no "N/A" values
+4. **Test interactive controls**: Verify proxy endpoints work
+5. **Test charts**: Verify historical data updates for system metrics
 
 ## Security Considerations
 

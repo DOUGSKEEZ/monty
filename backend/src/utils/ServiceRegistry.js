@@ -195,7 +195,7 @@ class ServiceRegistry {
       this.setStatus(name, status, message);
       
       // Update metrics if provided
-      if (healthResult.details) {
+      if (healthResult.details || healthResult.metrics) {
         if (!this.services.get(name).metrics) {
           this.services.get(name).metrics = {
             successCount: 0,
@@ -208,13 +208,21 @@ class ServiceRegistry {
         }
         
         // Record response time if available
-        if (healthResult.details.responseTime) {
+        if (healthResult.details && healthResult.details.responseTime) {
           const responseTime = healthResult.details.responseTime;
           this.services.get(name).metrics.lastResponseTime = responseTime;
           this.services.get(name).metrics.totalResponseTime += responseTime;
           this.services.get(name).metrics.totalChecks++;
           this.services.get(name).metrics.avgResponseTime = 
             this.services.get(name).metrics.totalResponseTime / this.services.get(name).metrics.totalChecks;
+        }
+        
+        // Merge custom metrics from healthResult.metrics (for system-metrics and other services)
+        if (healthResult.metrics) {
+          this.services.get(name).metrics = {
+            ...this.services.get(name).metrics,
+            ...healthResult.metrics
+          };
         }
       }
       
@@ -281,6 +289,9 @@ class ServiceRegistry {
       }
       
       this.setStatus(name, serviceStatus, result.message);
+      
+      // Update health with metrics (this will merge custom metrics)
+      this.updateHealth(name, result);
       
       return result;
     } catch (error) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../utils/AppContext';
 import ShadeControl, { ShadeGroupControl, RoomControl } from '../components/ShadeControl';
-import { controlShadeCommander, checkShadeCommanderHealth } from '../utils/api';
+import { controlShadeCommander, checkShadeCommanderHealth, triggerShadeCommanderScene } from '../utils/api';
 
 function ShadesPage() {
   const { shades, actions } = useAppContext();
@@ -156,12 +156,29 @@ function ShadesPage() {
     return [...new Set(locations)];
   };
   
-  // Handle scene triggers
-  const triggerScene = async (scene) => {
+  // Handle scene triggers via ShadeCommander
+  const triggerScene = async (sceneName) => {
     try {
-      await actions.triggerShadeScene(scene);
+      setArduinoError(null); // Clear any existing errors
+      console.log(`Triggering scene: ${sceneName}`);
+      
+      const response = await triggerShadeCommanderScene(sceneName);
+      console.log(`Scene ${sceneName} executed successfully!`, response);
+      
     } catch (error) {
-      console.error(`Error triggering scene ${scene}:`, error);
+      console.error(`Scene ${sceneName} failed:`, error);
+      
+      // Check if it's an Arduino issue
+      try {
+        const health = await checkShadeCommanderHealth();
+        if (!health.arduino_connected) {
+          setArduinoError("Arduino disconnected - check USB connection and/or reconnect in Settings.");
+        } else {
+          setArduinoError(`Scene "${sceneName}" failed - please try again`);
+        }
+      } catch (healthError) {
+        setArduinoError("ShadeCommander unavailable - please check connection");
+      }
     }
   };
   
@@ -200,7 +217,7 @@ function ShadesPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="flex flex-col space-y-2">
             <button 
-              onClick={() => triggerScene('good-morning')}
+              onClick={() => triggerScene('good_morning')}
               className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-4 rounded"
             >
               Good Morning
@@ -211,7 +228,7 @@ function ShadesPage() {
           </div>
           <div className="flex flex-col space-y-2">
             <button 
-              onClick={() => triggerScene('good-afternoon')}
+              onClick={() => triggerScene('good_afternoon')}
               className="bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded"
             >
               Good Afternoon
@@ -222,7 +239,7 @@ function ShadesPage() {
           </div>
           <div className="flex flex-col space-y-2">
             <button 
-              onClick={() => triggerScene('good-evening')}
+              onClick={() => triggerScene('good_evening')}
               className="bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded"
             >
               Good Evening
@@ -233,7 +250,7 @@ function ShadesPage() {
           </div>
           <div className="flex flex-col space-y-2">
             <button 
-              onClick={() => triggerScene('good-night')}
+              onClick={() => triggerScene('good_night')}
               className="bg-indigo-500 hover:bg-indigo-600 text-white py-3 px-4 rounded"
             >
               Good Night
