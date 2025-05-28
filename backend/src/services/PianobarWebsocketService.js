@@ -219,10 +219,10 @@ class PianobarWebsocketService {
       const eventWatcher = chokidar.watch(absoluteEventDir, {
         persistent: true,
         ignoreInitial: true,
-        usePolling: true,  // Enable polling for better filesystem compatibility
+        usePolling: false,  // Use native filesystem events (inotify) instead of polling
         awaitWriteFinish: {
-          stabilityThreshold: 100,  // Reduced for faster detection
-          pollInterval: 50
+          stabilityThreshold: 300,  // Wait for file to stabilize before processing
+          pollInterval: 100  // Only used if usePolling is true
         },
         depth: 0  // Only watch files in the directory, not subdirectories
       });

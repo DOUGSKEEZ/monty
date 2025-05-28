@@ -116,22 +116,31 @@ function PianobarPage() {
   
   // Setup WebSocket connection for real-time updates
   useEffect(() => {
-    // Create WebSocket connection
-    const websocket = new WebSocket(`ws://${window.location.hostname}:3001/api/pianobar/ws`);
+    let websocket = null;
+    let reconnectTimer = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000; // 3 seconds
     
-    websocket.onopen = () => {
-      console.log('Pianobar WebSocket connected');
-      setWsConnected(true);
-      
-      // Immediately request current state
-      websocket.send(JSON.stringify({ type: 'GET_STATE' }));
-      console.log('Requested current state from server');
-      
-      // Also refresh via API as backup
-      actions.refreshPianobar();
-    };
-    
-    websocket.onmessage = (event) => {
+    const connectWebSocket = () => {
+      try {
+        // Create WebSocket connection
+        websocket = new WebSocket(`ws://${window.location.hostname}:3001/api/pianobar/ws`);
+        
+        websocket.onopen = () => {
+          console.log('Pianobar WebSocket connected');
+          setWsConnected(true);
+          reconnectAttempts = 0; // Reset counter on successful connection
+          
+          // Immediately request current state
+          websocket.send(JSON.stringify({ type: 'GET_STATE' }));
+          console.log('Requested current state from server');
+          
+          // Also refresh via API as backup
+          actions.refreshPianobar();
+        };
+        
+        websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       
       // ADD THIS COMPREHENSIVE LOGGING
@@ -267,19 +276,53 @@ function PianobarPage() {
       }
     };
     
-    websocket.onclose = () => {
-      console.log('Pianobar WebSocket disconnected');
-      setWsConnected(false);
+        websocket.onclose = () => {
+          console.log('Pianobar WebSocket disconnected');
+          setWsConnected(false);
+          
+          // Attempt to reconnect if we haven't exceeded max attempts
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            console.log(`Attempting WebSocket reconnection ${reconnectAttempts}/${maxReconnectAttempts} in ${reconnectDelay}ms`);
+            
+            reconnectTimer = setTimeout(() => {
+              connectWebSocket();
+            }, reconnectDelay);
+          } else {
+            console.log('Max WebSocket reconnection attempts reached. Falling back to polling.');
+          }
+        };
+        
+        websocket.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          setWsConnected(false);
+        };
+        
+        wsRef.current = websocket;
+      } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+        setWsConnected(false);
+        
+        // Retry connection if we haven't exceeded max attempts
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          reconnectTimer = setTimeout(() => {
+            connectWebSocket();
+          }, reconnectDelay);
+        }
+      }
     };
     
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-    
-    wsRef.current = websocket;
+    // Initial connection attempt
+    connectWebSocket();
     
     return () => {
-      websocket.close();
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      if (websocket) {
+        websocket.close();
+      }
     };
   }, []);
   

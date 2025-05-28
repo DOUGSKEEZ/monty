@@ -1,25 +1,25 @@
 {
-  "version": 3,
-  "timestamp": 1748411915356,
+  "version": 15,
+  "timestamp": 1748450068322,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "Saint-Saëns: Le Carnaval des Animaux, R. 125 - Le cygne",
-    "artist": "Julian Lloyd Webber, English Chamber Orchestra & Nicholas Cleobury",
-    "album": "Elgar: Cello Concerto / Saint-Saens: Cello Concerto No.1, &c",
-    "stationName": "Symphonic Radio",
-    "songDuration": "200",
+    "title": "Look At Us",
+    "artist": "Sarina Paris",
+    "album": "Sarina Paris",
+    "stationName": "Euro Beats Radio",
+    "songDuration": "209",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://cont-1.p-cdn.us/images/1c/d9/f0/22/01304e5880dea0dc58c6a6d6/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/julian-lloyd-webber-english-chamber-orchestra-nicholas-cleobury/elgar-cello-concerto-saint-saens-cello-concerto-no1-c/saint-sans-le-carnaval-des-animaux-r-125-le-cygne/TRt5gqv7JVh69ck?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://mediaserver-cont-usc-mp1-1-v4v6.pandora.com/images/42/c6/a1/0f/b38340b8b1be4406d1a53dd3/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/sarina-paris/sarina-paris/look-at-us/TRwkkXzZxmx6zlg?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748411915356
+  "updateTime": 1748450068322
 }
