@@ -107,12 +107,13 @@ export const AppProvider = ({ children }) => {
     loadBackendState();
     
     // Set up interval to refresh data periodically
+    // Optimized for One Call API 3.0 limits (1000 calls/day)
     const refreshInterval = setInterval(() => {
       loadWeatherData(false);
       loadMusicData(false);
       loadPianobarData(false);
       // Bluetooth status is refreshed separately
-    }, 60000); // Refresh every minute
+    }, 600000); // Refresh every 10 minutes (saves API calls)
     
     // Set up background state sync every 30 seconds
     const syncInterval = setInterval(() => {
@@ -150,16 +151,16 @@ export const AppProvider = ({ children }) => {
   }, [bluetooth.connectionInProgress, bluetooth.disconnecting]); // Only depend on these two flags
 
   // Load weather data
-  const loadWeatherData = async (showLoading = true) => {
+  const loadWeatherData = async (forceRefresh = false, showLoading = true) => {
     if (showLoading) {
       setWeather(prev => ({ ...prev, loading: true, error: null }));
     }
     
     try {
-      // Load all weather data in parallel
+      // Load all weather data in parallel - pass forceRefresh to weather API calls
       const [currentRes, forecastRes, sunTimesRes, temperaturesRes] = await Promise.all([
-        weatherApi.getCurrent(),
-        weatherApi.getForecast(),
+        weatherApi.getCurrent(forceRefresh),
+        weatherApi.getForecast(forceRefresh),
         weatherApi.getSunTimes(),
         weatherApi.getTemperatures(),
       ]);
@@ -182,48 +183,25 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Load shade data
+  // Load shade data - DISABLED: Shades now use hardcoded config in ShadesPage
   const loadShadeData = async () => {
-    setShades(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const configRes = await shadesApi.getConfig();
-      
-      setShades({
-        config: configRes.data,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      console.error('Error loading shade data:', error);
-      setShades(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load shade data',
-      }));
-    }
+    // Shades configuration is now handled directly by ShadesPage with default values
+    // This avoids the need for a backend shades service since ShadeCommander handles control
+    setShades({
+      config: null, // ShadesPage uses hardcoded defaults
+      loading: false,
+      error: null,
+    });
   };
 
-  // Load scheduler data
+  // Load scheduler data - DISABLED: SchedulerService not implemented yet
   const loadSchedulerData = async () => {
-    setScheduler(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const schedulesRes = await schedulerApi.getSchedules();
-      
-      setScheduler({
-        schedules: schedulesRes.data,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      console.error('Error loading scheduler data:', error);
-      setScheduler(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load scheduler data',
-      }));
-    }
+    // SchedulerService will be implemented later - for now just set to ready state
+    setScheduler({
+      schedules: {}, // Empty schedules until SchedulerService is implemented
+      loading: false,
+      error: null,
+    });
   };
 
   // Load music data
@@ -324,17 +302,11 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Set wake-up time
+  // Set wake-up time - DISABLED: SchedulerService not implemented yet
   const setWakeUpTime = async (time) => {
-    try {
-      await schedulerApi.setWakeUpTime(time);
-      // Reload scheduler data after setting wake-up time
-      await loadSchedulerData();
-      return true;
-    } catch (error) {
-      console.error('Error setting wake-up time:', error);
-      return false;
-    }
+    console.warn('setWakeUpTime called but SchedulerService not implemented yet. Time:', time);
+    // TODO: Implement when SchedulerService is added
+    return false;
   };
 
   // Load Bluetooth status

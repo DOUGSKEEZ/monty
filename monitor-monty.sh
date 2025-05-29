@@ -45,20 +45,20 @@ echo "📝 Recent log entries:"
 echo "======================"
 
 if [ -f ~/monty/logs/backend.log ]; then
-    echo -e "${BLUE}Backend (last 3 lines):${NC}"
-    tail -3 ~/monty/logs/backend.log
+    echo -e "${BLUE}Backend (last 6 lines):${NC}"
+    tail -6 ~/monty/logs/backend.log
     echo ""
 fi
 
 if [ -f ~/monty/logs/shadecommander.log ]; then
-    echo -e "${BLUE}ShadeCommander (last 3 lines):${NC}"
-    tail -3 ~/monty/logs/shadecommander.log
+    echo -e "${BLUE}ShadeCommander (last 6 lines):${NC}"
+    tail -6 ~/monty/logs/shadecommander.log
     echo ""
 fi
 
 if [ -f ~/monty/logs/frontend.log ]; then
-    echo -e "${BLUE}Frontend (last 3 lines):${NC}"
-    tail -3 ~/monty/logs/frontend.log
+    echo -e "${BLUE}Frontend (last 6 lines):${NC}"
+    tail -6 ~/monty/logs/frontend.log
     echo ""
 fi
 

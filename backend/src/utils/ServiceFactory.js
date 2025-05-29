@@ -15,14 +15,12 @@ const ServiceWatchdog = require('./ServiceWatchdog');
 
 // Import interface definitions
 const IWeatherService = require('../interfaces/IWeatherService');
-const ISchedulerService = require('../interfaces/ISchedulerService');
 const IMusicService = require('../interfaces/IMusicService');
 const IBluetoothService = require('../interfaces/IBluetoothService');
 const IPianobarService = require('../interfaces/IPianobarService');
 
 // Import service implementations
-const WeatherService = require('../services/weatherService.di');
-const SchedulerService = require('../services/schedulerService.di');
+const WeatherService = require('../services/WeatherService');
 const MusicService = require('../services/musicService.di');
 const BluetoothService = require('../services/BluetoothService');
 // Using new PianobarCommandInterface instead of old PianobarService
@@ -66,7 +64,13 @@ function createWeatherService() {
   if (!container.has('weatherService')) {
     // Register weather service in container
     container.register('weatherService', WeatherService, {
-      dependencies: ['logger', 'configManager'],
+      dependencies: [
+        'configManager',
+        'retryHelper',
+        'circuitBreaker',
+        'serviceRegistry',
+        'serviceWatchdog'
+      ],
       lifecycle: Lifecycle.SINGLETON
     });
     
@@ -78,43 +82,7 @@ function createWeatherService() {
   return container.resolve('weatherService');
 }
 
-/**
- * Create a properly configured Scheduler Service
- * @returns {SchedulerService} - Configured scheduler service
- */
-function createSchedulerService() {
-  if (!container.has('schedulerService')) {
-    // First ensure weather service is registered
-    if (!container.has('weatherService')) {
-      createWeatherService();
-    }
-    
-    // Register shade service (using legacy singleton for now)
-    if (!container.has('shadeService')) {
-      const shadeService = require('../services/shadeService');
-      container.registerInstance('shadeService', shadeService);
-    }
-    
-    // Register scheduler service in container
-    container.register('schedulerService', SchedulerService, {
-      dependencies: [
-        'logger', 
-        'configManager', 
-        'weatherService', 
-        'shadeService',
-        'serviceRegistry',
-        'circuitBreaker'
-      ],
-      lifecycle: Lifecycle.SINGLETON
-    });
-    
-    // Verify implementation against interface
-    const schedulerService = container.resolve('schedulerService');
-    ISchedulerService.verifyImplementation(schedulerService, 'SchedulerService');
-  }
-  
-  return container.resolve('schedulerService');
-}
+// TODO: createSchedulerService will be implemented with the new SchedulerService
 
 /**
  * Create a properly configured Music Service
@@ -181,7 +149,7 @@ function createBluetoothService() {
 function initializeContainer() {
   registerCoreDependencies();
   createWeatherService();
-  createSchedulerService();
+  // TODO: createSchedulerService() - will be added with new implementation
   createBluetoothService();
   createMusicService();
   
@@ -259,7 +227,7 @@ function createOldPianobarService() {
 function initializeContainer() {
   registerCoreDependencies();
   createWeatherService();
-  createSchedulerService();
+  // TODO: createSchedulerService() - will be added with new implementation
   createBluetoothService();
   createMusicService();
   
@@ -282,7 +250,7 @@ module.exports = {
   container,
   registerCoreDependencies,
   createWeatherService,
-  createSchedulerService,
+  // createSchedulerService, // TODO: Will be added with new implementation
   createMusicService,
   createBluetoothService,
   createPianobarService,

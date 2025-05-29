@@ -1,25 +1,25 @@
 {
-  "version": 15,
-  "timestamp": 1748450068322,
+  "version": 8,
+  "timestamp": 1748556066741,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "Look At Us",
-    "artist": "Sarina Paris",
-    "album": "Sarina Paris",
-    "stationName": "Euro Beats Radio",
-    "songDuration": "209",
+    "title": "Soul Trane (feat. Hank Jones, Kenny Barron, Todd Coolman & Adam Nussbaum)",
+    "artist": "The James Moody And Hank Jones Quartet",
+    "album": "Our Delight",
+    "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
+    "songDuration": "569",
     "songPlayed": "0",
     "rating": "0",
-    "coverArt": "http://mediaserver-cont-usc-mp1-1-v4v6.pandora.com/images/42/c6/a1/0f/b38340b8b1be4406d1a53dd3/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/sarina-paris/sarina-paris/look-at-us/TRwkkXzZxmx6zlg?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "coverArt": "http://mediaserver-cont-sv5-2-v4v6.pandora.com/images/81/cc/75/0b/3cec43a9b07ba477e0bdfe19/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/james-moody-hank-jones-quartet/our-delight/soul-trane-feat-hank-jones-kenny-barron-todd-coolman-adam-nussbaum/TRgJbf422ZgzttV?dc=1777&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748450068322
+  "updateTime": 1748556066741
 }

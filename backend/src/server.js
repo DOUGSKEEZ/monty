@@ -94,9 +94,11 @@ console.log('[DEBUG] Setting up metrics middleware...');
 app.use(metricsMiddleware); // Add metrics middleware
 console.log('[DEBUG] Metrics middleware configured');
 
-// Add request logger for debugging
+// Add request logger for debugging (excluding map tiles)
 app.use((req, res, next) => {
-  console.log(`[DEBUG] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  if (!req.url.includes('/api/weather/map-tile/')) {
+    console.log(`[DEBUG] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  }
   next();
 });
 
@@ -122,6 +124,12 @@ if (process.env.NODE_ENV === 'production') {
 // Add metrics endpoint
 app.get('/metrics', prometheusMetrics.getMetricsHandler());
 
+// Initialize ServiceFactory container before loading routes
+console.log('[DEBUG] Initializing ServiceFactory...');
+const { initializeContainer } = require('./utils/ServiceFactory');
+initializeContainer();
+console.log('[DEBUG] ServiceFactory initialized');
+
 // Import routes
 console.log('[DEBUG] Importing routes...');
 
@@ -129,17 +137,13 @@ console.log('[DEBUG] About to require configRoutes...');
 const configRoutes = require('./routes/config');
 console.log('[DEBUG] configRoutes imported');
 
-console.log('[DEBUG] About to require shadeRoutes...');
-const shadeRoutes = require('./routes/shades');
-console.log('[DEBUG] shadeRoutes imported');
+// Shade routes removed - React now calls ShadeCommander:8000 directly
 
 console.log('[DEBUG] About to require weatherRoutes...');
 const weatherRoutes = require('./routes/weather');
 console.log('[DEBUG] weatherRoutes imported');
 
-console.log('[DEBUG] About to require schedulerRoutes...');
-const schedulerRoutes = require('./routes/scheduler');
-console.log('[DEBUG] schedulerRoutes imported');
+// TODO: schedulerRoutes will be added with the new SchedulerService implementation
 
 console.log('[DEBUG] About to require musicRoutes...');
 const musicRoutes = require('./routes/music');
@@ -398,7 +402,7 @@ app.get('/api/dashboard', (req, res) => {
       <div class="dashboard-grid">
         ${Object.entries(serviceDetails).map(([name, service]) => `
           <div class="service">
-            <h3>${name === 'shade-commander' ? 'ShadeCommander' : name} <span class="status ${service.status}"></span></h3>
+            <h3>${name === 'shade-commander' ? 'ShadeCommander' : name === 'weather-api-usage' ? 'OpenWeather-API' : name} <span class="status ${service.status}"></span></h3>
             <p><strong>Status:</strong> ${service.status}${service.lastError ? ` - ${service.lastError}` : ''}</p>
             <p><strong>Type:</strong> ${service.isCore ? 'Core' : 'Optional'}</p>
             <p><strong>Uptime:</strong> ${service.uptime ? formatUptime(service.uptime) : 'Not started'}</p>
@@ -415,6 +419,11 @@ app.get('/api/dashboard', (req, res) => {
                 <p><strong>Disk Usage:</strong> ${service.metrics.diskUsage || 'N/A'} of ${service.metrics.diskTotal || 'N/A'}</p>
                 <p><strong>Processes:</strong> ${service.metrics.processes || 'N/A'}</p>
                 <p><strong>Memory Usage:</strong> ${service.metrics.memoryUsage || 'N/A'}</p>
+              ` : name === 'weather-api-usage' ? `
+                <p><strong>${service.metrics.usageDisplay || 'N/A'}</strong></p>
+                <p style="color: ${service.metrics.usageColor || 'gray'}"><strong>${service.metrics.statusDisplay || 'N/A'}</strong></p>
+                <p><strong>API Info:</strong> ${service.metrics.apiDescription || 'N/A'}</p>
+                <p><strong>Manual Refresh:</strong> ${service.metrics.manualRefreshAllowed ? '✅ Allowed' : '❌ Blocked'}</p>
               ` : `
                 <p><strong>Metrics:</strong> Success: ${service.metrics.successCount || 0}, Errors: ${service.metrics.errorCount || 0}</p>
                 <p><strong>Avg Response:</strong> ${service.metrics.avgResponseTime ? `${service.metrics.avgResponseTime.toFixed(2)}ms` : 'N/A'}</p>
@@ -607,6 +616,88 @@ serviceRegistry.register('weather-service', {
   }
 });
 
+// Weather API Usage Tracking (One Call API 3.0 cost monitoring)
+serviceRegistry.register('weather-api-usage', {
+  isCore: false,
+  status: 'ready',
+  checkHealth: async () => {
+    try {
+      const { createWeatherService } = require('./utils/ServiceFactory');
+      const weatherService = createWeatherService();
+      
+      // Get comprehensive usage statistics
+      const stats = weatherService.getUsageStats();
+      const refreshStatus = weatherService.canManualRefresh();
+      
+      // Determine overall health based on usage with proper color coding
+      let status = 'ok';
+      let usageLabel = 'Well within limits';
+      let usageColor = 'green';
+      
+      if (stats.usagePercent >= 90) {
+        status = 'error';
+        usageLabel = 'Approaching limit';
+        usageColor = 'red';
+      } else if (stats.usagePercent >= 70) {
+        status = 'warning';
+        usageLabel = 'Monitor usage';
+        usageColor = 'yellow';
+      }
+      
+      const message = `API Usage: ${stats.dailyCount}/${stats.dailyLimit} calls (${stats.usagePercent.toFixed(1)}%) - ${usageLabel}`;
+      
+      // Debug logging
+      console.log('🔍 weather-api-usage health check returning:', {
+        status,
+        message,
+        usageDisplay: `API Usage: ${stats.dailyCount}/${stats.dailyLimit} calls (${stats.usagePercent.toFixed(1)}%)`,
+        statusDisplay: usageLabel
+      });
+      
+      return {
+        status,
+        message,
+        metrics: {
+          // Usage metrics for display
+          dailyCount: stats.dailyCount,
+          dailyLimit: stats.dailyLimit,
+          usagePercent: stats.usagePercent,
+          usageLabel: usageLabel,
+          usageColor: usageColor,
+          
+          // Formatted display strings
+          usageDisplay: `API Usage: ${stats.dailyCount}/${stats.dailyLimit} calls (${stats.usagePercent.toFixed(1)}%)`,
+          statusDisplay: usageLabel,
+          
+          // API info for display
+          apiDescription: '🌤️ Weather data via OpenWeatherMap One Call API 3.0',
+          
+          // Manual refresh status
+          manualRefreshAllowed: refreshStatus.allowed,
+          cooldownRemaining: refreshStatus.cooldownRemaining,
+          refreshReason: refreshStatus.reason,
+          
+          // Cache info
+          lastUpdatedMinutes: stats.lastUpdated,
+          cacheAgeSeconds: stats.cacheAge,
+          subscription: 'Pay as You Call'
+        }
+      };
+    } catch (error) {
+      return { 
+        status: 'error', 
+        message: `Weather API usage tracking failed: ${error.message}`,
+        metrics: {
+          dailyCount: 0,
+          dailyLimit: 999,
+          usagePercent: 0,
+          statusColor: 'red'
+        }
+      };
+    }
+  }
+});
+
 serviceRegistry.register('scheduler-service', {
   isCore: false,
   status: 'initializing',
@@ -791,9 +882,9 @@ setInterval(() => {
 
 // Register API routes
 app.use('/api/config', configRoutes);
-app.use('/api/shades', shadeRoutes);
+// app.use('/api/shades', shadeRoutes); // Removed - React calls ShadeCommander directly
 app.use('/api/weather', weatherRoutes);
-app.use('/api/scheduler', schedulerRoutes);
+// TODO: app.use('/api/scheduler', schedulerRoutes); // Will be added with new SchedulerService
 app.use('/api/music', musicRoutes);
 app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);

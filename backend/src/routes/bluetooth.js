@@ -9,8 +9,14 @@ const { createBluetoothService } = require('../utils/ServiceFactory');
 const logger = require('../utils/logger').getModuleLogger('bluetooth-routes');
 const prometheusMetrics = require('../services/PrometheusMetricsService');
 
-// Get bluetooth service instance
-const bluetoothService = createBluetoothService();
+// Lazy-load bluetooth service to avoid initialization timing issues
+let bluetoothService = null;
+const getBluetoothService = () => {
+  if (!bluetoothService) {
+    bluetoothService = createBluetoothService();
+  }
+  return bluetoothService;
+};
 
 // Initialize Bluetooth subsystems
 router.post('/init', async (req, res) => {
@@ -19,7 +25,7 @@ router.post('/init', async (req, res) => {
     // Record request metric
     prometheusMetrics.incrementHttpRequestCount('POST', '/api/bluetooth/init');
     
-    const result = await bluetoothService.initialize();
+    const result = await getBluetoothService().initialize();
     
     // Always return a 200 with status information
     res.json(result);
@@ -52,7 +58,7 @@ router.post('/connect', async (req, res) => {
     // Check if force wakeup was requested
     const forceWakeup = req.body.forceWakeup === true;
     
-    const result = await bluetoothService.connect(forceWakeup);
+    const result = await getBluetoothService().connect(forceWakeup);
     
     // Use appropriate status code based on result
     if (result.success) {
@@ -91,7 +97,7 @@ router.post('/disconnect', async (req, res) => {
     // Record request metric
     prometheusMetrics.incrementHttpRequestCount('POST', '/api/bluetooth/disconnect');
     
-    const result = await bluetoothService.disconnect();
+    const result = await getBluetoothService().disconnect();
     
     // Use appropriate status code based on result
     if (result.success) {
@@ -132,7 +138,7 @@ router.get('/status', async (req, res) => {
       logger.debug('Bluetooth status requested');
     }
     
-    const result = await bluetoothService.getStatus();
+    const result = await getBluetoothService().getStatus();
     
     // Always return a 200 with status information
     res.json(result);
@@ -162,7 +168,7 @@ router.post('/wakeup', async (req, res) => {
     // Record request metric
     prometheusMetrics.incrementHttpRequestCount('POST', '/api/bluetooth/wakeup');
     
-    const result = await bluetoothService.wakeup();
+    const result = await getBluetoothService().wakeup();
     
     // Use appropriate status code based on result
     if (result.success) {
@@ -198,7 +204,7 @@ router.get('/diagnostics', async (req, res) => {
     
     logger.info('Bluetooth diagnostics requested');
     
-    const result = await bluetoothService.getDiagnostics();
+    const result = await getBluetoothService().getDiagnostics();
     
     // Always return a 200 with diagnostic information
     res.json(result);

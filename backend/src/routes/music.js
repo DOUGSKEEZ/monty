@@ -4,8 +4,14 @@ const { createMusicService } = require('../utils/ServiceFactory');
 const logger = require('../utils/logger').getModuleLogger('music-routes');
 const prometheusMetrics = require('../services/PrometheusMetricsService');
 
-// Get music service instance
-const musicService = createMusicService();
+// Lazy-load music service to avoid initialization timing issues
+let musicService = null;
+const getMusicService = () => {
+  if (!musicService) {
+    musicService = createMusicService();
+  }
+  return musicService;
+};
 
 // Get music player status
 router.get('/status', async (req, res) => {
@@ -36,7 +42,7 @@ router.get('/status', async (req, res) => {
     
     // Race the actual status call against the timeout
     const result = await Promise.race([
-      musicService.getStatus(isSilent),
+      getMusicService().getStatus(isSilent),
       timeoutPromise
     ]);
     
@@ -81,7 +87,7 @@ router.get('/stations', async (req, res) => {
     const useProvidedStations = req.query.useProvided === 'true';
     
     // First check if pianobar is running (use silent mode to reduce logs)
-    const statusResult = await musicService.getStatus(silent);
+    const statusResult = await getMusicService().getStatus(silent);
     const isPianobarRunning = statusResult?.data?.isPianobarRunning;
     
     // If using provided stations list or pianobar is not running
@@ -197,7 +203,7 @@ router.get('/stations', async (req, res) => {
     
     // Race the actual stations call against the timeout
     const result = await Promise.race([
-      musicService.getStations(),
+      getMusicService().getStations(),
       timeoutPromise
     ]);
     
@@ -247,7 +253,7 @@ router.post('/start', async (req, res) => {
     const silent = req.query.silent === 'true' || req.body.silent === true;
     
     // Create a race with a timeout to ensure we always return something
-    const startPromise = musicService.startPianobar(connectBluetooth, silent);
+    const startPromise = getMusicService().startPianobar(connectBluetooth, silent);
     const timeoutPromise = new Promise(resolve => {
       setTimeout(() => {
         if (!silent) logger.warn('Start music player route timed out, returning optimistic response');
@@ -297,7 +303,7 @@ router.post('/stop', async (req, res) => {
     const disconnectBluetooth = req.body.disconnectBluetooth !== false;
     const isSilent = req.query.silent === 'true' || req.body.silent === true;
     
-    const result = await musicService.stopPianobar(disconnectBluetooth, isSilent);
+    const result = await getMusicService().stopPianobar(disconnectBluetooth, isSilent);
     
     res.json(result);
     
@@ -357,7 +363,7 @@ router.post('/control', async (req, res) => {
         return;
       }
       
-      const result = await musicService.sendCommand(command, silent);
+      const result = await getMusicService().sendCommand(command, silent);
       res.json(result);
       
       // Record response time
@@ -386,14 +392,14 @@ router.post('/control', async (req, res) => {
     
     switch (action) {
       case 'start':
-        result = await musicService.startPianobar(
+        result = await getMusicService().startPianobar(
           options?.connectBluetooth !== false, // Default to true if not specified
           options?.silent === true || silent
         );
         break;
         
       case 'stop':
-        result = await musicService.stopPianobar(
+        result = await getMusicService().stopPianobar(
           options?.disconnectBluetooth !== false, // Default to true if not specified
           options?.silent === true || silent
         );
@@ -439,14 +445,14 @@ router.post('/control', async (req, res) => {
           return;
         }
         
-        result = await musicService.sendCommand(
+        result = await getMusicService().sendCommand(
           options.command, 
           options.silent === true || silent
         );
         break;
         
       case 'connectBluetooth':
-        result = await musicService.connectBluetooth(
+        result = await getMusicService().connectBluetooth(
           options?.checkInitNeeded !== false, // Default to true if not specified
           options?.silent === true || silent
         );
@@ -458,7 +464,7 @@ router.post('/control', async (req, res) => {
         break;
         
       case 'disconnectBluetooth':
-        result = await musicService.disconnectBluetooth();
+        result = await getMusicService().disconnectBluetooth();
         // Format the response for the frontend
         result = {
           success: true, // Always return success to prevent UI blocking
@@ -467,19 +473,19 @@ router.post('/control', async (req, res) => {
         break;
         
       case 'play':
-        result = await musicService.play();
+        result = await getMusicService().play();
         break;
         
       case 'pause':
-        result = await musicService.pause();
+        result = await getMusicService().pause();
         break;
         
       case 'next':
-        result = await musicService.next();
+        result = await getMusicService().next();
         break;
         
       case 'love':
-        result = await musicService.love();
+        result = await getMusicService().love();
         break;
         
       case 'selectStation':
@@ -497,7 +503,7 @@ router.post('/control', async (req, res) => {
           return;
         }
         
-        result = await musicService.selectStation(options.stationId);
+        result = await getMusicService().selectStation(options.stationId);
         break;
         
       default:
@@ -506,7 +512,7 @@ router.post('/control', async (req, res) => {
           ['p', 'n', '+', 's', 'P', 'S'].includes(action) || action.startsWith('s ')
         )) {
           logger.warn(`Legacy command format detected: ${action} - please update to use { action: 'command', options: { command: '${action}' }}`);
-          result = await musicService.sendCommand(action, silent);
+          result = await getMusicService().sendCommand(action, silent);
           break;
         }
         
@@ -552,7 +558,7 @@ router.post('/bluetooth/connect', async (req, res) => {
     // Record request metric
     prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/bluetooth/connect');
     
-    const result = await musicService.connectBluetooth();
+    const result = await getMusicService().connectBluetooth();
     
     if (result) {
       res.json({
@@ -594,7 +600,7 @@ router.post('/bluetooth/disconnect', async (req, res) => {
     // Record request metric
     prometheusMetrics.incrementHttpRequestCount('POST', '/api/music/bluetooth/disconnect');
     
-    const result = await musicService.disconnectBluetooth();
+    const result = await getMusicService().disconnectBluetooth();
     
     if (result) {
       res.json({
@@ -639,7 +645,7 @@ router.get('/diagnostics', async (req, res) => {
     logger.info('Running music player diagnostics...');
     
     // Get detailed status including process information
-    const status = await musicService.healthCheck();
+    const status = await getMusicService().healthCheck();
     
     // Check status file contents
     let statusFileContents = null;
@@ -721,10 +727,10 @@ router.post('/cleanup', async (req, res) => {
     logger.info('Running forced music process cleanup...');
     
     // Force cleanup of all pianobar processes
-    const cleanupResult = await musicService.cleanupOrphanedProcesses(true, false);
+    const cleanupResult = await getMusicService().cleanupOrphanedProcesses(true, false);
     
     // Get status after cleanup
-    const statusAfterCleanup = await musicService.getStatus(false);
+    const statusAfterCleanup = await getMusicService().getStatus(false);
     
     const result = {
       success: true,
