@@ -29,6 +29,7 @@ export const AppProvider = ({ children }) => {
   // Scheduler state
   const [scheduler, setScheduler] = useState({
     schedules: {},
+    wakeUpStatus: null,
     loading: true,
     error: null,
   });
@@ -110,6 +111,7 @@ export const AppProvider = ({ children }) => {
     // Optimized for One Call API 3.0 limits (1000 calls/day)
     const refreshInterval = setInterval(() => {
       loadWeatherData(false);
+      loadSchedulerData(false);
       loadMusicData(false);
       loadPianobarData(false);
       // Bluetooth status is refreshed separately
@@ -194,14 +196,30 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  // Load scheduler data - DISABLED: SchedulerService not implemented yet
-  const loadSchedulerData = async () => {
-    // SchedulerService will be implemented later - for now just set to ready state
-    setScheduler({
-      schedules: {}, // Empty schedules until SchedulerService is implemented
-      loading: false,
-      error: null,
-    });
+  // Load scheduler data
+  const loadSchedulerData = async (showLoading = true) => {
+    if (showLoading) {
+      setScheduler(prev => ({ ...prev, loading: true, error: null }));
+    }
+    
+    try {
+      // Load wake up status
+      const wakeUpStatusRes = await schedulerApi.getWakeUpStatus();
+      
+      setScheduler({
+        schedules: {}, // Will be populated when needed
+        wakeUpStatus: wakeUpStatusRes.data,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      console.error('Error loading scheduler data:', error);
+      setScheduler(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Failed to load scheduler data',
+      }));
+    }
   };
 
   // Load music data
@@ -302,11 +320,26 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Set wake-up time - DISABLED: SchedulerService not implemented yet
+  // Set wake-up time
   const setWakeUpTime = async (time) => {
-    console.warn('setWakeUpTime called but SchedulerService not implemented yet. Time:', time);
-    // TODO: Implement when SchedulerService is added
-    return false;
+    console.log('Setting wake up time:', time);
+    
+    try {
+      const result = await schedulerApi.setWakeUpTime(time);
+      
+      if (result.success) {
+        console.log('Wake up time set successfully:', result.message);
+        // Refresh scheduler data to get updated wake up status
+        await loadSchedulerData(false);
+        return true;
+      } else {
+        console.error('Failed to set wake up time:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error setting wake up time:', error);
+      return false;
+    }
   };
 
   // Load Bluetooth status
@@ -904,7 +937,7 @@ export const AppProvider = ({ children }) => {
     actions: {
       refreshWeather: loadWeatherData,
       refreshShades: loadShadeData,
-      refreshSchedules: loadSchedulerData,
+      refreshScheduler: loadSchedulerData,
       refreshMusic: loadMusicData,
       refreshBluetooth: loadBluetoothStatus,
       refreshPianobar: loadPianobarData,

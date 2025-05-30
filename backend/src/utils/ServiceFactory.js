@@ -21,6 +21,7 @@ const IPianobarService = require('../interfaces/IPianobarService');
 
 // Import service implementations
 const WeatherService = require('../services/WeatherService');
+const SchedulerService = require('../services/SchedulerService');
 const MusicService = require('../services/musicService.di');
 const BluetoothService = require('../services/BluetoothService');
 // Using new PianobarCommandInterface instead of old PianobarService
@@ -82,7 +83,33 @@ function createWeatherService() {
   return container.resolve('weatherService');
 }
 
-// TODO: createSchedulerService will be implemented with the new SchedulerService
+/**
+ * Create a properly configured Scheduler Service
+ * @returns {SchedulerService} - Configured scheduler service
+ */
+function createSchedulerService() {
+  if (!container.has('schedulerService')) {
+    // Ensure WeatherService is created first
+    if (!container.has('weatherService')) {
+      createWeatherService();
+    }
+    
+    // Register scheduler service in container
+    container.register('schedulerService', SchedulerService, {
+      dependencies: [
+        'configManager',
+        'retryHelper',
+        'circuitBreaker',
+        'serviceRegistry',
+        'serviceWatchdog',
+        'weatherService'
+      ],
+      lifecycle: Lifecycle.SINGLETON
+    });
+  }
+  
+  return container.resolve('schedulerService');
+}
 
 /**
  * Create a properly configured Music Service
@@ -149,7 +176,7 @@ function createBluetoothService() {
 function initializeContainer() {
   registerCoreDependencies();
   createWeatherService();
-  // TODO: createSchedulerService() - will be added with new implementation
+  createSchedulerService();
   createBluetoothService();
   createMusicService();
   
@@ -224,10 +251,10 @@ function createOldPianobarService() {
  * Initialize the service container with all standard services
  * @returns {Object} - The DI container
  */
-function initializeContainer() {
+function initializeContainerComplete() {
   registerCoreDependencies();
   createWeatherService();
-  // TODO: createSchedulerService() - will be added with new implementation
+  createSchedulerService();
   createBluetoothService();
   createMusicService();
   
@@ -250,10 +277,11 @@ module.exports = {
   container,
   registerCoreDependencies,
   createWeatherService,
-  // createSchedulerService, // TODO: Will be added with new implementation
+  createSchedulerService,
   createMusicService,
   createBluetoothService,
   createPianobarService,
   createActualPianobarService,
-  initializeContainer
+  initializeContainer,
+  initializeContainerComplete
 };

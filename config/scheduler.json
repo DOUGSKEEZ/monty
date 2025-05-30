@@ -1,0 +1,33 @@
+{
+  "location": {
+    "timezone": "America/Denver",
+    "city": "Silverthorne, CO"
+  },
+  "scenes": {
+    "good_afternoon_time": "14:30",
+    "good_evening_offset_minutes": -60,
+    "good_night_timing": "civil_twilight_end"
+  },
+  "wake_up": {
+    "enabled": true,
+    "time": "10:00",
+    "last_triggered": null,
+    "good_morning_delay_minutes": 15
+  },
+  "home_away": {
+    "status": "home",
+    "away_periods": [
+      {
+        "start_date": "2025-06-01",
+        "end_date": "2025-06-03",
+        "description": "Summer vacation"
+      }
+    ]
+  },
+  "music": {
+    "enabled_for_morning": true,
+    "enabled_for_evening": true,
+    "bluetooth_retry_attempts": 3,
+    "bluetooth_retry_delay_seconds": 30
+  }
+}

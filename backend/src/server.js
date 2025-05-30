@@ -126,9 +126,12 @@ app.get('/metrics', prometheusMetrics.getMetricsHandler());
 
 // Initialize ServiceFactory container before loading routes
 console.log('[DEBUG] Initializing ServiceFactory...');
-const { initializeContainer } = require('./utils/ServiceFactory');
+const { initializeContainer, createSchedulerService } = require('./utils/ServiceFactory');
 initializeContainer();
 console.log('[DEBUG] ServiceFactory initialized');
+
+// Initialize SchedulerService explicitly after server starts
+console.log('[DEBUG] SchedulerService initialization will be triggered after server startup...');
 
 // Import routes
 console.log('[DEBUG] Importing routes...');
@@ -143,7 +146,9 @@ console.log('[DEBUG] About to require weatherRoutes...');
 const weatherRoutes = require('./routes/weather');
 console.log('[DEBUG] weatherRoutes imported');
 
-// TODO: schedulerRoutes will be added with the new SchedulerService implementation
+console.log('[DEBUG] About to require schedulerRoutes...');
+const schedulerRoutes = require('./routes/scheduler');
+console.log('[DEBUG] schedulerRoutes imported');
 
 console.log('[DEBUG] About to require musicRoutes...');
 const musicRoutes = require('./routes/music');
@@ -700,16 +705,20 @@ serviceRegistry.register('weather-api-usage', {
 
 serviceRegistry.register('scheduler-service', {
   isCore: false,
-  status: 'initializing',
+  status: 'ready',
   checkHealth: async () => {
     try {
-      // Simple check to see if scheduler service is operational
-      const schedulerService = require('./services/schedulerService');
-      return { 
-        status: schedulerService.isInitialized ? 'ok' : 'initializing',
-        message: schedulerService.isInitialized ? 'Scheduler service initialized' : 'Scheduler service initializing'
-      };
+      const { createSchedulerService } = require('./utils/ServiceFactory');
+      const schedulerService = createSchedulerService();
+      
+      // Initialize the service if not already done
+      if (!schedulerService.isInitialized) {
+        await schedulerService.initialize();
+      }
+      
+      return await schedulerService.healthCheck();
     } catch (error) {
+      logger.error(`Scheduler service health check failed: ${error.message}`);
       return { status: 'error', message: error.message };
     }
   }
@@ -884,7 +893,7 @@ setInterval(() => {
 app.use('/api/config', configRoutes);
 // app.use('/api/shades', shadeRoutes); // Removed - React calls ShadeCommander directly
 app.use('/api/weather', weatherRoutes);
-// TODO: app.use('/api/scheduler', schedulerRoutes); // Will be added with new SchedulerService
+app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/music', musicRoutes);
 app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);
@@ -1034,6 +1043,30 @@ try {
       console.log(`Server started on port ${PORT} and listening on all interfaces`);
       console.log(`API available at: http://localhost:${PORT}/api/health`);
       console.log(`Ping test available at: http://localhost:${PORT}/ping`);
+      
+      // CRITICAL: Initialize SchedulerService after server is running
+      setTimeout(async () => {
+        try {
+          console.log('[INIT] Initializing SchedulerService after server startup...');
+          const schedulerService = createSchedulerService();
+          
+          if (!schedulerService.isInitialized) {
+            await schedulerService.initialize();
+            console.log('[INIT] ✅ SchedulerService initialization completed');
+            console.log(`[INIT] ✅ Scheduled jobs created: ${schedulerService.scheduledJobs.size}`);
+            
+            // List the scheduled jobs
+            for (const [name, job] of schedulerService.scheduledJobs) {
+              console.log(`[INIT] - Cron job: ${name}`);
+            }
+          } else {
+            console.log('[INIT] SchedulerService already initialized');
+          }
+        } catch (error) {
+          console.error('[INIT] ❌ SchedulerService initialization failed:', error.message);
+          logger.error(`SchedulerService post-startup initialization failed: ${error.message}`);
+        }
+      }, 3000); // Wait 3 seconds after server starts
     }
   });
   

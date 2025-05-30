@@ -120,15 +120,87 @@ function HomePage() {
     });
   };
 
-  // Get next wake-up time from schedules
-  const getNextWakeUp = () => {
-    if (scheduler.loading || !scheduler.schedules) return 'Not Set';
+  // Get wake-up display information
+  const getWakeUpDisplay = () => {
+    if (scheduler.loading || !scheduler.wakeUpStatus) {
+      return {
+        isSet: false,
+        displayText: 'Loading...',
+        timeUntil: null
+      };
+    }
     
-    // Find the Rise and Shine schedule
-    const riseAndShineSchedule = scheduler.schedules.riseAndShine;
-    if (!riseAndShineSchedule) return 'Not Set';
+    const wakeUpData = scheduler.wakeUpStatus;
     
-    return riseAndShineSchedule.nextRunAt || 'Not Set';
+    if (!wakeUpData.enabled || !wakeUpData.nextWakeUpDateTime) {
+      return {
+        isSet: false,
+        displayText: 'Not Set',
+        timeUntil: null
+      };
+    }
+    
+    // Parse the display format: "Fri, May 30, 08:15 AM"
+    const fullDateTime = wakeUpData.nextWakeUpDateTime;
+    
+    // Extract time and date parts
+    const timeMatch = fullDateTime.match(/(\d{1,2}:\d{2} [AP]M)$/);
+    const dateMatch = fullDateTime.match(/^(.+?), (\d{1,2}:\d{2} [AP]M)$/);
+    
+    if (!timeMatch || !dateMatch) {
+      return {
+        isSet: true,
+        displayText: fullDateTime,
+        timeUntil: null
+      };
+    }
+    
+    const timeOnly = timeMatch[1]; // "08:15 AM"
+    const dateOnly = dateMatch[1]; // "Fri, May 30"
+    
+    // Calculate time until wake up
+    const calculateTimeUntil = () => {
+      try {
+        // Get current time in Mountain Time
+        const now = new Date();
+        const currentMT = now.toLocaleString("en-US", { timeZone: "America/Denver" });
+        const currentTime = new Date(currentMT);
+        
+        // Parse the wake up time - convert "Fri, May 30, 08:15 AM" to a Date
+        // We need to construct a proper date string
+        const currentYear = new Date().getFullYear();
+        const wakeUpDateStr = `${dateOnly}, ${currentYear} ${timeOnly}`;
+        const wakeUpTime = new Date(wakeUpDateStr);
+        
+        // If wake up time is in the past (same day), it's for tomorrow
+        if (wakeUpTime <= currentTime) {
+          wakeUpTime.setDate(wakeUpTime.getDate() + 1);
+        }
+        
+        const diff = wakeUpTime - currentTime;
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (hours === 0) {
+          return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+        } else if (minutes === 0) {
+          return `${hours} hour${hours !== 1 ? 's' : ''}`;
+        } else {
+          return `${hours} hour${hours !== 1 ? 's' : ''} and ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+        }
+      } catch (error) {
+        console.error('Error calculating time until wake up:', error);
+        return null;
+      }
+    };
+    
+    return {
+      isSet: true,
+      timeOnly: timeOnly,
+      dateOnly: dateOnly,
+      fullDateTime: fullDateTime,
+      timeUntil: calculateTimeUntil()
+    };
   };
 
   // Handle wake-up time setting
@@ -139,9 +211,9 @@ function HomePage() {
       const success = await actions.setWakeUpTime(wakeUpTime);
       
       if (success) {
-        // Close modal and refresh schedules
+        // Close modal and refresh scheduler data
         setShowWakeUpModal(false);
-        await actions.refreshSchedules();
+        await actions.refreshScheduler();
       } else {
         alert('Failed to set wake-up time. Please try again.');
       }
@@ -318,33 +390,47 @@ function HomePage() {
           <h2 className="text-xl font-semibold mb-4">Wake Up Alarm</h2>
           
           <div className="mb-4">
-            <p className="text-sm mb-1">Tomorrow's Wake Up:</p>
-            <p className="text-xl font-bold">{getNextWakeUp()}</p>
+            <p className="text-sm mb-2">Tomorrow's Wake Up:</p>
+            
+            {(() => {
+              const wakeUpInfo = getWakeUpDisplay();
+              
+              if (!wakeUpInfo.isSet) {
+                return (
+                  <p className="text-xl font-bold text-gray-500">{wakeUpInfo.displayText}</p>
+                );
+              }
+              
+              return (
+                <div className="space-y-2">
+                  {/* Prominent time display */}
+                  <div className="text-3xl font-bold text-green-600">
+                    {wakeUpInfo.timeOnly}
+                  </div>
+                  
+                  {/* Less prominent date */}
+                  <div className="text-lg text-gray-600">
+                    {wakeUpInfo.dateOnly}
+                  </div>
+                  
+                  {/* Time until wake up */}
+                  {wakeUpInfo.timeUntil && (
+                    <div className="text-sm text-gray-500 italic">
+                      (Alarm set for {wakeUpInfo.timeUntil} from now)
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           
           <div className="text-sm text-gray-600 mb-4">
-            <p>The wake-up alarm will:</p>
-            <ul className="list-disc pl-5 mt-1">
+            <p className="mb-2">The wake-up alarm will:</p>
+            <ul className="list-disc pl-5 space-y-1">
               <li>Raise bedroom blackout shades</li>
-              <li>Raise privacy shades on the main level</li>
-              <li>Play music on the main level</li>
               <li>
-                Begin sunrise 
-                <span 
-                  className="relative cursor-help ml-1 text-blue-500 group"
-                >
-                  wake-up sequence
-                  <span className="invisible group-hover:visible transition-opacity bg-gray-800 text-sm text-gray-100 rounded-md absolute left-1/2 
-                    -translate-x-1/2 translate-y-full mt-1 mx-auto p-2 w-64 z-10 pointer-events-none shadow-lg">
-                    <strong>Wake-up Sequence:</strong>
-                    <ul className="list-disc pl-4 text-xs mt-1">
-                      <li>Immediately: Raise bedroom blackout shades & main level privacy shades</li>
-                      <li>Immediately: Begin playing Jazz Fruits Music Radio on the speakers</li>
-                      <li>After 7 minutes: Raise loft shade (#48) and bedroom shades (#42, #43)</li>
-                      <li>After 20 minutes: Raise office shades (#33, #34)</li>
-                    </ul>
-                  </span>
-                </span>
+                Monty's Prospect will open to the world 
+                <strong> 15 minutes</strong> after this wake up call!
               </li>
             </ul>
           </div>

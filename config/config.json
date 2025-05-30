@@ -4,24 +4,9 @@
     "city": "Silverthorne",
     "state": "CO"
   },
-  "wakeUpTime": {
-    "defaultTime": "07:45",
-    "nextWakeUpTime": null
-  },
   "homeStatus": {
     "status": "home",
     "awayPeriods": []
-  },
-  "shadeScenes": {
-    "goodMorningTime": "07:45",
-    "goodAfternoonOffset": 0,
-    "goodEveningOffset": 0,
-    "goodNightOffset": 30,
-    "riseAndShineTime": "07:45",
-    "letTheSunInDelay": 7,
-    "startTheDayDelay": 20,
-    "enableRepeatCommands": true,
-    "repeatCommandCount": 2
   },
   "music": {
     "defaultStation": "128737420597291214",

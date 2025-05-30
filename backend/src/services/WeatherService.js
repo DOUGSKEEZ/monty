@@ -939,76 +939,68 @@ class WeatherService extends IWeatherService {
   }
 
   /**
-   * Get sunrise and sunset times for a specific date
+   * Get sunrise and sunset times for a specific date with caching
    * @param {Date} date - The date to get times for (defaults to today)
    * @returns {Promise<Object>} Sunrise and sunset data
    */
   async getSunriseSunsetTimes(date = new Date()) {
+    // Use Mountain Time for date calculation (matches user's timezone)
+    const formattedDate = date.toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
+    
+    // Check cache first
+    const cachedData = this.getSunTimesFromCache(formattedDate);
+    if (cachedData) {
+      logger.debug(`Using cached sun times for ${formattedDate}`);
+      return {
+        success: true,
+        data: cachedData
+      };
+    }
+    
     return this.retryHelper.retryOperation(
       async () => {
         try {
-          // Try to get from current weather data first (which includes today's sun times)
-          const weatherResult = await this.getCurrentWeather();
-          
-          if (weatherResult.success && weatherResult.data) {
-            const todayDate = new Date().toISOString().split('T')[0];
-            const targetDate = date.toISOString().split('T')[0];
-            
-            // If requesting today's data, use the weather data
-            if (todayDate === targetDate) {
-              const sunriseDate = new Date(weatherResult.data.sunrise);
-              const sunsetDate = new Date(weatherResult.data.sunset);
-              
-              return {
-                success: true,
-                data: {
-                  date: todayDate,
-                  sunrise: sunriseDate.getTime(),
-                  sunset: sunsetDate.getTime(),
-                  sunriseTime: sunriseDate.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    hour12: true 
-                  }),
-                  sunsetTime: sunsetDate.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    hour12: true 
-                  })
-                }
-              };
-            }
-          }
-          
-          // For other dates, use sunrise-sunset.org API
+          // Use sunrise-sunset.org API for all dates (includes twilight data)
           const lat = 39.63; // Silverthorne latitude
           const lon = -106.07; // Silverthorne longitude
-          const formattedDate = date.toISOString().split('T')[0];
           
           const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${formattedDate}&formatted=0`;
+          logger.info(`Fetching sun times from sunrise-sunset.org for ${formattedDate}`);
           const data = await this.makeHttpRequest(url);
           
           if (data.status === 'OK') {
             const sunriseDate = new Date(data.results.sunrise);
             const sunsetDate = new Date(data.results.sunset);
             
+            const sunTimesData = {
+              date: formattedDate,
+              sunrise: sunriseDate.getTime(),
+              sunset: sunsetDate.getTime(),
+              sunriseTime: sunriseDate.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+              }),
+              sunsetTime: sunsetDate.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                hour12: true 
+              }),
+              // Store additional twilight data for future use
+              civilTwilightBegin: data.results.civil_twilight_begin,
+              civilTwilightEnd: data.results.civil_twilight_end,
+              nauticalTwilightBegin: data.results.nautical_twilight_begin,
+              nauticalTwilightEnd: data.results.nautical_twilight_end,
+              astronomicalTwilightBegin: data.results.astronomical_twilight_begin,
+              astronomicalTwilightEnd: data.results.astronomical_twilight_end
+            };
+            
+            // Cache the result
+            this.cacheSunTimes(formattedDate, sunTimesData);
+            
             return {
               success: true,
-              data: {
-                date: formattedDate,
-                sunrise: sunriseDate.getTime(),
-                sunset: sunsetDate.getTime(),
-                sunriseTime: sunriseDate.toLocaleTimeString('en-US', { 
-                  hour: '2-digit', 
-                  minute: '2-digit',
-                  hour12: true 
-                }),
-                sunsetTime: sunsetDate.toLocaleTimeString('en-US', { 
-                  hour: '2-digit', 
-                  minute: '2-digit', 
-                  hour12: true 
-                })
-              }
+              data: sunTimesData
             };
           } else {
             throw new Error('Invalid response from sunrise-sunset API');
@@ -1026,6 +1018,96 @@ class WeatherService extends IWeatherService {
         backoffFactor: 2,
       }
     );
+  }
+
+  /**
+   * Get sun times from cache
+   * @param {string} dateKey - Date in YYYY-MM-DD format
+   * @returns {Object|null} Cached sun times data or null
+   */
+  getSunTimesFromCache(dateKey) {
+    try {
+      const cacheFile = path.join(__dirname, '../../../data/cache/sun_times_cache.json');
+      
+      if (fs.existsSync(cacheFile)) {
+        const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        const dayData = cache[dateKey];
+        
+        if (dayData) {
+          // Check if cache is still valid (24 hours)
+          const now = Date.now();
+          const expiresAt = dayData.expires_at || 0;
+          
+          if (now < expiresAt) {
+            return dayData;
+          } else {
+            logger.debug(`Sun times cache expired for ${dateKey}`);
+            // Remove expired entry
+            delete cache[dateKey];
+            fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      logger.warn(`Error reading sun times cache: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Cache sun times data
+   * @param {string} dateKey - Date in YYYY-MM-DD format
+   * @param {Object} sunTimesData - Sun times data to cache
+   */
+  cacheSunTimes(dateKey, sunTimesData) {
+    try {
+      const cacheFile = path.join(__dirname, '../../../data/cache/sun_times_cache.json');
+      const cacheDir = path.dirname(cacheFile);
+      
+      // Ensure cache directory exists
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+      
+      // Load existing cache or create new
+      let cache = {};
+      if (fs.existsSync(cacheFile)) {
+        try {
+          cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        } catch (parseError) {
+          logger.warn(`Failed to parse sun times cache, creating new: ${parseError.message}`);
+          cache = {};
+        }
+      }
+      
+      // Add expiration time (24 hours from now)
+      const now = Date.now();
+      const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
+      
+      // Store data with metadata
+      cache[dateKey] = {
+        ...sunTimesData,
+        cached_at: now,
+        expires_at: expiresAt
+      };
+      
+      // Clean up old cache entries (keep only last 7 days)
+      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+      Object.keys(cache).forEach(key => {
+        if (cache[key].cached_at < sevenDaysAgo) {
+          delete cache[key];
+        }
+      });
+      
+      // Write cache file
+      fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+      logger.info(`Sun times cached for ${dateKey}, expires in 24 hours`);
+      
+    } catch (error) {
+      logger.error(`Error caching sun times: ${error.message}`);
+    }
   }
 
   /**

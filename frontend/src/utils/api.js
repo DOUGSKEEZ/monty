@@ -117,6 +117,20 @@ export const shadesApi = {
 // Scheduler API endpoints
 export const schedulerApi = {
   /**
+   * Get scheduler status and next scene times
+   * @returns {Promise<Object>} - Scheduler status
+   */
+  getStatus: () => 
+    fetchApi('/scheduler/status'),
+  
+  /**
+   * Get wake up alarm status
+   * @returns {Promise<Object>} - Wake up status
+   */
+  getWakeUpStatus: () => 
+    fetchApi('/scheduler/wake-up/status'),
+  
+  /**
    * Get active schedules
    * @returns {Promise<Object>} - Active schedules
    */
@@ -125,7 +139,7 @@ export const schedulerApi = {
   
   /**
    * Set wake-up time
-   * @param {string} time - Time in HH:MM format
+   * @param {string} time - Time in HH:MM format (24-hour)
    * @returns {Promise<Object>} - Result
    */
   setWakeUpTime: (time) => 
@@ -135,7 +149,36 @@ export const schedulerApi = {
     }),
   
   /**
-   * Trigger a scheduled scene
+   * Disable wake up alarm
+   * @returns {Promise<Object>} - Result
+   */
+  disableWakeUp: () => 
+    fetchApi('/scheduler/wake-up', {
+      method: 'DELETE',
+    }),
+  
+  /**
+   * Force SchedulerService initialization
+   * @returns {Promise<Object>} - Result
+   */
+  initialize: () => 
+    fetchApi('/scheduler/initialize', {
+      method: 'POST',
+    }),
+  
+  /**
+   * Manually trigger a scene
+   * @param {string} sceneName - Scene to trigger
+   * @returns {Promise<Object>} - Result
+   */
+  triggerScene: (sceneName) => 
+    fetchApi('/scheduler/trigger', {
+      method: 'POST',
+      body: JSON.stringify({ scene_name: sceneName }),
+    }),
+  
+  /**
+   * Trigger a scheduled scene (legacy method)
    * @param {string} sceneName - Scene name
    * @returns {Promise<Object>} - Result
    */
@@ -498,3 +541,4 @@ export const triggerShadeCommanderScene = async (sceneName) => {
   
   return response.json();
 };
+

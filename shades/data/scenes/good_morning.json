@@ -4,6 +4,7 @@
   "commands": [
     {"shade_id": 14, "action": "u", "delay_ms": 750},
     {"shade_id": 33, "action": "u", "delay_ms": 750},
+    {"shade_id": 35, "action": "d", "delay_ms": 750},
     {"shade_id": 44, "action": "u", "delay_ms": 750}, 
     {"shade_id": 48, "action": "u", "delay_ms": 750} 
   ],
