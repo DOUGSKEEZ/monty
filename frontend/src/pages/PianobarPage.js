@@ -3,7 +3,7 @@ import { useAppContext } from '../utils/AppContext';
 
 function PianobarPage() {
   // Get state from context
-  const { pianobar, currentSong, bluetooth, actions } = useAppContext();
+  const { pianobar, bluetooth, actions } = useAppContext();
   
   // Component state
   const [selectedStation, setSelectedStation] = useState('');
@@ -15,12 +15,22 @@ function PianobarPage() {
   // Love animation state
   const [isAnimatingLove, setIsAnimatingLove] = useState(false);
   
+  // Simple track info state (no more dual state management)
+  const [trackInfo, setTrackInfo] = useState({
+    title: '',
+    artist: '',
+    album: '',
+    stationName: '',
+    songDuration: 0,
+    songPlayed: 0,
+    rating: 0,
+    coverArt: '',
+    detailUrl: ''
+  });
+  
   // WebSocket state
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef(null);
-  
-  // Version tracking for STATE_UPDATE messages
-  const lastVersionRef = useRef(-1);
 
   // Bluetooth Progress Bar State
   const [bluetoothProgress, setBluetoothProgress] = useState(0);
@@ -55,11 +65,12 @@ function PianobarPage() {
   useEffect(() => {
     let progressInterval = null;
     
-    if (isPlayerOn() && isPlaying() && currentSong.songDuration > 0) {
+    if (isPlayerOn() && isPlaying() && trackInfo.songDuration > 0) {
       progressInterval = setInterval(() => {
-        actions.updateCurrentSong({
-          songPlayed: Math.min(currentSong.songPlayed + 1, currentSong.songDuration)
-        });
+        setTrackInfo(prev => ({
+          ...prev,
+          songPlayed: Math.min(prev.songPlayed + 1, prev.songDuration)
+        }));
       }, 1000);
     }
     
@@ -68,42 +79,12 @@ function PianobarPage() {
         clearInterval(progressInterval);
       }
     };
-  }, [isPlayerOn(), isPlaying(), currentSong.songDuration, actions]);
-  
-  // Log what song is being displayed in the UI
-  useEffect(() => {
-    if (currentSong.title && currentSong.artist) {
-      console.log('🎵 [SONG-DISPLAY] UI now showing:', currentSong.title, 'by', currentSong.artist);
-    }
-  }, [currentSong.title, currentSong.artist]);
+  }, [isPlayerOn(), isPlaying(), trackInfo.songDuration]);
   
   // Check pianobar status when component mounts
   useEffect(() => {
-    // Force fresh state for mobile/tablets
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      // Clear any potentially cached state
-      actions.updatePianobarStatus({
-        isRunning: null,
-        isPlaying: null,
-        status: null
-      });
-    }
-    
     // Initial status check
     actions.refreshPianobar();
-    
-    // If WebSocket isn't connected after 2 seconds, refresh again
-    setTimeout(() => {
-      if (!wsConnected) {
-        actions.refreshPianobar();
-      }
-    }, 2000);
-    
-    // Request current state from WebSocket when it connects
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'GET_STATE' }));
-    }
   }, []);
   
   // Setup WebSocket connection for real-time updates
@@ -112,131 +93,62 @@ function PianobarPage() {
     let reconnectTimer = null;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
-    const reconnectDelay = 3000; // 3 seconds
+    const reconnectDelay = 3000;
     
     const connectWebSocket = () => {
       try {
-        // Create WebSocket connection
         websocket = new WebSocket(`ws://${window.location.hostname}:3001/api/pianobar/ws`);
         
         websocket.onopen = () => {
           setWsConnected(true);
-          reconnectAttempts = 0; // Reset counter on successful connection
-          
-          // Immediately request current state
-          websocket.send(JSON.stringify({ type: 'GET_STATE' }));
-          
-          // Also refresh via API as backup
-          actions.refreshPianobar();
+          reconnectAttempts = 0;
         };
         
         websocket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'status') {
-        // Update player status
-        actions.updatePianobarStatus({
-          isRunning: data.data.isPianobarRunning || (data.data.status !== 'stopped'),
-          isPlaying: data.data.status === 'playing',
-          status: {
-            ...pianobar.status,
-            status: data.data.status
+          const data = JSON.parse(event.data);
+          
+          // Only handle simple status updates
+          if (data.type === 'status') {
+            actions.updatePianobarStatus({
+              isRunning: data.data.isPianobarRunning || (data.data.status !== 'stopped'),
+              isPlaying: data.data.status === 'playing',
+              status: {
+                ...pianobar.status,
+                status: data.data.status
+              }
+            });
           }
-        });
-      } else if (data.type === 'event') {
-        if (data.data.eventType === 'songstart') {
-          console.log('🎵 [SONG-CHANGE] New song from WebSocket:', data.data.title, 'by', data.data.artist);
-          
-          // Update current song info in AppContext (persists across navigation)
-          actions.updateCurrentSong({
-            title: data.data.title || '',
-            artist: data.data.artist || '',
-            album: data.data.album || '',
-            stationName: data.data.stationName || '',
-            songDuration: parseInt(data.data.songDuration) || 0,
-            songPlayed: parseInt(data.data.songPlayed) || 0,
-            rating: parseInt(data.data.rating) || 0,
-            coverArt: data.data.coverArt || '',
-            detailUrl: data.data.detailUrl || '',
-            lastSongStartTimestamp: Date.now() // Add timestamp for event ordering
-          });
-          
-          // Also update in global state for consistency
-          actions.updatePianobarStatus({
-            status: {
-              ...pianobar.status,
-              song: data.data.title,
-              artist: data.data.artist,
-              album: data.data.album,
-              station: data.data.stationName
+          // Handle song updates simply
+          else if (data.type === 'song') {
+            setTrackInfo({
+              title: data.data.title || '',
+              artist: data.data.artist || '',
+              album: data.data.album || '',
+              stationName: data.data.stationName || '',
+              songDuration: parseInt(data.data.songDuration) || 0,
+              songPlayed: parseInt(data.data.songPlayed) || 0,
+              rating: parseInt(data.data.rating) || 0,
+              coverArt: data.data.coverArt || '',
+              detailUrl: data.data.detailUrl || ''
+            });
+          }
+          // Handle love events
+          else if (data.type === 'love') {
+            setTrackInfo(prev => ({ ...prev, rating: 1 }));
+          }
+          // Handle station list updates
+          else if (data.type === 'stations' && data.data.stations) {
+            const stationList = parseStationList(data.data.stations);
+            if (stationList && stationList.length > 0) {
+              actions.updatePianobarStations(stationList.map(station => station.name));
             }
-          });
-        } else if (data.data.eventType === 'usergetstations' && data.data.stations) {
-          // Update station list dynamically
-          const stationList = parseStationList(data.data.stations);
-          if (stationList && stationList.length > 0) {
-            actions.updatePianobarStations(stationList.map(station => station.name));
           }
-        } else if (data.data.eventType === 'songlove') {
-          // Update rating in AppContext
-          actions.updateCurrentSong({ rating: 1 });
-        } else if (data.data.eventType === 'songfinish') {
-          // Do NOT update UI state with songfinish events
-          // This prevents old song data from overriding current song information
-        } else if (data.data.eventType === 'stationchange') {
-          // Station change handling
-        }
-      } else if (data.type === 'STATE_UPDATE') {
-        // Check version to prevent out-of-order updates
-        const newVersion = data.data.version || 0;
-        const currentVersion = lastVersionRef.current;
+        };
         
-        if (newVersion > currentVersion) {
-          // Accept this update
-          lastVersionRef.current = newVersion;
-          
-          // Update pianobar state from server central state
-          actions.updatePianobarStatus({
-            isRunning: data.data.player.isRunning,
-            isPlaying: data.data.player.isPlaying,
-            status: {
-              ...pianobar.status,
-              status: data.data.player.status
-            }
-          });
-          
-          // Update currentSong state from server central state
-          const songFromState = data.data.currentSong;
-          if (songFromState && (songFromState.title || songFromState.artist)) {
-            console.log('🎵 [SONG-CHANGE] Song from STATE_UPDATE:', songFromState.title, 'by', songFromState.artist);
-          }
-          
-          // 🚫👻 RACE CONDITION PROTECTION: Add timestamp to STATE_UPDATE song data
-          // This ensures updateCurrentSong can reject old data if a newer songstart event already arrived
-          actions.updateCurrentSong({
-            title: data.data.currentSong.title || '',
-            artist: data.data.currentSong.artist || '',
-            album: data.data.currentSong.album || '',
-            stationName: data.data.currentSong.stationName || '',
-            songDuration: parseInt(data.data.currentSong.songDuration) || 0,
-            songPlayed: parseInt(data.data.currentSong.songPlayed) || 0,
-            rating: parseInt(data.data.currentSong.rating) || 0,
-            coverArt: data.data.currentSong.coverArt || '',
-            detailUrl: data.data.currentSong.detailUrl || '',
-            // Add timestamp from server data or current time (will be older than recent songstart events)
-            lastUpdated: data.data.timestamp || Date.now() - 1000 // Slightly older to prioritize songstart events
-          });
-        }
-      }
-    };
-    
         websocket.onclose = () => {
           setWsConnected(false);
-          
-          // Attempt to reconnect if we haven't exceeded max attempts
           if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
-            
             reconnectTimer = setTimeout(() => {
               connectWebSocket();
             }, reconnectDelay);
@@ -251,8 +163,6 @@ function PianobarPage() {
       } catch (error) {
         console.error('Failed to create WebSocket connection:', error);
         setWsConnected(false);
-        
-        // Retry connection if we haven't exceeded max attempts
         if (reconnectAttempts < maxReconnectAttempts) {
           reconnectAttempts++;
           reconnectTimer = setTimeout(() => {
@@ -262,7 +172,6 @@ function PianobarPage() {
       }
     };
     
-    // Initial connection attempt
     connectWebSocket();
     
     return () => {
@@ -640,21 +549,18 @@ function PianobarPage() {
   const handleLove = async () => {
     if (!isPlayerOn()) return;
     
-    // 🎯 OPTIMISTIC UI - Immediate visual feedback!
+    // Optimistic UI update
     setIsAnimatingLove(true);
-    actions.updateCurrentSong({ rating: 1 });
+    setTrackInfo(prev => ({ ...prev, rating: 1 }));
     
-    // Remove animation class after animation completes
     setTimeout(() => setIsAnimatingLove(false), 800);
     
     try {
-      // Send REST command in background
       await actions.controlPianobar('love');
-      console.log('❤️ Love command sent via REST API');
     } catch (error) {
       console.error('Error loving song:', error);
-      // Revert optimistic update on failure
-      actions.updateCurrentSong({ rating: 0 });
+      // Revert on failure
+      setTrackInfo(prev => ({ ...prev, rating: 0 }));
     }
   };
   
@@ -902,10 +808,10 @@ function PianobarPage() {
             <div className="flex items-start space-x-4">
               {/* Album Art */}
               <div className="flex-shrink-0">
-                {currentSong.coverArt ? (
+                {trackInfo.coverArt ? (
                   <img 
-                    src={currentSong.coverArt} 
-                    alt={`${currentSong.album || 'Album'} cover`}
+                    src={trackInfo.coverArt} 
+                    alt={`${trackInfo.album || 'Album'} cover`}
                     className="w-32 h-32 rounded-lg shadow-lg object-cover"
                     onError={(e) => {
                       e.target.style.display = 'none';
@@ -922,25 +828,25 @@ function PianobarPage() {
               <div className="flex-grow min-w-0">
                 {/* Title */}
                 <h3 className="text-xl font-bold truncate" data-testid="song-title">
-                  {currentSong.title || song || 'No song playing'}
+                  {trackInfo.title || song || 'No song playing'}
                 </h3>
                 
                 {/* Artist */}
-                {(currentSong.artist || artist) && (
+                {(trackInfo.artist || artist) && (
                   <p className="text-lg text-gray-700 truncate" data-testid="song-artist">
-                    {currentSong.artist || artist}
+                    {trackInfo.artist || artist}
                   </p>
                 )}
                 
                 {/* Album */}
-                {(currentSong.album || album) && (
+                {(trackInfo.album || album) && (
                   <p className="text-sm text-gray-600 truncate" data-testid="song-album">
-                    {currentSong.album || album}
+                    {trackInfo.album || album}
                   </p>
                 )}
                 
                 {/* Station */}
-                {(currentSong.stationName || station) && (
+                {(trackInfo.stationName || station) && (
                   <p className="text-sm text-blue-600 font-medium truncate flex items-center space-x-1" data-testid="song-station">
                     <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <rect x="2" y="10" width="2" height="4" fill="currentColor"/>
@@ -951,12 +857,12 @@ function PianobarPage() {
                       <rect x="17" y="8" width="2" height="8" fill="currentColor"/>
                       <rect x="20" y="10" width="2" height="4" fill="currentColor"/>
                     </svg>
-                    <span className="truncate">{currentSong.stationName || station}</span>
+                    <span className="truncate">{trackInfo.stationName || station}</span>
                   </p>
                 )}
                 
                 {/* Loved Indicator */}
-                {currentSong.rating > 0 && (
+                {trackInfo.rating > 0 && (
                   <div className="flex items-center mt-2">
                     <span className="text-sm text-red-500 flex items-center">
                       <span className="mr-1">Loved</span> 
@@ -966,17 +872,17 @@ function PianobarPage() {
                 )}
                 
                 {/* Song Progress Bar */}
-                {currentSong.songDuration > 0 && (
+                {trackInfo.songDuration > 0 && (
                   <div className="mt-4">
                     <div className="flex justify-between text-sm text-gray-500 mb-1">
-                      <span>{formatTime(currentSong.songPlayed || 0)}</span>
-                      <span>{formatTime(currentSong.songDuration)}</span>
+                      <span>{formatTime(trackInfo.songPlayed || 0)}</span>
+                      <span>{formatTime(trackInfo.songDuration)}</span>
                     </div>
                     <div className="w-full bg-gray-300 rounded-full h-2">
                       <div 
                         className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
                         style={{ 
-                          width: `${Math.min(100, (currentSong.songPlayed / currentSong.songDuration) * 100)}%` 
+                          width: `${Math.min(100, (trackInfo.songPlayed / trackInfo.songDuration) * 100)}%` 
                         }}
                       />
                     </div>
@@ -984,9 +890,9 @@ function PianobarPage() {
                 )}
                 
                 {/* Pandora Link */}
-                {currentSong.detailUrl && (
+                {trackInfo.detailUrl && (
                   <a 
-                    href={currentSong.detailUrl} 
+                    href={trackInfo.detailUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-sm text-blue-400 hover:text-blue-300 mt-3 inline-block transition-colors"
@@ -1005,12 +911,12 @@ function PianobarPage() {
               className={`p-4 rounded-full transition-all duration-300 ${
                 !isPlayerOn() 
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : currentSong.rating > 0 
+                  : trackInfo.rating > 0 
                     ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
                     : 'bg-red-500 hover:bg-red-600 text-white'
               } ${isAnimatingLove ? 'animate-love' : ''}`}
               disabled={!isPlayerOn()}
-              title={currentSong.rating > 0 ? "Loved Song" : "Love This Song"}
+              title={trackInfo.rating > 0 ? "Loved Song" : "Love This Song"}
             >
               <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />

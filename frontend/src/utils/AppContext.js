@@ -66,39 +66,7 @@ export const AppProvider = ({ children }) => {
     error: null,
   });
 
-  // Current song state with localStorage persistence
-  const [currentSong, setCurrentSong] = useState(() => {
-    // Try to load from localStorage first
-    try {
-      const stored = localStorage.getItem('monty_currentSong');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // 🟡 [CACHE-DATA] Log localStorage data load
-        console.log('🟡 [CACHE-DATA]', { 
-          source: 'localStorage', 
-          data: parsed, 
-          timestamp: Date.now() 
-        });
-        return parsed;
-      }
-    } catch (error) {
-      console.warn('Failed to load currentSong from localStorage:', error);
-    }
-    
-    // Default state if no localStorage data
-    return {
-      title: '',
-      artist: '',
-      album: '',
-      stationName: '',
-      rating: 0,
-      songDuration: 0,
-      songPlayed: 0,
-      coverArt: '',
-      detailUrl: '',
-      lastSongStartTimestamp: 0
-    };
-  });
+  // Removed complex currentSong state - now managed locally in components
 
   // Persistent state management
   const [lastSyncTime, setLastSyncTime] = useState(Date.now());
@@ -114,7 +82,7 @@ export const AppProvider = ({ children }) => {
     loadPianobarData();
     
     // Load persistent state from backend
-    loadBackendState();
+    // Removed backend state loading
     
     // Set up interval to refresh data periodically
     // Optimized for One Call API 3.0 limits (1000 calls/day)
@@ -126,14 +94,11 @@ export const AppProvider = ({ children }) => {
       // Bluetooth status is refreshed separately
     }, 10000); // Refresh every 10 seconds (WebSocket priority system prevents race conditions)
     
-    // Set up background state sync every 30 seconds
-    const syncInterval = setInterval(() => {
-      syncStateToBackend();
-    }, 30000);
+    // Removed background sync
     
     return () => {
       clearInterval(refreshInterval);
-      clearInterval(syncInterval);
+      // Removed sync interval cleanup
     };
   }, []); // CRITICAL: Remove the dependency array that was causing re-renders
   
@@ -988,159 +953,13 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
-  // Update current song data from WebSocket events with persistence
-  const updateCurrentSong = (songData) => {
-    // Add timestamp to incoming data if not present
-    const incomingTimestamp = songData.lastUpdated || Date.now();
-    
-    // 🚫🔄 RACE CONDITION PROTECTION: Prevent old data from overwriting new data
-    if (currentSong.lastUpdated && incomingTimestamp < currentSong.lastUpdated) {
-      console.log('🛡️ [RACE-PROTECTION] Ignoring older song data update', {
-        incomingTimestamp,
-        currentTimestamp: currentSong.lastUpdated,
-        incomingData: songData,
-        reason: 'Older timestamp - race condition protection'
-      });
-      return; // Don't update with older data
-    }
-    
-    // Event ordering protection: prevent old songfinish data from overriding recent songstart data
-    if (songData.lastSongStartTimestamp && currentSong.lastSongStartTimestamp) {
-      // If this update has a songstart timestamp that's older than our current one, ignore it
-      if (songData.lastSongStartTimestamp < currentSong.lastSongStartTimestamp) {
-        console.log('🛡️ [EVENT-ORDERING] Ignoring older song data update', {
-          incomingTimestamp: songData.lastSongStartTimestamp,
-          currentTimestamp: currentSong.lastSongStartTimestamp,
-          reason: 'Older songstart timestamp'
-        });
-        return; // Don't update with older data
-      }
-    }
-    
-    // 🚫⏱️ PROGRESS UPDATE PROTECTION: Special handling for progress-only updates
-    if (Object.keys(songData).length === 1 && songData.songPlayed !== undefined) {
-      // This is just a progress update - only update songPlayed without spreading old data
-      const progressOnlyUpdate = {
-        ...currentSong,
-        songPlayed: songData.songPlayed,
-        lastUpdated: Math.max(incomingTimestamp, Date.now())
-      };
-      setCurrentSong(progressOnlyUpdate);
-      
-      // Don't save progress-only updates to localStorage (too frequent)
-      console.log('🎶 [PROGRESS-UPDATE] Updated songPlayed to:', songData.songPlayed);
-      return;
-    }
-    
-    const newSongData = {
-      ...currentSong,
-      ...songData,
-      lastUpdated: Math.max(incomingTimestamp, Date.now()) // Ensure timestamp always moves forward
-    };
-    
-    setCurrentSong(newSongData);
-    
-    // Persist to localStorage immediately
-    try {
-      localStorage.setItem('monty_currentSong', JSON.stringify(newSongData));
-      // 🟡 [CACHE-DATA] Log localStorage data save
-      console.log('🟡 [CACHE-DATA]', { 
-        source: 'localStorage-save', 
-        data: newSongData, 
-        timestamp: Date.now() 
-      });
-    } catch (error) {
-      console.warn('Failed to save currentSong to localStorage:', error);
-    }
-    
-    // Debounced backend sync (only sync significant changes)
-    if (shouldSyncToBackend(songData)) {
-      debouncedBackendSync(newSongData);
-    }
-  };
+  // Removed complex song update logic
 
-  // Clear current song data with persistence
-  const clearCurrentSong = () => {
-    const clearedState = {
-      title: '',
-      artist: '',
-      album: '',
-      stationName: '',
-      rating: 0,
-      songDuration: 0,
-      songPlayed: 0,
-      coverArt: '',
-      detailUrl: '',
-      lastSongStartTimestamp: 0,
-      lastUpdated: Date.now()
-    };
-    
-    setCurrentSong(clearedState);
-    
-    // Clear from localStorage
-    try {
-      localStorage.removeItem('monty_currentSong');
-      console.log('🗑️ Cleared currentSong from localStorage');
-    } catch (error) {
-      console.warn('Failed to clear currentSong from localStorage:', error);
-    }
-    
-    // Sync cleared state to backend
-    syncStateToBackend({ currentSong: clearedState });
-  };
+  // Removed song clearing logic
   
-  // Load state from backend API
-  const loadBackendState = async () => {
-    try {
-      const backendState = await stateApi.getState();
-      console.log('🔄 Loaded state from backend:', backendState);
-      
-      // Only update if backend has newer data
-      if (backendState.currentSong && 
-          (!currentSong.lastUpdated || 
-           backendState.currentSong.lastUpdated > currentSong.lastUpdated)) {
-        
-        setCurrentSong(backendState.currentSong);
-        
-        // Update localStorage with backend data
-        localStorage.setItem('monty_currentSong', JSON.stringify(backendState.currentSong));
-        console.log('⬇️ Updated localStorage with newer backend data');
-      }
-    } catch (error) {
-      console.warn('Failed to load state from backend:', error);
-    }
-  };
+  // Removed backend state loading
   
-  // Sync state to backend API
-  const syncStateToBackend = async (stateToSync = null) => {
-    try {
-      const stateData = stateToSync || { currentSong };
-      
-      const result = await stateApi.updateState(stateData);
-      setLastSyncTime(result.lastUpdated);
-      console.log('⬆️ Synced state to backend:', result);
-    } catch (error) {
-      console.warn('Failed to sync state to backend:', error);
-    }
-  };
-  
-  // Debounced backend sync (prevent too many API calls)
-  let syncTimeout = null;
-  const debouncedBackendSync = (songData) => {
-    clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(() => {
-      syncStateToBackend({ currentSong: songData });
-    }, 5000); // Sync 5 seconds after last update
-  };
-  
-  // Check if we should sync to backend (only for significant changes)
-  const shouldSyncToBackend = (songData) => {
-    // Sync for new songs, rating changes, or every 30 seconds during playback
-    return songData.title || 
-           songData.artist || 
-           songData.rating !== undefined || 
-           (Date.now() - lastSyncTime > 30000);
-  };
+  // Removed backend sync logic
 
   // Memoize actions to prevent infinite re-renders
   const actions = useMemo(() => ({
@@ -1162,8 +981,7 @@ export const AppProvider = ({ children }) => {
     disconnectBluetooth,
     updatePianobarStatus,
     updatePianobarStations,
-    updateCurrentSong,
-    clearCurrentSong
+    // Removed song management actions
   }), []); // Empty dependency array - functions are stable
 
   // Context value
@@ -1174,7 +992,7 @@ export const AppProvider = ({ children }) => {
     music,
     bluetooth,
     pianobar,
-    currentSong,
+    // Removed currentSong from context
     actions,
   };
 

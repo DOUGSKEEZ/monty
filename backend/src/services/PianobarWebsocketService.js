@@ -1,10 +1,9 @@
 /**
- * PianobarWebsocketService.js
+ * PianobarWebsocketService.js - SIMPLIFIED
  * 
- * WebSocket server for pianobar real-time events and status updates
- * - Provides real-time song, artist, album info
- * - Broadcasts playback status changes
- * - Handles event scripts from pianobar
+ * Simple WebSocket server for pianobar track updates
+ * - Just broadcasts song changes and status
+ * - No complex state management or caching
  */
 
 const WebSocket = require('ws');
@@ -15,49 +14,32 @@ const logger = require('../utils/logger').getModuleLogger('pianobar-ws');
 
 class PianobarWebsocketService {
   constructor(server, config = {}) {
-    // Configuration with defaults
+    // Simple config
     this.statusFile = config.statusFile || 
       path.join(process.env.HOME || '/home/monty', 'monty/data/cache/pianobar_status.json');
     
     this.eventDir = config.eventDir || 
       path.join(process.env.HOME || '/home/monty', '.config/pianobar/event_data');
     
-    // Create WebSocket server using the provided HTTP server
+    // Create WebSocket server
     this.wss = new WebSocket.Server({ 
       server,
       path: '/api/pianobar/ws'
     });
     
-    // Initialize state
+    // Simple state
     this.clients = new Set();
-    this.currentStatus = {
-      status: 'unknown',
-      updateTime: Date.now()
-    };
+    this.currentStatus = { status: 'unknown' };
+    this.currentTrack = {};
     
-    // Reference to PianobarService for central state management
-    this.pianobarService = null;
-    
-    // Setup WebSocket handlers
     this.setupWebSocketHandlers();
-    
-    // Setup file watchers for pianobar events
     this.setupWatchers();
-    
-    // Ensure event directory exists
     this.ensureEventDirectory();
     
-    logger.info('PianobarWebsocketService initialized');
+    logger.info('Simple PianobarWebsocketService initialized');
   }
   
-  /**
-   * Set the PianobarService instance for central state management
-   * @param {Object} pianobarService - The PianobarService instance
-   */
-  setPianobarService(pianobarService) {
-    this.pianobarService = pianobarService;
-    logger.info('PianobarService reference set for central state management');
-  }
+  // No more complex state management needed
   
   /**
    * Ensure the event directory exists
@@ -101,44 +83,15 @@ class PianobarWebsocketService {
         data: this.currentStatus
       });
       
-      // Handle client messages (if needed)
+      // Simple ping/pong handling
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message);
-          logger.debug(`Received message from client: ${JSON.stringify(data)}`);
-          
-          // Handle client requests if needed
-          if (data.type === 'getStatus') {
-            this.sendToClient(ws, {
-              type: 'status',
-              data: this.currentStatus
-            });
-          } else if (data.type === 'GET_STATE') {
-            // Handle request for central state
-            if (this.pianobarService) {
-              try {
-                const state = this.pianobarService.getState();
-                this.sendToClient(ws, {
-                  type: 'STATE_UPDATE',
-                  data: state
-                });
-                logger.debug(`Sent central state to client: version ${state.version}`);
-              } catch (error) {
-                logger.error(`Error getting central state for client: ${error.message}`);
-                this.sendToClient(ws, {
-                  type: 'ERROR',
-                  message: 'Failed to get central state'
-                });
-              }
-            } else {
-              this.sendToClient(ws, {
-                type: 'ERROR',
-                message: 'PianobarService not available'
-              });
-            }
+          if (data.type === 'ping') {
+            ws.send(JSON.stringify({ type: 'pong' }));
           }
         } catch (error) {
-          logger.warn(`Error processing client message: ${error.message}`);
+          logger.debug(`Error processing message: ${error.message}`);
         }
       });
       
@@ -186,89 +139,77 @@ class PianobarWebsocketService {
       statusWatcher.on('change', (filePath) => {
         try {
           const statusData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          logger.debug(`Status file updated: ${statusData.status}`);
-          
-          // Update current status
           this.currentStatus = statusData;
           
-          // Broadcast to all clients
+          // Simple status broadcast
           this.broadcast({
             type: 'status',
             data: statusData
           });
         } catch (error) {
-          logger.error(`Error processing status file update: ${error.message}`);
+          logger.error(`Error processing status file: ${error.message}`);
         }
       });
       
       // Watch event directory for new event files
-      // Use absolute path for better compatibility
       const absoluteEventDir = path.resolve(this.eventDir);
-      logger.info(`🔍 Setting up file watcher for: ${absoluteEventDir}`);
-      logger.info(`📁 Event directory exists: ${fs.existsSync(absoluteEventDir)}`);
-      
-      // Check directory permissions
-      try {
-        const stats = fs.statSync(absoluteEventDir);
-        logger.info(`📋 Directory permissions: ${stats.mode.toString(8)}`);
-        logger.info(`📂 Directory is readable: ${fs.constants.R_OK & stats.mode ? 'YES' : 'NO'}`);
-      } catch (err) {
-        logger.error(`❌ Cannot access event directory: ${err.message}`);
-      }
+      logger.info(`Setting up file watcher for: ${absoluteEventDir}`);
       
       const eventWatcher = chokidar.watch(absoluteEventDir, {
         persistent: true,
         ignoreInitial: true,
-        usePolling: false,  // Use native filesystem events (inotify) instead of polling
+        usePolling: false,
         awaitWriteFinish: {
-          stabilityThreshold: 300,  // Wait for file to stabilize before processing
-          pollInterval: 100  // Only used if usePolling is true
+          stabilityThreshold: 300,
+          pollInterval: 100
         },
-        depth: 0  // Only watch files in the directory, not subdirectories
+        depth: 0
       });
       
-      // Add comprehensive event listeners for debugging
       eventWatcher
         .on('add', (filePath) => {
-          logger.info(`🔔 Event file ADDED: ${path.basename(filePath)}`);
-          // Only process .json files
-          if (!filePath.endsWith('.json')) {
-            logger.debug(`⏭️ Skipping non-JSON file: ${path.basename(filePath)}`);
-            return;
-          }
+          if (!filePath.endsWith('.json')) return;
           
           try {
             const eventData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            logger.info(`📤 Broadcasting event: ${eventData.eventType} - ${eventData.title || 'no title'}`);
             
-            // Process the event based on type
-            this.processEvent(eventData);
+            // Simple event processing
+            if (eventData.eventType === 'songstart') {
+              this.currentTrack = {
+                title: eventData.title || '',
+                artist: eventData.artist || '',
+                album: eventData.album || '',
+                stationName: eventData.stationName || '',
+                songDuration: parseInt(eventData.songDuration) || 0,
+                songPlayed: parseInt(eventData.songPlayed) || 0,
+                rating: parseInt(eventData.rating) || 0,
+                coverArt: eventData.coverArt || '',
+                detailUrl: eventData.detailUrl || ''
+              };
+              
+              this.broadcast({
+                type: 'song',
+                data: this.currentTrack
+              });
+            }
+            else if (eventData.eventType === 'songlove') {
+              this.broadcast({ type: 'love', data: {} });
+            }
+            else if (eventData.eventType === 'usergetstations') {
+              this.broadcast({
+                type: 'stations',
+                data: { stations: eventData.stations || [] }
+              });
+            }
             
-            // Broadcast to all clients
-            this.broadcast({
-              type: 'event',
-              data: eventData
-            });
-            
-            // Remove the event file after processing
+            // Clean up
             fs.unlinkSync(filePath);
-            logger.debug(`🗑️ Cleaned up event file: ${path.basename(filePath)}`);
           } catch (error) {
-            logger.error(`❌ Error processing event file: ${error.message}`);
+            logger.error(`Error processing event file: ${error.message}`);
           }
         })
-        .on('change', (filePath) => {
-          logger.debug(`📝 Event file CHANGED: ${path.basename(filePath)}`);
-        })
-        .on('unlink', (filePath) => {
-          logger.debug(`🗑️ Event file REMOVED: ${path.basename(filePath)}`);
-        })
-        .on('error', (error) => {
-          logger.error(`❌ Chokidar watcher error: ${error.message}`);
-        })
         .on('ready', () => {
-          logger.info(`✅ Event file watcher ready, watching: ${absoluteEventDir}`);
-          logger.info(`🔍 Watcher is polling: ${eventWatcher.options.usePolling}`);
+          logger.info(`Event file watcher ready, watching: ${absoluteEventDir}`);
         });
       
       logger.info('File watchers set up for status and events');
@@ -277,142 +218,7 @@ class PianobarWebsocketService {
     }
   }
   
-  /**
-   * Process pianobar events based on event type
-   * @param {Object} eventData - The event data from pianobar
-   */
-  processEvent(eventData) {
-    if (!eventData || !eventData.eventType) {
-      logger.warn('Received invalid event data');
-      return;
-    }
-    
-    switch (eventData.eventType) {
-      case 'songstart':
-        console.log(`[DEBUG-WS] songstart event received: ${eventData.title} by ${eventData.artist}`);
-        console.log(`[DEBUG-WS] pianobarService exists: ${!!this.pianobarService}`);
-        console.log(`[DEBUG-WS] pianobarService type: ${typeof this.pianobarService}`);
-        
-        logger.info(`Now playing: ${eventData.artist} - ${eventData.title}`);
-        
-        // Update central state if PianobarService is available
-        if (this.pianobarService) {
-          console.log(`[DEBUG-WS] About to update central state...`);
-          this.pianobarService.updateCentralState({
-            player: {
-              isRunning: true,
-              isPlaying: true,
-              status: 'playing'
-            },
-            currentSong: {
-              title: eventData.title || null,
-              artist: eventData.artist || null,
-              album: eventData.album || null,
-              stationName: eventData.stationName || null,
-              songDuration: eventData.songDuration || null,
-              songPlayed: eventData.songPlayed || null,
-              rating: eventData.rating || null,
-              coverArt: eventData.coverArt || null,
-              detailUrl: eventData.detailUrl || null
-            }
-          }, 'websocket-songstart').then((version) => {
-            console.log(`[DEBUG-WS] Central state updated successfully to version: ${version}`);
-            this.broadcastStateUpdate();
-            console.log(`[DEBUG-WS] State update broadcasted`);
-          }).catch(err => {
-            console.error(`[DEBUG-WS] Central state update FAILED: ${err.message}`);
-            console.error(`[DEBUG-WS] Error stack: ${err.stack}`);
-          });
-        } else {
-          console.error(`[DEBUG-WS] CRITICAL: No pianobarService reference - cannot update central state!`);
-          console.error(`[DEBUG-WS] this.pianobarService = ${this.pianobarService}`);
-        }
-        
-        // Keep legacy currentStatus update for backward compatibility
-        this.currentStatus = {
-          ...this.currentStatus,
-          status: 'playing',
-          song: eventData.title,
-          artist: eventData.artist,
-          album: eventData.album,
-          stationName: eventData.stationName,
-          updateTime: Date.now()
-        };
-        break;
-        
-      case 'songfinish':
-        logger.info('Song finished');
-        break;
-        
-      case 'songlove':
-        logger.info(`Song loved: ${eventData.artist} - ${eventData.title}`);
-        break;
-        
-      case 'songban':
-        logger.info(`Song banned: ${eventData.artist} - ${eventData.title}`);
-        break;
-        
-      case 'stationchange':
-        logger.info(`Station changed to: ${eventData.stationName}`);
-        this.currentStatus = {
-          ...this.currentStatus,
-          stationName: eventData.stationName,
-          updateTime: Date.now()
-        };
-        break;
-        
-      case 'playbackstart':
-        logger.info('Playback started');
-        this.currentStatus = {
-          ...this.currentStatus,
-          status: 'playing',
-          updateTime: Date.now()
-        };
-        break;
-        
-      case 'playbackpause':
-        logger.info('Playback paused');
-        this.currentStatus = {
-          ...this.currentStatus,
-          status: 'paused',
-          updateTime: Date.now()
-        };
-        break;
-        
-      case 'playbackstop':
-        logger.info('Playback stopped');
-        this.currentStatus = {
-          ...this.currentStatus,
-          status: 'stopped',
-          updateTime: Date.now()
-        };
-        break;
-        
-      case 'usergetstations':
-        logger.info(`Station list updated: ${eventData.stations?.length || 0} stations received`);
-        logger.info(`🔍 Station data received: ${JSON.stringify(eventData.stations?.slice(0, 3) || [])}...`);
-        // Update the stations cache file with fresh data
-        try {
-          const stationsData = {
-            stations: eventData.stations || [],
-            fetchTime: Date.now()
-          };
-          const stationsFile = path.join(__dirname, '../../../data/cache/pianobar_stations.json');
-          logger.info(`📁 Writing to stations file: ${stationsFile}`);
-          logger.info(`📄 File exists before write: ${fs.existsSync(stationsFile)}`);
-          fs.writeFileSync(stationsFile, JSON.stringify(stationsData, null, 2));
-          logger.info(`✅ Updated stations cache with ${stationsData.stations.length} stations at ${stationsFile}`);
-          logger.info(`📄 File exists after write: ${fs.existsSync(stationsFile)}`);
-        } catch (error) {
-          logger.error(`❌ Failed to update stations cache: ${error.message}`);
-          logger.error(`❌ Error stack: ${error.stack}`);
-        }
-        break;
-        
-      default:
-        logger.debug(`Unhandled event type: ${eventData.eventType}`);
-    }
-  }
+  // No more complex event processing needed - handled in file watcher
   
   /**
    * Send data to a specific client
@@ -468,37 +274,7 @@ class PianobarWebsocketService {
     logger.debug(`Broadcast sent to ${this.clients.size} clients`);
   }
   
-  /**
-   * Broadcast central state update to all connected clients
-   */
-  broadcastStateUpdate() {
-    logger.info('[DEBUG-BROADCAST] broadcastStateUpdate() CALLED!');
-    if (!this.pianobarService) {
-      logger.warn('Cannot broadcast state update: PianobarService not set');
-      return;
-    }
-    
-    try {
-      logger.info(`[DEBUG-BROADCAST] PianobarService exists: ${!!this.pianobarService}`);
-      logger.info(`[DEBUG-BROADCAST] getState method exists: ${typeof this.pianobarService.getState}`);
-      
-      const state = this.pianobarService.getState();
-      
-      logger.info(`[DEBUG-BROADCAST] State retrieved: ${JSON.stringify(state)}`);
-      logger.info(`[DEBUG-BROADCAST] Broadcasting state version: ${state?.version}`);
-      logger.info(`[DEBUG-BROADCAST] Number of clients: ${this.clients.size}`);
-      
-      this.broadcast({
-        type: 'STATE_UPDATE',
-        data: state
-      });
-      
-      logger.debug(`State update broadcasted: version ${state?.version}`);
-    } catch (error) {
-      logger.error(`Error broadcasting state update: ${error.message}`);
-      logger.error(`Error stack: ${error.stack}`);
-    }
-  }
+  // No more complex state broadcasting needed
   
   /**
    * Send ping to all clients to keep connections alive
