@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarApi, stateApi } from './api';
 
 // Create context
@@ -28,8 +28,11 @@ export const AppProvider = ({ children }) => {
 
   // Scheduler state
   const [scheduler, setScheduler] = useState({
+    config: null,
     schedules: {},
     wakeUpStatus: null,
+    status: null,
+    usageStats: null,
     loading: true,
     error: null,
   });
@@ -203,15 +206,28 @@ export const AppProvider = ({ children }) => {
     }
     
     try {
-      // Load wake up status
-      const wakeUpStatusRes = await schedulerApi.getWakeUpStatus();
+      // Load scheduler data with individual error handling
+      const [configRes, wakeUpStatusRes, statusRes] = await Promise.allSettled([
+        schedulerApi.getConfig().catch(err => ({ success: false, error: err.message })),
+        schedulerApi.getWakeUpStatus().catch(err => ({ success: false, error: err.message })),
+        schedulerApi.getStatus().catch(err => ({ success: false, error: err.message })),
+      ]);
+      
+      const config = configRes.status === 'fulfilled' && configRes.value.success ? configRes.value.data : null;
+      const wakeUpStatus = wakeUpStatusRes.status === 'fulfilled' && wakeUpStatusRes.value.success ? wakeUpStatusRes.value.data : null;
+      const status = statusRes.status === 'fulfilled' && statusRes.value.success ? statusRes.value.data : null;
       
       setScheduler({
-        schedules: {}, // Will be populated when needed
-        wakeUpStatus: wakeUpStatusRes.data,
+        config: config,
+        schedules: status ? status.nextSceneTimes : {},
+        wakeUpStatus: wakeUpStatus,
+        status: status,
+        usageStats: null,
         loading: false,
         error: null,
       });
+      
+      console.log('✅ Scheduler data loaded:', { config: !!config, wakeUpStatus: !!wakeUpStatus, status: !!status });
     } catch (error) {
       console.error('Error loading scheduler data:', error);
       setScheduler(prev => ({
@@ -338,6 +354,87 @@ export const AppProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error setting wake up time:', error);
+      return false;
+    }
+  };
+
+  // Update scheduler configuration
+  const updateSchedulerConfig = async (configType, settings) => {
+    console.log(`Updating scheduler ${configType}:`, settings);
+    
+    try {
+      let result;
+      switch (configType) {
+        case 'scenes':
+          result = await schedulerApi.updateScenes(settings);
+          break;
+        case 'wakeUp':
+          if (settings.time === '') {
+            result = await schedulerApi.disableWakeUp();
+          } else {
+            result = await schedulerApi.updateWakeUp(settings);
+          }
+          break;
+        case 'music':
+          result = await schedulerApi.updateMusic(settings);
+          break;
+        default:
+          throw new Error(`Unknown config type: ${configType}`);
+      }
+      
+      if (result.success) {
+        console.log(`Scheduler ${configType} updated successfully:`, result.message);
+        // Refresh scheduler data to get updated configuration
+        await loadSchedulerData(false);
+        return { success: true, data: result.data };
+      } else {
+        console.error(`Failed to update scheduler ${configType}:`, result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error(`Error updating scheduler ${configType}:`, error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Test a scheduler scene
+  const testSchedulerScene = async (sceneName) => {
+    console.log('Testing scheduler scene:', sceneName);
+    
+    try {
+      const result = await schedulerApi.testScene(sceneName);
+      
+      if (result.success) {
+        console.log(`Scene '${sceneName}' executed successfully:`, result.message);
+        return { success: true, message: result.message, data: result.data };
+      } else {
+        console.error(`Failed to execute scene '${sceneName}':`, result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error(`Error testing scene '${sceneName}':`, error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Clear wake up alarm
+  const clearWakeUpAlarm = async () => {
+    console.log('Clearing wake up alarm');
+    
+    try {
+      const result = await schedulerApi.disableWakeUp();
+      
+      if (result.success) {
+        console.log('Wake up alarm cleared successfully:', result.message);
+        // Refresh scheduler data to get updated status
+        await loadSchedulerData(false);
+        return true;
+      } else {
+        console.error('Failed to clear wake up alarm:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error clearing wake up alarm:', error);
       return false;
     }
   };
@@ -925,6 +1022,30 @@ export const AppProvider = ({ children }) => {
            (Date.now() - lastSyncTime > 30000);
   };
 
+  // Memoize actions to prevent infinite re-renders
+  const actions = useMemo(() => ({
+    refreshWeather: loadWeatherData,
+    refreshShades: loadShadeData,
+    refreshScheduler: loadSchedulerData,
+    refreshMusic: loadMusicData,
+    refreshBluetooth: loadBluetoothStatus,
+    refreshPianobar: loadPianobarData,
+    controlShade,
+    triggerShadeScene,
+    setWakeUpTime,
+    clearWakeUpAlarm,
+    updateSchedulerConfig,
+    testSchedulerScene,
+    controlMusic,
+    controlPianobar,
+    connectBluetooth,
+    disconnectBluetooth,
+    updatePianobarStatus,
+    updatePianobarStations,
+    updateCurrentSong,
+    clearCurrentSong
+  }), []); // Empty dependency array - functions are stable
+
   // Context value
   const value = {
     weather,
@@ -934,25 +1055,7 @@ export const AppProvider = ({ children }) => {
     bluetooth,
     pianobar,
     currentSong,
-    actions: {
-      refreshWeather: loadWeatherData,
-      refreshShades: loadShadeData,
-      refreshScheduler: loadSchedulerData,
-      refreshMusic: loadMusicData,
-      refreshBluetooth: loadBluetoothStatus,
-      refreshPianobar: loadPianobarData,
-      controlShade,
-      triggerShadeScene,
-      setWakeUpTime,
-      controlMusic,
-      controlPianobar,
-      connectBluetooth,
-      disconnectBluetooth,
-      updatePianobarStatus,
-      updatePianobarStations,
-      updateCurrentSong,
-      clearCurrentSong
-    },
+    actions,
   };
 
   return (

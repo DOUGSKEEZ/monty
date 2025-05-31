@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import ShadesPage from './pages/ShadesPage';
 import WeatherPage from './pages/WeatherPage';
 import PianobarPage from './pages/PianobarPage';
+import SettingsPage from './pages/SettingsPage';
 import { AppProvider } from './utils/AppContext';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
               <Route path="/shades" element={<ShadesPage />} />
               <Route path="/pianobar" element={<PianobarPage />} />
               <Route path="/weather" element={<WeatherPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </main>
           <Footer />

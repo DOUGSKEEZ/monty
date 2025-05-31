@@ -18,13 +18,14 @@ const logger = require('../utils/logger').getModuleLogger('weather-service');
 const prometheusMetrics = require('./PrometheusMetricsService');
 
 class WeatherService extends IWeatherService {
-  constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog) {
+  constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, timezoneManager) {
     super();
     this.configManager = configManager;
     this.retryHelper = retryHelper;
     this.circuitBreaker = circuitBreaker;
     this.serviceRegistry = serviceRegistry;
     this.serviceWatchdog = serviceWatchdog;
+    this.timezoneManager = timezoneManager;
     
     // Configuration - Load API key securely from environment
     this.apiKey = process.env.OPENWEATHERMAP_API_KEY || this.configManager.get('weather.apiKey');
@@ -750,9 +751,9 @@ class WeatherService extends IWeatherService {
     const dayGroups = {};
     
     allHourlyData.forEach((hour, index) => {
-      // Use Mountain Time for proper day grouping
-      const mountainTime = new Date(hour.timestamp).toLocaleString("en-US", {timeZone: "America/Denver"});
-      const mountainDate = new Date(mountainTime);
+      // Use user timezone for proper day grouping
+      const userTimeDate = this.timezoneManager.toUserTime(new Date(hour.timestamp));
+      const mountainDate = new Date(userTimeDate);
       const dayKey = mountainDate.toDateString();
       
       if (!dayGroups[dayKey]) {
@@ -815,8 +816,8 @@ class WeatherService extends IWeatherService {
     const days = dailyForecasts.map((dailyData, index) => {
       // Convert daily date to Mountain Time to match dayGroups keys
       const dailyDate = new Date(dailyData.date + 'T12:00:00Z'); // Use noon UTC to avoid timezone issues
-      const mountainTime = new Date(dailyDate.toLocaleString("en-US", {timeZone: "America/Denver"}));
-      const dayKey = mountainTime.toDateString();
+      const userTimeDate = this.timezoneManager.toUserTime(dailyDate);
+      const dayKey = userTimeDate.toDateString();
       const hourlyData = dayGroups[dayKey];
       
       return {
@@ -944,8 +945,8 @@ class WeatherService extends IWeatherService {
    * @returns {Promise<Object>} Sunrise and sunset data
    */
   async getSunriseSunsetTimes(date = new Date()) {
-    // Use Mountain Time for date calculation (matches user's timezone)
-    const formattedDate = date.toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
+    // Use user's timezone for date calculation
+    const formattedDate = date.toLocaleDateString('en-CA', { timeZone: this.timezoneManager.getCronTimezone() });
     
     // Check cache first
     const cachedData = this.getSunTimesFromCache(formattedDate);
@@ -976,16 +977,8 @@ class WeatherService extends IWeatherService {
               date: formattedDate,
               sunrise: sunriseDate.getTime(),
               sunset: sunsetDate.getTime(),
-              sunriseTime: sunriseDate.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: true 
-              }),
-              sunsetTime: sunsetDate.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                hour12: true 
-              }),
+              sunriseTime: this.timezoneManager.formatForDisplay(sunriseDate),
+              sunsetTime: this.timezoneManager.formatForDisplay(sunsetDate),
               // Store additional twilight data for future use
               civilTwilightBegin: data.results.civil_twilight_begin,
               civilTwilightEnd: data.results.civil_twilight_end,

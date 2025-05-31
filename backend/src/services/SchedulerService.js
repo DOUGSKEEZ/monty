@@ -18,13 +18,14 @@ const path = require('path');
 const logger = require('../utils/logger').getModuleLogger('scheduler-service');
 
 class SchedulerService {
-  constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, weatherService) {
+  constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, weatherService, timezoneManager) {
     this.configManager = configManager;
     this.retryHelper = retryHelper;
     this.circuitBreaker = circuitBreaker;
     this.serviceRegistry = serviceRegistry;
     this.serviceWatchdog = serviceWatchdog;
     this.weatherService = weatherService;
+    this.timezoneManager = timezoneManager;
     
     // Configuration
     this.schedulerConfigPath = path.join(__dirname, '../../../config/scheduler.json');
@@ -128,13 +129,17 @@ class SchedulerService {
   async calculateSceneTimes(date = new Date()) {
     try {
       const times = {};
-      const dateStr = date.toLocaleDateString('en-CA', { timeZone: 'America/Denver' });
+      const dateStr = date.toLocaleDateString('en-CA', { timeZone: this.timezoneManager.getCronTimezone() });
       
-      // Good Afternoon - static time
+      // Good Afternoon - static time (user input is in user's timezone)
       const afternoonTime = this.schedulerConfig.scenes.good_afternoon_time || "14:30";
+      
+      // For static daily times, just create a simple date object for display formatting
+      // No need for complex UTC conversion since it's a fixed daily time
       const [hours, minutes] = afternoonTime.split(':').map(Number);
-      times.good_afternoon = new Date(date);
-      times.good_afternoon.setHours(hours, minutes, 0, 0);
+      const goodAfternoonDate = new Date();
+      goodAfternoonDate.setHours(hours, minutes, 0, 0);
+      times.good_afternoon = goodAfternoonDate;
       
       // Get full sun times data (includes twilight)
       const sunTimesData = await this.getSunTimesData(date);
@@ -147,22 +152,29 @@ class SchedulerService {
       const goodNightTiming = this.schedulerConfig.scenes.good_night_timing || "offset";
       if (goodNightTiming === "civil_twilight_end" && sunTimesData.civilTwilightEnd) {
         times.good_night = new Date(sunTimesData.civilTwilightEnd);
-        logger.debug(`Using civil twilight end for good_night: ${times.good_night.toLocaleTimeString('en-US', { timeZone: 'America/Denver' })}`);
+        logger.debug(`Using civil twilight end for good_night: ${this.timezoneManager.formatForDisplay(times.good_night)}`);
       } else {
         // Fallback to sunset + offset for backward compatibility
         const nightOffset = this.schedulerConfig.scenes.good_night_offset_minutes || 30;
         times.good_night = new Date(sunTimesData.sunset + (nightOffset * 60 * 1000));
-        logger.debug(`Using sunset + ${nightOffset} minutes for good_night: ${times.good_night.toLocaleTimeString('en-US', { timeZone: 'America/Denver' })}`);
+        logger.debug(`Using sunset + ${nightOffset} minutes for good_night: ${this.timezoneManager.formatForDisplay(times.good_night)}`);
       }
       
       this.nextSceneTimes = times;
       
+      // Store formatted display time directly for good afternoon (no timezone conversion needed)
+      const [displayHours, displayMinutes] = afternoonTime.split(':').map(Number);
+      const hour12 = displayHours === 0 ? 12 : (displayHours > 12 ? displayHours - 12 : displayHours);
+      const ampm = displayHours >= 12 ? 'PM' : 'AM';
+      const minuteStr = displayMinutes.toString().padStart(2, '0');
+      times.good_afternoon_display = `${hour12}:${minuteStr} ${ampm}`;
+      
       logger.info(`Scene times calculated for ${dateStr}:`, {
-        good_afternoon: times.good_afternoon.toLocaleTimeString('en-US', { timeZone: 'America/Denver' }),
-        good_evening: times.good_evening.toLocaleTimeString('en-US', { timeZone: 'America/Denver' }),
-        good_night: times.good_night.toLocaleTimeString('en-US', { timeZone: 'America/Denver' }),
-        sunset: new Date(sunTimesData.sunset).toLocaleTimeString('en-US', { timeZone: 'America/Denver' }),
-        civil_twilight_end: sunTimesData.civilTwilightEnd ? new Date(sunTimesData.civilTwilightEnd).toLocaleTimeString('en-US', { timeZone: 'America/Denver' }) : 'N/A'
+        good_afternoon: times.good_afternoon_display,
+        good_evening: this.timezoneManager.formatForDisplay(times.good_evening),
+        good_night: this.timezoneManager.formatForDisplay(times.good_night),
+        sunset: this.timezoneManager.formatForDisplay(new Date(sunTimesData.sunset)),
+        civil_twilight_end: sunTimesData.civilTwilightEnd ? this.timezoneManager.formatForDisplay(new Date(sunTimesData.civilTwilightEnd)) : 'N/A'
       });
       
       return times;
@@ -237,7 +249,7 @@ class SchedulerService {
         this.sunsetCache.delete(oldestKey);
       }
       
-      logger.info(`Sunset time cached for ${cacheKey}: ${sunsetTime.toLocaleTimeString('en-US', { timeZone: 'America/Denver' })}`);
+      logger.info(`Sunset time cached for ${cacheKey}: ${this.timezoneManager.formatForDisplay(sunsetTime)}`);
       return sunsetTime;
     } catch (error) {
       logger.error(`Failed to get sunset time: ${error.message}`);
@@ -245,7 +257,7 @@ class SchedulerService {
       // Fallback to reasonable default (8:00 PM Mountain Time)
       const fallback = new Date(date);
       fallback.setHours(20, 0, 0, 0); // 8 PM Mountain Time
-      logger.warn(`Using fallback sunset time: ${fallback.toLocaleTimeString('en-US', { timeZone: 'America/Denver' })}`);
+      logger.warn(`Using fallback sunset time: ${this.timezoneManager.formatForDisplay(fallback)}`);
       return fallback;
     }
   }
@@ -261,7 +273,7 @@ class SchedulerService {
       
       if (result.success && result.data && result.data.sunset) {
         const sunsetTime = new Date(result.data.sunset);
-        logger.debug(`Found sunset from WeatherService: ${sunsetTime.toLocaleTimeString('en-US', { timeZone: 'America/Denver' })}`);
+        logger.debug(`Found sunset from WeatherService: ${this.timezoneManager.formatForDisplay(sunsetTime)}`);
         return sunsetTime;
       }
       
@@ -355,6 +367,8 @@ class SchedulerService {
    */
   scheduleAllScenes() {
     try {
+      logger.info(`🔍 [CONFIG_DEBUG] scheduleAllScenes() called - current good_afternoon_time: "${this.schedulerConfig.scenes.good_afternoon_time}"`);
+      
       // Clear existing schedules
       this.clearAllSchedules();
       
@@ -367,7 +381,7 @@ class SchedulerService {
         this.executeScene('good_afternoon');
       }, {
         scheduled: true,
-        timezone: this.schedulerConfig.location.timezone || "America/Denver"
+        timezone: this.timezoneManager.getCronTimezone()
       });
       
       this.scheduledJobs.set('good_afternoon', afternoonJob);
@@ -378,7 +392,7 @@ class SchedulerService {
         this.calculateAndScheduleDynamicScenes();
       }, {
         scheduled: true,
-        timezone: this.schedulerConfig.location.timezone || "America/Denver"
+        timezone: this.timezoneManager.getCronTimezone()
       });
       
       this.scheduledJobs.set('midnight_recalc', midnightJob);
@@ -409,18 +423,18 @@ class SchedulerService {
         const eveningDate = times.good_evening;
         
         // Convert to Mountain Time for cron scheduling
-        const eveningMT = new Date(eveningDate.toLocaleString("en-US", { timeZone: "America/Denver" }));
+        const eveningMT = this.timezoneManager.toUserTime(eveningDate);
         const eveningCron = `${eveningMT.getMinutes()} ${eveningMT.getHours()} ${eveningMT.getDate()} ${eveningMT.getMonth() + 1} *`;
         
         const eveningJob = cron.schedule(eveningCron, () => {
           this.executeScene('good_evening');
         }, {
           scheduled: true,
-          timezone: this.schedulerConfig.location.timezone || "America/Denver"
+          timezone: this.timezoneManager.getCronTimezone()
         });
         
         this.scheduledJobs.set('good_evening_today', eveningJob);
-        logger.info(`Scheduled Good Evening scene at ${eveningDate.toLocaleString('en-US', { timeZone: 'America/Denver' })}`);
+        logger.info(`Scheduled Good Evening scene at ${this.timezoneManager.formatForDisplay(eveningDate, 'datetime')}`);
       }
       
       // Schedule Good Night if it hasn't passed today
@@ -428,18 +442,18 @@ class SchedulerService {
         const nightDate = times.good_night;
         
         // Convert to Mountain Time for cron scheduling
-        const nightMT = new Date(nightDate.toLocaleString("en-US", { timeZone: "America/Denver" }));
+        const nightMT = this.timezoneManager.toUserTime(nightDate);
         const nightCron = `${nightMT.getMinutes()} ${nightMT.getHours()} ${nightMT.getDate()} ${nightMT.getMonth() + 1} *`;
         
         const nightJob = cron.schedule(nightCron, () => {
           this.executeScene('good_night');
         }, {
           scheduled: true,
-          timezone: this.schedulerConfig.location.timezone || "America/Denver"
+          timezone: this.timezoneManager.getCronTimezone()
         });
         
         this.scheduledJobs.set('good_night_today', nightJob);
-        logger.info(`Scheduled Good Night scene at ${nightDate.toLocaleString('en-US', { timeZone: 'America/Denver' })}`);
+        logger.info(`Scheduled Good Night scene at ${this.timezoneManager.formatForDisplay(nightDate, 'datetime')}`);
       }
       
     } catch (error) {
@@ -876,23 +890,49 @@ class SchedulerService {
       logger.debug(`🔍 [WAKE_UP_DEBUG] Current UTC time: ${now.toISOString()}`);
       
       // Get current time in Mountain Time for comparison
-      const nowMT = new Date(now.toLocaleString("en-US", { timeZone: "America/Denver" }));
+      const nowMT = this.timezoneManager.toUserTime(now);
       const currentMTHour = nowMT.getHours();
       const currentMTMinute = nowMT.getMinutes();
       logger.debug(`🔍 [WAKE_UP_DEBUG] Current MT time: ${currentMTHour}:${currentMTMinute.toString().padStart(2, '0')}`);
       
-      // Check if the wake up time is in the future today
+      // Both times need to be compared in the same timezone (Mountain Time)
+      // Config time (hours:minutes) is already in Mountain Time
+      // Current time (currentMTHour:currentMTMinute) is also in Mountain Time
       const wakeUpMinutesFromMidnight = hours * 60 + minutes;
       const currentMinutesFromMidnight = currentMTHour * 60 + currentMTMinute;
-      logger.debug(`🔍 [WAKE_UP_DEBUG] Wake up minutes from midnight: ${wakeUpMinutesFromMidnight}`);
-      logger.debug(`🔍 [WAKE_UP_DEBUG] Current minutes from midnight: ${currentMinutesFromMidnight}`);
+      logger.debug(`🔍 [WAKE_UP_DEBUG] Wake up minutes from midnight (MT): ${wakeUpMinutesFromMidnight} (${hours}:${minutes.toString().padStart(2, '0')})`);
+      logger.debug(`🔍 [WAKE_UP_DEBUG] Current minutes from midnight (MT): ${currentMinutesFromMidnight} (${currentMTHour}:${currentMTMinute.toString().padStart(2, '0')})`);
       
       if (wakeUpMinutesFromMidnight > currentMinutesFromMidnight) {
         // Wake up time is later today - schedule for today
         logger.info(`✅ [WAKE_UP_DEBUG] Scheduling wake up for today at ${wakeUpConfig.time} MT`);
       } else {
-        // Wake up time has passed today - schedule for tomorrow  
-        logger.info(`⏰ [WAKE_UP_DEBUG] Wake up time ${wakeUpConfig.time} has passed today, scheduling for tomorrow`);
+        // Wake up time has passed today - check if it was recently missed
+        const minutesSinceMissed = currentMinutesFromMidnight - wakeUpMinutesFromMidnight;
+        logger.info(`⏰ [WAKE_UP_DEBUG] Wake up time ${wakeUpConfig.time} MT has passed today by ${minutesSinceMissed} minutes`);
+        
+        // Check if this was a recently missed alarm (within 60 minutes) and wasn't already triggered
+        const wasRecentlyMissed = minutesSinceMissed <= 60;
+        const wasAlreadyTriggered = wakeUpConfig.last_triggered && 
+          new Date(wakeUpConfig.last_triggered).toDateString() === now.toDateString();
+        
+        if (wasRecentlyMissed && !wasAlreadyTriggered) {
+          logger.warn(`🚨 [WAKE_UP_DEBUG] MISSED ALARM DETECTED! Wake up was ${minutesSinceMissed} minutes ago, triggering recovery`);
+          
+          // Create UTC Date objects for both times to avoid timezone mixing
+          // Convert the wake-up time (MT) to UTC for consistent comparison
+          const wakeUpTimeUTC = this.timezoneManager.toUTC(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`, now);
+          
+          // Trigger missed alarm recovery with both times in UTC
+          this.handleMissedAlarm(wakeUpTimeUTC, now);
+          return; // Don't schedule for tomorrow since we're handling the missed alarm
+        } else {
+          if (wasAlreadyTriggered) {
+            logger.info(`✅ [WAKE_UP_DEBUG] Wake up was already triggered today, scheduling for tomorrow`);
+          } else {
+            logger.info(`⏰ [WAKE_UP_DEBUG] Wake up was too long ago (${minutesSinceMissed} min), scheduling for tomorrow`);
+          }
+        }
       }
       
       // Generate cron expression
@@ -908,7 +948,7 @@ class SchedulerService {
       logger.debug('✅ [WAKE_UP_DEBUG] Cron expression validated, proceeding to schedule');
       
       // Get timezone configuration
-      const timezone = this.schedulerConfig.location.timezone || "America/Denver";
+      const timezone = this.timezoneManager.getCronTimezone();
       logger.debug(`🔍 [WAKE_UP_DEBUG] Using timezone: ${timezone}`);
       
       logger.debug('🔍 [WAKE_UP_DEBUG] About to call cron.schedule()...');
@@ -919,7 +959,7 @@ class SchedulerService {
         this.executeWakeUpSequence();
       }, {
         scheduled: true,
-        timezone: timezone
+        timezone: this.timezoneManager.getCronTimezone()
       });
       
       logger.debug('🔍 [WAKE_UP_DEBUG] cron.schedule() returned, checking result...');
@@ -980,7 +1020,10 @@ class SchedulerService {
                        new Date(wakeUpConfig.last_triggered).toDateString() !== alarmTime.toDateString();
       
       if (wasMissed) {
-        const timeSinceMissed = Math.floor((currentTime - alarmTime) / (1000 * 60)); // minutes
+        // Convert both times to UTC for accurate comparison
+        const currentTimeUTC = new Date(currentTime).getTime();
+        const alarmTimeUTC = new Date(alarmTime).getTime();
+        const timeSinceMissed = Math.floor((currentTimeUTC - alarmTimeUTC) / (1000 * 60)); // minutes
         
         logger.warn(`🚨 MISSED ALARM DETECTED! Alarm was set for ${wakeUpConfig.time}, missed by ${timeSinceMissed} minutes`);
         
@@ -1165,7 +1208,7 @@ class SchedulerService {
     const wakeUpConfig = this.getWakeUpConfig();
     
     if (wakeUpConfig.last_triggered) {
-      return new Date(wakeUpConfig.last_triggered).toLocaleString('en-US', { timeZone: 'America/Denver' });
+      return this.timezoneManager.formatForDisplay(new Date(wakeUpConfig.last_triggered), 'datetime');
     }
     
     return null;
@@ -1217,7 +1260,7 @@ class SchedulerService {
       
       if (upcomingScenes.length > 0) {
         const next = upcomingScenes[0];
-        return `${next.name} at ${next.time.toLocaleTimeString()}`;
+        return `${next.name} at ${this.timezoneManager.formatForDisplay(next.time)}`;
       }
       
       return 'Next scenes calculated at midnight';
@@ -1242,7 +1285,11 @@ class SchedulerService {
         homeAwayStatus: this.schedulerConfig.home_away?.status || 'home',
         lastExecutedScene: this.lastExecutedScene,
         nextSceneTimes: Object.keys(this.nextSceneTimes).reduce((acc, key) => {
-          acc[key] = this.nextSceneTimes[key] ? this.nextSceneTimes[key].toLocaleTimeString() : null;
+          if (key === 'good_afternoon_display') {
+            acc['good_afternoon'] = this.nextSceneTimes[key];
+          } else if (key !== 'good_afternoon') {
+            acc[key] = this.nextSceneTimes[key] ? this.timezoneManager.formatForDisplay(this.nextSceneTimes[key]) : null;
+          }
           return acc;
         }, {}),
         sunsetCacheSize: this.sunsetCache.size,

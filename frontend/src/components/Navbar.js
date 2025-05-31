@@ -70,6 +70,16 @@ function Navbar() {
           >
             Weather
           </Link>
+          <Link 
+            to="/settings" 
+            className={`px-3 py-2 rounded transition ${
+              isActive('/settings') 
+                ? 'bg-blue-700 text-white' 
+                : 'hover:bg-blue-700 hover:text-white'
+            }`}
+          >
+            Settings
+          </Link>
         </div>
       </div>
       
@@ -104,6 +114,13 @@ function Navbar() {
               onClick={() => setIsMenuOpen(false)}
             >
               Weather
+            </Link>
+            <Link 
+              to="/settings" 
+              className={`px-4 py-2 rounded ${isActive('/settings') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Settings
             </Link>
           </div>
         </div>

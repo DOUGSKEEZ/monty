@@ -12,6 +12,9 @@ const CircuitBreaker = require('./CircuitBreaker');
 const ServiceRegistry = require('./ServiceRegistry');
 const RetryHelper = require('./RetryHelper');
 const ServiceWatchdog = require('./ServiceWatchdog');
+const { initializeTimezoneManager } = require('./TimezoneManager');
+const fs = require('fs');
+const path = require('path');
 
 // Import interface definitions
 const IWeatherService = require('../interfaces/IWeatherService');
@@ -70,7 +73,8 @@ function createWeatherService() {
         'retryHelper',
         'circuitBreaker',
         'serviceRegistry',
-        'serviceWatchdog'
+        'serviceWatchdog',
+        'timezoneManager'
       ],
       lifecycle: Lifecycle.SINGLETON
     });
@@ -102,7 +106,8 @@ function createSchedulerService() {
         'circuitBreaker',
         'serviceRegistry',
         'serviceWatchdog',
-        'weatherService'
+        'weatherService',
+        'timezoneManager'
       ],
       lifecycle: Lifecycle.SINGLETON
     });
@@ -175,6 +180,18 @@ function createBluetoothService() {
  */
 function initializeContainer() {
   registerCoreDependencies();
+  
+  // Initialize TimezoneManager from scheduler config
+  try {
+    const schedulerConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/scheduler.json'), 'utf8'));
+    const timezoneManager = initializeTimezoneManager(schedulerConfig.location.timezone);
+    container.registerInstance('timezoneManager', timezoneManager);
+  } catch (error) {
+    logger.warn(`Failed to load scheduler config for timezone, using default: ${error.message}`);
+    const timezoneManager = initializeTimezoneManager();
+    container.registerInstance('timezoneManager', timezoneManager);
+  }
+  
   createWeatherService();
   createSchedulerService();
   createBluetoothService();
@@ -253,6 +270,18 @@ function createOldPianobarService() {
  */
 function initializeContainerComplete() {
   registerCoreDependencies();
+  
+  // Initialize TimezoneManager from scheduler config
+  try {
+    const schedulerConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/scheduler.json'), 'utf8'));
+    const timezoneManager = initializeTimezoneManager(schedulerConfig.location.timezone);
+    container.registerInstance('timezoneManager', timezoneManager);
+  } catch (error) {
+    logger.warn(`Failed to load scheduler config for timezone, using default: ${error.message}`);
+    const timezoneManager = initializeTimezoneManager();
+    container.registerInstance('timezoneManager', timezoneManager);
+  }
+  
   createWeatherService();
   createSchedulerService();
   createBluetoothService();

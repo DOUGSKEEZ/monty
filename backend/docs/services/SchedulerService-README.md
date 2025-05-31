@@ -54,6 +54,31 @@ This comprehensive guide documents the complete SchedulerService implementation 
   - Ensured proper service layer usage throughout
 - **Result**: **BOOM SHAKA LAKA! THE SHADE WENT UP AND THE MUSIC TURNED ON SIMULTANEOUSLY!** 🎉
 
+### Phase 6: Settings UI Page & Modernization (May 30, 2025) 🛠️⚙️
+- **Goal**: Create comprehensive Settings page for SchedulerService configuration with modern architecture patterns
+- **Features Implemented**:
+  - **Full Settings UI**: Wake up alarm management, scene timing controls, music integration toggles
+  - **Real-time Status**: Next scheduled events, service health monitoring, scene testing interface
+  - **AppContext Integration**: Centralized state management following PianobarPage/WeatherPage patterns
+  - **Modern Backend**: Dependency injection, RetryHelper, CircuitBreaker pattern following BACKEND_FIX.md
+- **Frontend Modernization**:
+  - ✅ **AppContext Pattern**: Replaced direct API calls with centralized `useAppContext()` actions
+  - ✅ **Error Handling**: Success/error notifications with auto-dismissal (like WeatherPage)
+  - ✅ **State Management**: Optimistic UI updates with error rollback
+  - ✅ **User Experience**: Real-time feedback and configuration persistence
+- **Backend Modernization**: 
+  - ✅ **Dependency Injection**: Consistent `container.resolve()` with fallback to factory methods
+  - ✅ **Retry Logic**: RetryHelper with exponential backoff for transient failures
+  - ✅ **Circuit Breaker**: Fault tolerance and graceful degradation under load
+  - ✅ **Service Patterns**: Enhanced logging, monitoring, and error classification
+- **API Endpoints Added**:
+  - `GET /api/scheduler/config` - Complete scheduler configuration
+  - `PUT /api/scheduler/scenes` - Update scene timing settings with validation
+  - `PUT /api/scheduler/wake-up` - Update wake up settings (enhanced from existing)
+  - `PUT /api/scheduler/music` - Update music integration settings
+  - `POST /api/scheduler/test/:sceneName` - Manual scene testing interface
+- **Key Innovation**: **Settings page now provides full control center for SchedulerService with enterprise-grade resilience patterns**
+
 ## 🏗️ Architecture
 
 ### Core Components
@@ -65,6 +90,154 @@ This comprehensive guide documents the complete SchedulerService implementation 
 ### Dependencies
 ```javascript
 constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, weatherService)
+```
+
+## 🛠️ Settings UI & Modern Architecture Patterns
+
+### Settings Page (`/settings`) 🎛️
+
+The Settings page provides a comprehensive control center for SchedulerService configuration with real-time updates and visual feedback.
+
+#### Features
+- **⏰ Wake Up Alarm Management**: Set/clear wake up times with visual status display
+- **📅 Scene Timing Controls**: Adjust Good Afternoon time and Good Evening offset  
+- **🎵 Music Integration**: Toggle morning/evening music settings
+- **📊 Scheduler Status**: View next scheduled events and service health
+- **🧪 Scene Testing**: Manual scene execution with success/error feedback
+
+#### Modern Frontend Architecture
+
+**AppContext Integration** (Following PianobarPage/WeatherPage patterns):
+```javascript
+// ✅ Modern pattern - centralized state management
+const { scheduler, actions } = useAppContext();
+
+// Update configuration through context actions
+const result = await actions.updateSchedulerConfig('scenes', {
+  good_afternoon_time: '15:00'
+});
+
+// Real-time status from context
+{scheduler.schedules && Object.entries(scheduler.schedules).map(([scene, time]) => (
+  <li key={scene}>• {formatSceneName(scene)}: {time}</li>
+))}
+```
+
+**Enhanced Error Handling** (Like WeatherPage):
+```javascript
+// Success/error notifications with auto-dismissal
+const showSuccess = (message) => {
+  setSaveSuccess('success');
+  setOperationMessage(message);
+  setTimeout(() => setSaveSuccess(null), 3000);
+};
+
+// Visual feedback for all operations
+{saveSuccess === 'success' && (
+  <div className="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg">
+    <span className="mr-2">✅</span>
+    {operationMessage}
+  </div>
+)}
+```
+
+#### Modern Backend Architecture
+
+**Dependency Injection Pattern** (Following BACKEND_FIX.md):
+```javascript
+// ✅ Modern pattern with fallback
+const getSchedulerService = async () => {
+  return await retryHelper.retryOperation(async () => {
+    // Try container resolution first (DI pattern)
+    let schedulerService = container.resolve('schedulerService');
+    
+    // Fallback to factory method if needed
+    if (!schedulerService) {
+      const { createSchedulerService } = require('../utils/ServiceFactory');
+      schedulerService = createSchedulerService();
+    }
+    
+    return schedulerService;
+  }, {
+    operationName: 'get-scheduler-service',
+    isCritical: true
+  });
+};
+```
+
+**Circuit Breaker & Retry Logic**:
+```javascript
+// All API operations use circuit breaker for resilience
+router.put('/scenes', async (req, res) => {
+  try {
+    const result = await schedulerCircuit.execute(async () => {
+      const schedulerService = await getSchedulerService();
+      
+      // Updates with retry logic
+      return await retryHelper.retryOperation(async () => {
+        // Configuration updates with validation
+        schedulerService.schedulerConfig.scenes.good_afternoon_time = time;
+        schedulerService.saveSchedulerConfig();
+        
+        // Non-critical rescheduling (may fail but config is saved)
+        try {
+          schedulerService.scheduleScene('good_afternoon');
+        } catch (scheduleError) {
+          logger.warn('Scene rescheduling failed but configuration was saved');
+        }
+        
+        return updatedConfig;
+      }, {
+        operationName: 'update-scene-settings',
+        shouldRetry: (error) => !error.message.includes('validation')
+      });
+    }, 'update-scenes');
+    
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error(`Scene update failed: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+```
+
+### AppContext Scheduler Actions
+
+The Settings page integrates with AppContext through these comprehensive actions:
+
+```javascript
+// Scheduler state in AppContext
+const [scheduler, setScheduler] = useState({
+  config: null,           // Complete scheduler configuration
+  schedules: {},          // Next scene times  
+  wakeUpStatus: null,     // Wake up alarm status
+  status: null,           // Service health status
+  loading: true,
+  error: null
+});
+
+// Available actions
+actions: {
+  refreshScheduler,                    // Load all scheduler data
+  updateSchedulerConfig,               // Update any config section
+  testSchedulerScene,                  // Manual scene testing
+  setWakeUpTime,                      // Set wake up alarm (legacy)
+  clearWakeUpAlarm                    // Clear wake up alarm
+}
+
+// Usage examples
+await actions.updateSchedulerConfig('scenes', {
+  good_afternoon_time: '14:45',
+  good_evening_offset_minutes: 90
+});
+
+await actions.updateSchedulerConfig('music', {
+  enabled_for_morning: false,
+  enabled_for_evening: true  
+});
+
+const result = await actions.testSchedulerScene('good_afternoon');
+// Returns: { success: true, message: "Scene executed successfully" }
 ```
 
 ## 📋 Configuration
@@ -184,7 +357,96 @@ nextWakeUpDateTime = `${targetDayName}, ${targetMonthDay}, ${hour12.toString().p
 
 ### API Endpoints
 
-#### Set Wake-up Alarm
+#### Complete Configuration Management 🆕
+
+**Get Complete Scheduler Configuration**
+```bash
+GET /api/scheduler/config
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "scenes": {
+      "good_afternoon_time": "14:30",
+      "good_evening_offset_minutes": 60
+    },
+    "wake_up": {
+      "enabled": true,
+      "time": "08:00",
+      "good_morning_delay_minutes": 15,
+      "last_triggered": null
+    },
+    "music": {
+      "enabled_for_morning": true,
+      "enabled_for_evening": true
+    },
+    "home_away": {
+      "status": "home",
+      "away_periods": []
+    },
+    "nextSceneTimes": {
+      "good_afternoon": "2:30:00 PM",
+      "good_evening": "7:26:12 PM",
+      "good_night": "8:56:24 PM"
+    },
+    "serviceHealth": {
+      "status": "ok",
+      "message": "Scheduler active, next: Good Evening at 7:26:12 PM"
+    }
+  }
+}
+```
+
+**Update Scene Timing Settings** 🆕
+```bash
+PUT /api/scheduler/scenes
+Content-Type: application/json
+{
+  "good_afternoon_time": "15:00",
+  "good_evening_offset_minutes": 90
+}
+```
+
+**Update Music Integration** 🆕
+```bash
+PUT /api/scheduler/music
+Content-Type: application/json
+{
+  "enabled_for_morning": false,
+  "enabled_for_evening": true
+}
+```
+
+**Test Scene Manually** 🆕
+```bash
+POST /api/scheduler/test/good_afternoon
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Scene 'good_afternoon' executed successfully",
+  "data": {
+    "sceneName": "good_afternoon",
+    "executed": true,
+    "timestamp": "2025-05-30T18:06:19.841Z",
+    "details": {
+      "success": true,
+      "commands_executed": 2,
+      "commands_successful": 2,
+      "total_execution_time_ms": 754
+    }
+  }
+}
+```
+
+#### Wake-up Alarm Management
+
+**Set Wake-up Alarm**
 ```bash
 POST /api/scheduler/wake-up
 Content-Type: application/json
@@ -193,7 +455,17 @@ Content-Type: application/json
 }
 ```
 
-#### Get Wake-up Status
+**Enhanced Wake-up Settings Update** 🆕
+```bash
+PUT /api/scheduler/wake-up
+Content-Type: application/json
+{
+  "time": "07:30",
+  "good_morning_delay_minutes": 20
+}
+```
+
+**Get Wake-up Status**
 ```bash
 GET /api/scheduler/wake-up/status
 ```
@@ -213,7 +485,7 @@ Response:
 }
 ```
 
-#### Disable Wake-up Alarm
+**Disable Wake-up Alarm**
 ```bash
 DELETE /api/scheduler/wake-up
 ```
@@ -557,6 +829,41 @@ Wake-up alarms should auto-disable after triggering to prevent unwanted repetiti
 2. **Intermediate**: Handle different system vs user timezones  
 3. **Advanced**: Debug display issues when Date constructors betray you
 
+### 7. Frontend Architecture Evolution 🎨
+**From Direct API Calls to AppContext Pattern**:
+- ❌ **Old Pattern**: Each component makes direct API calls with local state management
+- ✅ **New Pattern**: Centralized state through AppContext with shared actions
+- **Benefits**: Consistent state across components, automatic refreshing, better error handling
+- **Lesson**: Follow established patterns (PianobarPage/WeatherPage) for consistency
+
+### 8. Backend Modernization Patterns 🏗️
+**From Simple Routes to Enterprise Architecture**:
+- ❌ **Old Pattern**: Direct service instantiation with basic error handling
+- ✅ **New Pattern**: Dependency injection + RetryHelper + CircuitBreaker
+- **Benefits**: Fault tolerance, automatic recovery, graceful degradation
+- **Lesson**: Apply BACKEND_FIX.md patterns consistently for production reliability
+
+### 9. Configuration Management Evolution 🔧
+**From Static Config to Dynamic UI Control**:
+- ❌ **Old Pattern**: Manual config file editing with server restarts
+- ✅ **New Pattern**: Real-time UI updates with immediate persistence and rescheduling
+- **Benefits**: User-friendly configuration, instant feedback, no downtime
+- **Lesson**: Separate critical updates (config persistence) from non-critical operations (rescheduling)
+
+### 10. Error Handling Maturity 🛡️
+**From Silent Failures to Comprehensive Feedback**:
+- ❌ **Old Pattern**: Errors logged to console, users left guessing
+- ✅ **New Pattern**: User-friendly notifications with auto-dismissal and retry options
+- **Benefits**: Better user experience, faster issue resolution, confidence in system
+- **Lesson**: Always provide visual feedback for user-initiated operations
+
+### 11. Testing Interface Innovation 🧪
+**From Backend-Only Testing to User-Accessible Controls**:
+- ❌ **Old Pattern**: Manual API calls or backend scripts for scene testing
+- ✅ **New Pattern**: One-click scene testing with real-time result display
+- **Benefits**: Easy troubleshooting, user empowerment, faster debugging
+- **Lesson**: Expose testing capabilities through UI for better maintainability
+
 ## 🎯 Production Ready Features
 
 - ✅ **Reliable Scheduling**: Timezone-aware cron jobs that work across system timezone changes
@@ -582,23 +889,38 @@ Wake-up alarms should auto-disable after triggering to prevent unwanted repetiti
 2. **Phase 2**: Complete wake up alarm system with two-stage execution
 3. **Phase 3**: Smart Bluetooth-aware music integration with conflict prevention  
 4. **Phase 4**: Fixed the great timezone display bug that made working systems look broken
+5. **Phase 5**: Music integration fix - BOOM SHAKA LAKA! Shades and music working together! 🎉
+6. **Phase 6**: **Settings UI & Modernization** - Complete control center with enterprise-grade architecture! 🛠️⚙️
 
 **The User Experience**:
-- Set wake up alarm: ✅ Easy via Dashboard UI
+- Set wake up alarm: ✅ Easy via Dashboard UI or comprehensive Settings page
 - Reliable triggering: ✅ Works exactly when expected  
 - Smart music: ✅ Starts automatically with optimal connection handling
-- Visual feedback: ✅ Correct timezone display  
-- Self-healing: ✅ Auto-disable prevents repetition
+- Visual feedback: ✅ Correct timezone display with real-time status updates
+- Self-healing: ✅ Auto-disable prevents repetition  
+- **Full Configuration Control**: ✅ Settings page provides complete scheduler management
+- **Scene Testing**: ✅ One-click manual scene execution with visual feedback
+- **Real-time Updates**: ✅ All configuration changes persist immediately
 
 **The Developer Experience**:
 - Comprehensive logging for debugging ✅
 - Health monitoring and recovery ✅  
 - Timezone-aware throughout the stack ✅
 - Clean separation of concerns ✅
+- **Modern Architecture Patterns**: ✅ Dependency injection, retry logic, circuit breakers
+- **AppContext Integration**: ✅ Centralized state management following established patterns
+- **Enterprise-grade Error Handling**: ✅ Resilient to failures with graceful degradation
 - Extensive documentation (this guide!) ✅
+
+**The Architecture Achievement**:
+- **Frontend**: Modern React patterns with AppContext, error handling, and user feedback
+- **Backend**: BACKEND_FIX.md compliance with RetryHelper, CircuitBreaker, and dependency injection
+- **API Design**: Comprehensive RESTful endpoints with validation and testing capabilities
+- **Configuration Management**: Real-time updates with immediate persistence and intelligent rescheduling
+- **Error Resilience**: Fault-tolerant operations that separate critical from non-critical failures
 
 ---
 
-*This guide represents the complete journey through timezone hell and back, emerging victorious with a fully functional, production-ready wake up alarm system. Keep it updated as we continue to battle the timezone demons!* 🎯
+*This guide represents the complete journey from basic scheduling to a fully modernized, enterprise-grade scheduler control system. The Settings page now provides users with complete control while the backend delivers production-ready reliability patterns. A testament to the power of iterative improvement and architectural excellence!* 🎯
 
-**Pat on the back well deserved!** 🎉
+**Evolution Complete - From Functional to Exceptional!** 🎉🛠️⚙️

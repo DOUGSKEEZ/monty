@@ -187,6 +187,56 @@ export const schedulerApi = {
       method: 'POST',
       body: JSON.stringify({ scene_name: sceneName }),
     }),
+
+  /**
+   * Get complete scheduler configuration
+   * @returns {Promise<Object>} - Scheduler configuration
+   */
+  getConfig: () => 
+    fetchApi('/scheduler/config'),
+
+  /**
+   * Update scene timing settings
+   * @param {Object} settings - Scene timing settings
+   * @returns {Promise<Object>} - Result
+   */
+  updateScenes: (settings) => 
+    fetchApi('/scheduler/scenes', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
+  /**
+   * Update wake up settings
+   * @param {Object} settings - Wake up settings
+   * @returns {Promise<Object>} - Result
+   */
+  updateWakeUp: (settings) => 
+    fetchApi('/scheduler/wake-up', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
+  /**
+   * Update music integration settings
+   * @param {Object} settings - Music settings
+   * @returns {Promise<Object>} - Result
+   */
+  updateMusic: (settings) => 
+    fetchApi('/scheduler/music', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
+  /**
+   * Test a scene manually
+   * @param {string} sceneName - Scene name to test
+   * @returns {Promise<Object>} - Result
+   */
+  testScene: (sceneName) => 
+    fetchApi(`/scheduler/test/${sceneName}`, {
+      method: 'POST',
+    }),
 };
 
 // Bluetooth API endpoints
@@ -542,3 +592,6 @@ export const triggerShadeCommanderScene = async (sceneName) => {
   return response.json();
 };
 
+
+// Export fetchApi for direct usage
+export { fetchApi };

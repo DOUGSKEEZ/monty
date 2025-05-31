@@ -1,25 +1,25 @@
 {
-  "version": 5,
-  "timestamp": 1748595085654,
+  "version": 7,
+  "timestamp": 1748651157829,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "I'll Know",
-    "artist": "Bill Charlap Trio",
-    "album": "Street Of Dreams",
+    "title": "A Man and a Woman",
+    "artist": "Charlie Byrd",
+    "album": "Hit Trip",
     "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "312",
+    "songDuration": "245",
     "songPlayed": "0",
-    "rating": "0",
-    "coverArt": "http://cont-2.p-cdn.us/images/38/e3/c4/12/616849af8f8a39b2089c5719/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/bill-charlap-trio/street-of-dreams/ill-know/TRtJbZkzgrPnP9c?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "rating": "1",
+    "coverArt": "http://mediaserver-cont-sv5-1-v4v6.pandora.com/images/9f/0e/f7/c9/225b4caf9f86ab59ac7fe0ee/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/charlie-byrd/hit-trip/man-woman/TRvwdKqzXz2vhPZ?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748595085654
+  "updateTime": 1748651157829
 }
