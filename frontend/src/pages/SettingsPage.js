@@ -17,11 +17,23 @@ function SettingsPage() {
     good_afternoon_time: '14:30',
     good_evening_offset_minutes: 60
   });
+  // Draft states for explicit save behavior
+  const [sceneDrafts, setSceneDrafts] = useState({
+    good_afternoon_time: '14:30',
+    good_evening_offset_minutes: 60
+  });
+  const [sceneChanges, setSceneChanges] = useState({
+    good_afternoon_time: false,
+    good_evening_offset_minutes: false
+  });
   const [wakeUpSettings, setWakeUpSettings] = useState({
     enabled: false,
     time: '',
     good_morning_delay_minutes: 15
   });
+  // Draft state for wake-up delay
+  const [wakeUpDelayDraft, setWakeUpDelayDraft] = useState(15);
+  const [wakeUpDelayChanged, setWakeUpDelayChanged] = useState(false);
   const [musicSettings, setMusicSettings] = useState({
     enabled_for_morning: true,
     enabled_for_evening: true
@@ -38,16 +50,25 @@ function SettingsPage() {
     if (scheduler.config) {
       const config = scheduler.config;
       
-      setSceneSettings({
+      const sceneConfig = {
         good_afternoon_time: config.scenes?.good_afternoon_time || '14:30',
         good_evening_offset_minutes: config.scenes?.good_evening_offset_minutes || 60
+      };
+      setSceneSettings(sceneConfig);
+      setSceneDrafts(sceneConfig);
+      setSceneChanges({
+        good_afternoon_time: false,
+        good_evening_offset_minutes: false
       });
       
-      setWakeUpSettings({
+      const wakeUpConfig = {
         enabled: config.wake_up?.enabled || false,
         time: config.wake_up?.time || '',
         good_morning_delay_minutes: config.wake_up?.good_morning_delay_minutes || 15
-      });
+      };
+      setWakeUpSettings(wakeUpConfig);
+      setWakeUpDelayDraft(wakeUpConfig.good_morning_delay_minutes);
+      setWakeUpDelayChanged(false);
       
       setMusicSettings({
         enabled_for_morning: config.music?.enabled_for_morning !== false,
@@ -90,6 +111,35 @@ function SettingsPage() {
     }, 5000);
   };
 
+  // Handle scene draft changes
+  const handleSceneDraftChange = (field, value) => {
+    setSceneDrafts(prev => ({ ...prev, [field]: value }));
+    setSceneChanges(prev => ({ 
+      ...prev, 
+      [field]: value !== sceneSettings[field] 
+    }));
+  };
+
+  // Save individual scene setting
+  const saveSceneSetting = async (field) => {
+    const updatedSetting = { [field]: sceneDrafts[field] };
+    await updateSceneSettings(updatedSetting);
+    // Reset change tracking for this field
+    setSceneChanges(prev => ({ ...prev, [field]: false }));
+  };
+
+  // Handle wake-up delay draft changes
+  const handleWakeUpDelayChange = (value) => {
+    setWakeUpDelayDraft(value);
+    setWakeUpDelayChanged(value !== wakeUpSettings.good_morning_delay_minutes);
+  };
+
+  // Save wake-up delay setting
+  const saveWakeUpDelay = async () => {
+    await updateWakeUpSettings({ good_morning_delay_minutes: wakeUpDelayDraft });
+    setWakeUpDelayChanged(false);
+  };
+
   // Update scene timing settings
   const updateSceneSettings = async (updatedSettings) => {
     try {
@@ -99,6 +149,7 @@ function SettingsPage() {
       
       if (result.success) {
         setSceneSettings(prev => ({ ...prev, ...updatedSettings }));
+        setSceneDrafts(prev => ({ ...prev, ...updatedSettings }));
         showSuccess('Scene timing updated successfully');
       } else {
         showError(`Failed to update scene settings: ${result.error}`);
@@ -119,6 +170,10 @@ function SettingsPage() {
       
       if (result.success) {
         setWakeUpSettings(prev => ({ ...prev, ...updatedSettings }));
+        // Update draft state for delay if it was changed
+        if (updatedSettings.good_morning_delay_minutes !== undefined) {
+          setWakeUpDelayDraft(updatedSettings.good_morning_delay_minutes);
+        }
         if (updatedSettings.time === '') {
           showSuccess('Wake up alarm cleared successfully');
         } else {
@@ -260,6 +315,48 @@ function SettingsPage() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
+  // Calculate time until alarm
+  const calculateTimeUntilAlarm = (alarmTime) => {
+    if (!alarmTime) return '';
+    
+    try {
+      // Get current time in user's timezone
+      const timezoneInfo = scheduler.wakeUpStatus?.timezone || 'America/Denver (Mountain Time)';
+      const timezone = timezoneInfo.split(' ')[0];
+      
+      const now = new Date();
+      const [hours, minutes] = alarmTime.split(':').map(Number);
+      
+      // Create alarm time for today
+      const today = new Date();
+      const alarmToday = new Date(today);
+      alarmToday.setHours(hours, minutes, 0, 0);
+      
+      // If alarm time has passed today, it's for tomorrow
+      let alarmDateTime = alarmToday;
+      if (alarmToday <= now) {
+        alarmDateTime = new Date(alarmToday);
+        alarmDateTime.setDate(alarmDateTime.getDate() + 1);
+      }
+      
+      // Calculate time difference
+      const diff = alarmDateTime - now;
+      const hoursUntil = Math.floor(diff / (1000 * 60 * 60));
+      const minutesUntil = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hoursUntil === 0) {
+        return `Alarm set for ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''} from now`;
+      } else if (minutesUntil === 0) {
+        return `Alarm set for ${hoursUntil} hour${hoursUntil !== 1 ? 's' : ''} from now`;
+      } else {
+        return `Alarm set for ${hoursUntil} hour${hoursUntil !== 1 ? 's' : ''} and ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''} from now`;
+      }
+    } catch (error) {
+      console.error('Error calculating time until alarm:', error);
+      return '';
+    }
+  };
+
   if (scheduler.loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -332,26 +429,49 @@ function SettingsPage() {
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Morning Delay (minutes after Rise'n'Shine)
             </label>
-            <input
-              type="number"
-              min="5"
-              max="60"
-              step="5"
-              value={wakeUpSettings.good_morning_delay_minutes}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setWakeUpSettings(prev => ({ ...prev, good_morning_delay_minutes: value }));
-                updateWakeUpSettings({ good_morning_delay_minutes: value });
-              }}
-              className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
-            />
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min="5"
+                max="60"
+                step="5"
+                value={wakeUpDelayDraft}
+                onChange={(e) => handleWakeUpDelayChange(parseInt(e.target.value))}
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
+              />
+              <button
+                onClick={saveWakeUpDelay}
+                disabled={saving || !wakeUpDelayChanged}
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+              >
+                Update
+              </button>
+            </div>
           </div>
         </div>
         
-        <div className="mt-4 text-sm text-gray-600">
-          <p>Status: {wakeUpSettings.enabled ? `Set for ${formatWakeUpTime(wakeUpSettings.time)}` : 'Not set'}</p>
-          {scheduler.config?.wake_up?.last_triggered && (
-            <p>Last Triggered: {formatDateTime(scheduler.config.wake_up.last_triggered)}</p>
+        <div className="mt-4">
+          {/* Actual Alarm Status Display */}
+          {scheduler.wakeUpStatus && scheduler.wakeUpStatus.enabled ? (
+            <div className="alarm-status bg-green-50 border border-green-200 rounded p-4">
+              <p className="text-lg font-medium text-green-700 mb-1">
+                {scheduler.wakeUpStatus.nextWakeUpDateTime}
+              </p>
+              <p className="text-sm text-green-600">
+                {calculateTimeUntilAlarm(scheduler.wakeUpStatus.time)}
+              </p>
+              {scheduler.wakeUpStatus.lastTriggered_formatted && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Last Triggered: {scheduler.wakeUpStatus.lastTriggered_formatted}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="alarm-status bg-gray-50 border border-gray-200 rounded p-4">
+              <p className="text-gray-600">
+                <span className="mr-2">⏰</span>No alarm currently set
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -368,35 +488,45 @@ function SettingsPage() {
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Afternoon Time
             </label>
-            <input
-              type="time"
-              value={sceneSettings.good_afternoon_time}
-              onChange={(e) => {
-                const newTime = e.target.value;
-                setSceneSettings(prev => ({ ...prev, good_afternoon_time: newTime }));
-                updateSceneSettings({ good_afternoon_time: newTime });
-              }}
-              className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            />
+            <div className="flex gap-2">
+              <input
+                type="time"
+                value={sceneDrafts.good_afternoon_time}
+                onChange={(e) => handleSceneDraftChange('good_afternoon_time', e.target.value)}
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              />
+              <button
+                onClick={() => saveSceneSetting('good_afternoon_time')}
+                disabled={saving || !sceneChanges.good_afternoon_time}
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+              >
+                Update
+              </button>
+            </div>
           </div>
           
           <div>
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Evening (minutes before sunset)
             </label>
-            <input
-              type="number"
-              min="0"
-              max="180"
-              step="15"
-              value={sceneSettings.good_evening_offset_minutes}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setSceneSettings(prev => ({ ...prev, good_evening_offset_minutes: value }));
-                updateSceneSettings({ good_evening_offset_minutes: value });
-              }}
-              className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
-            />
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min="0"
+                max="180"
+                step="15"
+                value={sceneDrafts.good_evening_offset_minutes}
+                onChange={(e) => handleSceneDraftChange('good_evening_offset_minutes', parseInt(e.target.value))}
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
+              />
+              <button
+                onClick={() => saveSceneSetting('good_evening_offset_minutes')}
+                disabled={saving || !sceneChanges.good_evening_offset_minutes}
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+              >
+                Update
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -410,14 +540,46 @@ function SettingsPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2">Next Events:</h3>
+            <h3 className="font-semibold text-gray-700 mb-2">Events Summary:</h3>
             <ul className="text-sm text-gray-600 space-y-1">
               {scheduler.schedules && Object.keys(scheduler.schedules).length > 0 ? (
-                Object.entries(scheduler.schedules).map(([scene, time]) => (
-                  <li key={scene}>
-                    • {formatSceneName(scene)}: {time || 'Not scheduled'}
-                  </li>
-                ))
+                (() => {
+                  // Calculate Good Morning time based on wake-up alarm + delay
+                  const getGoodMorningTime = () => {
+                    if (!scheduler.wakeUpStatus?.enabled || !scheduler.wakeUpStatus?.time) {
+                      return 'Alarm Not Set';
+                    }
+                    
+                    const [hours, minutes] = scheduler.wakeUpStatus.time.split(':').map(Number);
+                    const delayMinutes = scheduler.config?.wake_up?.good_morning_delay_minutes || 20;
+                    
+                    // Add delay to wake-up time
+                    const totalMinutes = (hours * 60) + minutes + delayMinutes;
+                    const goodMorningHours = Math.floor(totalMinutes / 60) % 24;
+                    const goodMorningMinutes = totalMinutes % 60;
+                    
+                    // Format as 12-hour time
+                    const hour12 = goodMorningHours === 0 ? 12 : (goodMorningHours > 12 ? goodMorningHours - 12 : goodMorningHours);
+                    const ampm = goodMorningHours >= 12 ? 'PM' : 'AM';
+                    const minuteStr = goodMorningMinutes.toString().padStart(2, '0');
+                    
+                    return `${hour12}:${minuteStr} ${ampm}`;
+                  };
+
+                  // Create ordered events array
+                  const orderedEvents = [
+                    { name: 'Good Morning', time: getGoodMorningTime() },
+                    { name: 'Good Afternoon', time: scheduler.schedules.good_afternoon || 'Not scheduled' },
+                    { name: 'Good Evening', time: scheduler.schedules.good_evening || 'Not scheduled' },
+                    { name: 'Good Night', time: scheduler.schedules.good_night || 'Not scheduled' }
+                  ];
+
+                  return orderedEvents.map((event, index) => (
+                    <li key={index}>
+                      • {event.name}: {event.time}
+                    </li>
+                  ));
+                })()
               ) : (
                 <li>• Loading schedule...</li>
               )}
@@ -425,17 +587,39 @@ function SettingsPage() {
           </div>
           
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2">Service Health:</h3>
-            <div className="flex items-center">
-              <span className={`w-3 h-3 rounded-full mr-2 ${
-                scheduler.config?.serviceHealth?.status === 'ok' ? 'bg-green-500' : 'bg-red-500'
-              }`}></span>
-              <span className="text-sm">
-                SchedulerService {scheduler.config?.serviceHealth?.status === 'ok' ? '✅' : '❌'}
+            <div className="flex items-center mb-8">
+              <h3 className="font-semibold text-gray-700">Service Health:</h3>
+              <span className={`text-xs font-medium ml-2 ${
+                scheduler.config?.serviceHealth?.status === 'ok' ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {scheduler.config?.serviceHealth?.status === 'ok' ? 'Active' : 'Inactive'}
               </span>
             </div>
+
+            {/* Next Scene Display - Make it prominent */}
             {scheduler.config?.serviceHealth?.message && (
-              <p className="text-xs text-gray-500 mt-1">{scheduler.config.serviceHealth.message}</p>
+              <div className="mt-2">
+                <p className="text-xs text-gray-500 mb-1">Next Scene:</p>
+                {(() => {
+                  // Extract next scene from message like "Scheduler active, next: Good Night at 8:56 PM"
+                  const message = scheduler.config.serviceHealth.message;
+                  const nextSceneMatch = message.match(/next:\s*(.+)/i);
+                  
+                  if (nextSceneMatch) {
+                    return (
+                      <p className="text-lg font-bold text-bold-700">
+                        {nextSceneMatch[1]}
+                      </p>
+                    );
+                  } else {
+                    return (
+                      <p className="text-sm text-gray-600">
+                        {message}
+                      </p>
+                    );
+                  }
+                })()}
+              </div>
             )}
           </div>
         </div>

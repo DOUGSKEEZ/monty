@@ -1,106 +1,256 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../utils/AppContext';
+import { triggerShadeCommanderScene, checkShadeCommanderHealth } from '../utils/api';
 
 function HomePage() {
   const { weather, scheduler, actions } = useAppContext();
   const [showWakeUpModal, setShowWakeUpModal] = useState(false);
   const [wakeUpTime, setWakeUpTime] = useState('07:00');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [arduinoError, setArduinoError] = useState(null);
+  const [lastManualScene, setLastManualScene] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshSuccess, setRefreshSuccess] = useState(null);
+  
+  // Clear manual override when scheduled scene time is reached
+  React.useEffect(() => {
+    if (lastManualScene && scheduler.config?.nextSceneTimes) {
+      // Inline scheduled scene calculation to avoid function dependency issues
+      const sceneTimes = scheduler.config.nextSceneTimes;
+      const timezoneInfo = scheduler.wakeUpStatus?.timezone || 'America/Denver (Mountain Time)';
+      const timezone = timezoneInfo.split(' ')[0];
+      
+      const now = new Date();
+      const currentTime = now.toLocaleTimeString('en-US', { 
+        timeZone: timezone,
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+      });
+
+      const convertTo24Hour = (timeStr) => {
+        if (!timeStr) return null;
+        const [time, period] = timeStr.split(' ');
+        const [hours, minutes] = time.split(':');
+        let hour24 = parseInt(hours);
+        
+        if (period === 'PM' && hour24 !== 12) {
+          hour24 += 12;
+        } else if (period === 'AM' && hour24 === 12) {
+          hour24 = 0;
+        }
+        
+        return `${hour24.toString().padStart(2, '0')}:${minutes}`;
+      };
+
+      const goodAfternoon24 = convertTo24Hour(sceneTimes.good_afternoon);
+      const goodEvening24 = convertTo24Hour(sceneTimes.good_evening);
+      const goodNight24 = convertTo24Hour(sceneTimes.good_night);
+
+      let scheduledSceneName;
+      if (goodNight24 && currentTime >= goodNight24) {
+        scheduledSceneName = 'good_night';
+      } else if (goodEvening24 && currentTime >= goodEvening24) {
+        scheduledSceneName = 'good_evening';
+      } else if (goodAfternoon24 && currentTime >= goodAfternoon24) {
+        scheduledSceneName = 'good_afternoon';
+      } else {
+        scheduledSceneName = 'good_morning';
+      }
+      
+      // If the scheduled scene is different from manual override, clear it
+      if (scheduledSceneName !== lastManualScene) {
+        console.log(`Scheduled scene "${scheduledSceneName}" triggered, clearing manual override "${lastManualScene}"`);
+        setLastManualScene(null);
+      }
+    }
+  }, [scheduler.config?.nextSceneTimes, scheduler.wakeUpStatus?.timezone, lastManualScene]);
   
   // Helper functions for shade status display
   
-  // Determine current scene based on time of day
-  const getCurrentScene = () => {
+  // Scene display mapping for all scenes
+  const getSceneDisplay = (sceneName) => {
+    const sceneMap = {
+      'rise_n_shine': { name: "Rise'n'Shine", icon: '⏰', message: 'Wake up sequence started' },
+      'good_morning': { name: 'Good Morning', icon: '🌅', message: 'Good morning sunshine!' },
+      'good_afternoon': { name: 'Good Afternoon', icon: '☀️', message: 'Solar shades lowered to block afternoon sun' },
+      'good_evening': { name: 'Good Evening', icon: '🌇', message: 'Solar shades raised to show sunset' },
+      'good_night': { name: 'Good Night', icon: '🌙', message: 'Privacy shades lowered for the night' }
+    };
+    
+    return sceneMap[sceneName] || { name: 'Unknown Scene', icon: '❓', message: 'Scene status unknown' };
+  };
+
+  // Get scheduled scene based on time and scheduler data
+  const getScheduledScene = () => {
+    // Use scheduled times if available
+    if (scheduler.config?.nextSceneTimes) {
+      const sceneTimes = scheduler.config.nextSceneTimes;
+      
+      // Get current time in user's timezone
+      const timezoneInfo = scheduler.wakeUpStatus?.timezone || 'America/Denver (Mountain Time)';
+      const timezone = timezoneInfo.split(' ')[0];
+      
+      const now = new Date();
+      const currentTime = now.toLocaleTimeString('en-US', { 
+        timeZone: timezone,
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+      });
+
+      // Helper function to convert "1:30 PM" to "13:30" for comparison
+      const convertTo24Hour = (timeStr) => {
+        if (!timeStr) return null;
+        const [time, period] = timeStr.split(' ');
+        const [hours, minutes] = time.split(':');
+        let hour24 = parseInt(hours);
+        
+        if (period === 'PM' && hour24 !== 12) {
+          hour24 += 12;
+        } else if (period === 'AM' && hour24 === 12) {
+          hour24 = 0;
+        }
+        
+        return `${hour24.toString().padStart(2, '0')}:${minutes}`;
+      };
+
+      const goodAfternoon24 = convertTo24Hour(sceneTimes.good_afternoon);
+      const goodEvening24 = convertTo24Hour(sceneTimes.good_evening);
+      const goodNight24 = convertTo24Hour(sceneTimes.good_night);
+
+      // Compare with current time to determine active scene
+      if (goodNight24 && currentTime >= goodNight24) {
+        return getSceneDisplay('good_night');
+      } else if (goodEvening24 && currentTime >= goodEvening24) {
+        return getSceneDisplay('good_evening');
+      } else if (goodAfternoon24 && currentTime >= goodAfternoon24) {
+        return getSceneDisplay('good_afternoon');
+      } else {
+        return getSceneDisplay('good_morning');
+      }
+    }
+
+    // Fall back to basic time-based logic
     const now = new Date();
     const hour = now.getHours();
     
-    // Early morning (5am - 10am): Good Morning
-    if (hour >= 5 && hour < 10) {
-      return 'good-morning';
+    if (hour >= 5 && hour < 10) return getSceneDisplay('good_morning');
+    if (hour >= 10 && hour < 16) return getSceneDisplay('good_afternoon');
+    if (hour >= 16 && hour < 21) return getSceneDisplay('good_evening');
+    return getSceneDisplay('good_night');
+  };
+
+  // Determine current scene - prioritize manual button press over scheduled logic
+  const getCurrentScene = () => {
+    // If user manually pressed a button, show that
+    if (lastManualScene) {
+      return getSceneDisplay(lastManualScene);
     }
-    
-    // Mid-day (10am - 4pm): Good Afternoon
-    if (hour >= 10 && hour < 16) {
-      return 'good-afternoon';
-    }
-    
-    // Evening (4pm - 9pm): Good Evening
-    if (hour >= 16 && hour < 21) {
-      return 'good-evening';
-    }
-    
-    // Night (9pm - 5am): Good Night
-    return 'good-night';
+    // Otherwise show scheduled scene
+    return getScheduledScene();
   };
   
   // Get the user-friendly text for the current scene
   const getCurrentSceneText = () => {
     const scene = getCurrentScene();
-    
-    switch (scene) {
-      case 'good-morning':
-        return 'Good Morning Mode';
-      case 'good-afternoon':
-        return 'Good Afternoon Mode';
-      case 'good-evening':
-        return 'Good Evening Mode';
-      case 'good-night':
-        return 'Good Night Mode';
-      default:
-        return 'Unknown Mode';
-    }
+    return scene.name;
   };
   
   // Get the description for the current scene
   const getCurrentSceneDescription = () => {
     const scene = getCurrentScene();
-    
-    switch (scene) {
-      case 'good-morning':
-        return 'Privacy and blackout shades are raised';
-      case 'good-afternoon':
-        return 'Solar shades are lowered to block sun';
-      case 'good-evening':
-        return 'Solar shades are raised to show sunset';
-      case 'good-night':
-        return 'Privacy and blackout shades are lowered';
-      default:
-        return '';
-    }
+    return scene.message;
   };
   
   // Get the icon for the current scene
   const getTimeBasedIcon = () => {
     const scene = getCurrentScene();
+    const iconMap = {
+      '⏰': { bg: 'bg-green-100', text: 'text-green-600' },
+      '🌅': { bg: 'bg-yellow-100', text: 'text-yellow-600' },
+      '☀️': { bg: 'bg-blue-100', text: 'text-blue-600' },
+      '🌇': { bg: 'bg-orange-100', text: 'text-orange-600' },
+      '🌙': { bg: 'bg-indigo-100', text: 'text-indigo-600' },
+      '❓': { bg: 'bg-gray-100', text: 'text-gray-600' }
+    };
     
-    switch (scene) {
-      case 'good-morning':
-        return (
-          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 text-yellow-600 text-xl">
-            🌅
-          </div>
-        );
-      case 'good-afternoon':
-        return (
-          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 text-blue-600 text-xl">
-            ☀️
-          </div>
-        );
-      case 'good-evening':
-        return (
-          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 text-orange-600 text-xl">
-            🌇
-          </div>
-        );
-      case 'good-night':
-        return (
-          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 text-indigo-600 text-xl">
-            🌙
-          </div>
-        );
-      default:
-        return null;
+    const iconStyle = iconMap[scene.icon] || { bg: 'bg-gray-100', text: 'text-gray-600' };
+    
+    return (
+      <div className={`flex items-center justify-center h-12 w-12 rounded-full ${iconStyle.bg} ${iconStyle.text} text-xl`}>
+        {scene.icon}
+      </div>
+    );
+  };
+
+  // Enhanced weather refresh with cooldown protection  
+  const handleWeatherRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setRefreshSuccess(null);
+      
+      // Check if refresh is allowed (respects cooldown and daily limits)
+      const canRefreshResponse = await fetch('http://192.168.0.15:3001/api/weather/can-refresh');
+      const canRefreshData = await canRefreshResponse.json();
+      
+      if (!canRefreshData.data.allowed) {
+        const reason = canRefreshData.data.reason;
+        if (reason === 'daily_limit') {
+          setRefreshSuccess('error');
+          alert('⚠️ Daily API limit approaching (900+ calls). Manual refresh disabled to prevent charges.');
+          return;
+        } else if (reason === 'cooldown') {
+          setRefreshSuccess('cooldown');
+          setTimeout(() => setRefreshSuccess(null), 3000);
+          return;
+        }
+      }
+      
+      // Perform the refresh
+      await actions.refreshWeather(true);
+      
+      // Show success feedback
+      setRefreshSuccess('success');
+      setTimeout(() => setRefreshSuccess(null), 3000);
+      
+    } catch (error) {
+      console.error('Weather refresh failed:', error);
+      setRefreshSuccess('error');
+      setTimeout(() => setRefreshSuccess(null), 3000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Handle scene triggers via ShadeCommander and track locally
+  const triggerScene = async (sceneName) => {
+    try {
+      setArduinoError(null); // Clear any existing errors
+      console.log(`Triggering scene: ${sceneName}`);
+      
+      // Execute scene via ShadeCommander
+      const response = await triggerShadeCommanderScene(sceneName);
+      console.log(`Scene ${sceneName} executed successfully!`, response);
+      
+      // Track what button was pressed for display
+      setLastManualScene(sceneName);
+      
+    } catch (error) {
+      console.error(`Scene ${sceneName} failed:`, error);
+      
+      // Check if it's an Arduino issue
+      try {
+        const health = await checkShadeCommanderHealth();
+        if (!health.arduino_connected) {
+          setArduinoError("Arduino disconnected - check USB connection and/or reconnect in Settings.");
+        } else {
+          setArduinoError("Command failed - please try again");
+        }
+      } catch (healthError) {
+        setArduinoError("ShadeCommander unavailable - please check connection");
+      }
     }
   };
   
@@ -263,10 +413,21 @@ function HomePage() {
           <div className="flex justify-between items-center mb-2">
             <h2 className="text-xl font-semibold">Weather</h2>
             <button 
-              onClick={() => actions.refreshWeather(true)}
-              className="text-blue-500 hover:text-blue-700"
+              onClick={handleWeatherRefresh}
+              className={`transition-colors ${
+                refreshSuccess === 'success' ? 'text-green-600' :
+                refreshSuccess === 'error' ? 'text-red-600' :
+                refreshSuccess === 'cooldown' ? 'text-yellow-600' :
+                isRefreshing ? 'text-gray-400' :
+                'text-blue-500 hover:text-blue-700'
+              }`}
+              disabled={isRefreshing || refreshSuccess === 'cooldown'}
             >
-              ↺ Refresh
+              {isRefreshing ? '↻ Refreshing...' :
+               refreshSuccess === 'success' ? '✅ Success!' :
+               refreshSuccess === 'error' ? '❌ Failed' :
+               refreshSuccess === 'cooldown' ? '⏳ Cooldown' :
+               '↺ Refresh'}
             </button>
           </div>
           
@@ -335,6 +496,13 @@ function HomePage() {
             </div>
           </div>
           
+          {/* Arduino Error Display */}
+          {arduinoError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {arduinoError}
+            </div>
+          )}
+          
           {/* Current Shade Automation State */}
           <div className="bg-gray-50 p-4 rounded-lg mb-4">
             <div className="flex items-center">
@@ -352,25 +520,25 @@ function HomePage() {
             <h3 className="text-md font-medium mb-2">Manual Override</h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <button 
-                onClick={() => actions.triggerShadeScene('good-morning')} 
+                onClick={() => triggerScene('good_morning')}
                 className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 p-2 rounded"
               >
                 Good Morning
               </button>
               <button 
-                onClick={() => actions.triggerShadeScene('good-afternoon')} 
+                onClick={() => triggerScene('good_afternoon')}
                 className="bg-blue-100 hover:bg-blue-200 text-blue-800 p-2 rounded"
               >
                 Good Afternoon
               </button>
               <button 
-                onClick={() => actions.triggerShadeScene('good-evening')} 
+                onClick={() => triggerScene('good_evening')}
                 className="bg-orange-100 hover:bg-orange-200 text-orange-800 p-2 rounded"
               >
                 Good Evening
               </button>
               <button 
-                onClick={() => actions.triggerShadeScene('good-night')} 
+                onClick={() => triggerScene('good_night')}
                 className="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 p-2 rounded"
               >
                 Good Night

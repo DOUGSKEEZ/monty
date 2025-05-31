@@ -12,7 +12,7 @@
     "enabled": true,
     "time": "08:15",
     "last_triggered": null,
-    "good_morning_delay_minutes": 15
+    "good_morning_delay_minutes": 20
   },
   "home_away": {
     "status": "home",

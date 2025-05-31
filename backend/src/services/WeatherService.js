@@ -348,13 +348,13 @@ class WeatherService extends IWeatherService {
    * @param {boolean} isManual - Whether this was a manual refresh
    */
   trackApiUsage(isManual = false) {
-    const today = new Date().toDateString();
+    const todayInUserTz = this.timezoneManager.getCurrentUserTime().toDateString();
     
-    // Reset daily counter if new day
-    if (this.apiUsage.lastResetDate !== today) {
+    // Reset daily counter if new day in user timezone
+    if (this.apiUsage.lastResetDate !== todayInUserTz) {
       this.apiUsage.dailyCount = 0;
-      this.apiUsage.lastResetDate = today;
-      logger.info('Daily API usage counter reset');
+      this.apiUsage.lastResetDate = todayInUserTz;
+      logger.info(`New day detected. Resetting API usage counter from ${this.apiUsage.dailyCount || 0} to 0`);
     }
     
     // Increment usage
@@ -391,14 +391,14 @@ class WeatherService extends IWeatherService {
     try {
       if (fs.existsSync(this.apiUsageFile)) {
         const data = JSON.parse(fs.readFileSync(this.apiUsageFile, 'utf8'));
-        const today = new Date().toDateString();
+        const todayInUserTz = this.timezoneManager.getCurrentUserTime().toDateString();
         
-        // Reset if new day
-        if (data.lastResetDate !== today) {
+        // Reset if new day in user timezone
+        if (data.lastResetDate !== todayInUserTz) {
           logger.info(`New day detected. Resetting API usage counter from ${data.dailyCount} to 0`);
           return {
             dailyCount: 0,
-            lastResetDate: today,
+            lastResetDate: todayInUserTz,
             lastManualRefresh: 0,
             totalCost: 0
           };
@@ -414,7 +414,7 @@ class WeatherService extends IWeatherService {
     // Default values if file doesn't exist or can't be read
     return {
       dailyCount: 0,
-      lastResetDate: new Date().toDateString(),
+      lastResetDate: this.timezoneManager.getCurrentUserTime().toDateString(),
       lastManualRefresh: 0,
       totalCost: 0
     };

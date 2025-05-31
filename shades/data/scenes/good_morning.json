@@ -2,10 +2,10 @@
   "name": "Good Morning",
   "description": "Raise ALL HOUSE privacy shades to let the day in!",
   "commands": [
-    {"shade_id": 14, "action": "u", "delay_ms": 750},
-    {"shade_id": 33, "action": "u", "delay_ms": 750},
-    {"shade_id": 35, "action": "d", "delay_ms": 750},
-    {"shade_id": 44, "action": "u", "delay_ms": 750}, 
+    {"shade_id": 14, "action": "u", "delay_ms": 1000},
+    {"shade_id": 33, "action": "u", "delay_ms": 900},
+    {"shade_id": 35, "action": "d", "delay_ms": 900},
+    {"shade_id": 44, "action": "u", "delay_ms": 900}, 
     {"shade_id": 48, "action": "u", "delay_ms": 750} 
   ],
   "retry_count": 2,

@@ -1,25 +1,25 @@
 {
-  "version": 7,
-  "timestamp": 1748651157829,
+  "version": 3,
+  "timestamp": 1748656818131,
   "player": {
     "isRunning": true,
     "isPlaying": true,
     "status": "playing"
   },
   "currentSong": {
-    "title": "A Man and a Woman",
-    "artist": "Charlie Byrd",
-    "album": "Hit Trip",
+    "title": "Love Theme From Chinatown",
+    "artist": "Till Brönner",
+    "album": "Oceana",
     "stationName": "JAZZ FRUITS MUSIC RADIO ❤️",
-    "songDuration": "245",
+    "songDuration": "310",
     "songPlayed": "0",
-    "rating": "1",
-    "coverArt": "http://mediaserver-cont-sv5-1-v4v6.pandora.com/images/9f/0e/f7/c9/225b4caf9f86ab59ac7fe0ee/1080W_1080H.jpg",
-    "detailUrl": "http://www.pandora.com/charlie-byrd/hit-trip/man-woman/TRvwdKqzXz2vhPZ?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
+    "rating": "0",
+    "coverArt": "http://cont-1.p-cdn.us/images/ac/36/5c/d0/c9c74be39a366f7d767113bf/1080W_1080H.jpg",
+    "detailUrl": "http://www.pandora.com/till-brnner/oceana/love-theme-from-chinatown/TRqv3JVKnV4nPKZ?dc=63626&ad=1:35:0:80498::0:0:0:0:751::CO:08117:0:0:0:0:0:1"
   },
   "stations": [],
   "status": "playing",
   "isPianobarRunning": true,
   "isPlaying": true,
-  "updateTime": 1748651157829
+  "updateTime": 1748656818131
 }
