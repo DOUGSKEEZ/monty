@@ -232,23 +232,35 @@ function PianobarPage() {
             // Sync to backend
             debouncedSyncSharedState(newSharedState);
           }
-          // Handle song updates simply
+          // Handle song updates intelligently
           else if (data.type === 'song') {
-            const newTrackInfo = {
-              title: data.data.title || '',
-              artist: data.data.artist || '',
-              album: data.data.album || '',
-              stationName: data.data.stationName || '',
-              songDuration: parseInt(data.data.songDuration) || 0,
-              songPlayed: parseInt(data.data.songPlayed) || 0,
-              rating: parseInt(data.data.rating) || 0,
-              coverArt: data.data.coverArt || '',
-              detailUrl: data.data.detailUrl || ''
-            };
-            setTrackInfo(newTrackInfo);
-            
-            // Sync track info to backend for cross-device sharing
-            debouncedSyncTrackInfo(newTrackInfo);
+            setTrackInfo(prev => {
+              const newTitle = data.data.title || '';
+              const newArtist = data.data.artist || '';
+              
+              // Check if this is a new song (different title or artist)
+              const isNewSong = (prev.title !== newTitle || prev.artist !== newArtist);
+              
+              const newTrackInfo = {
+                title: newTitle,
+                artist: newArtist,
+                album: data.data.album || '',
+                stationName: data.data.stationName || '',
+                songDuration: parseInt(data.data.songDuration) || 0,
+                // Only reset progress for new songs, preserve local progress for same song
+                songPlayed: isNewSong ? (parseInt(data.data.songPlayed) || 0) : prev.songPlayed,
+                rating: parseInt(data.data.rating) || 0,
+                coverArt: data.data.coverArt || '',
+                detailUrl: data.data.detailUrl || ''
+              };
+              
+              // Only sync to backend for new songs to avoid overriding local progress
+              if (isNewSong) {
+                debouncedSyncTrackInfo(newTrackInfo);
+              }
+              
+              return newTrackInfo;
+            });
           }
           // Handle love events
           else if (data.type === 'love') {
