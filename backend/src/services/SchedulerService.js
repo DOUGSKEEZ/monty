@@ -549,7 +549,7 @@ class SchedulerService {
       // Determine if this scene should start music
       let shouldStartMusic = false;
       
-      if (sceneName === 'rise_n_shine' || sceneName === 'good_morning') {
+      if (sceneName === 'good_morning') {
         shouldStartMusic = musicConfig.enabled_for_morning === true;
       } else if (sceneName === 'good_evening') {
         shouldStartMusic = musicConfig.enabled_for_evening === true;

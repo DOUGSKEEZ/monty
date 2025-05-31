@@ -30,17 +30,7 @@ function PianobarPage() {
 
   // Helper functions (moved to top to avoid hoisting issues)
   const isPlayerOn = () => {
-    const result = pianobar.isRunning;
-    // Only log during button operations to reduce console noise
-    if (buttonLocked || showOperationMessage) {
-      console.log('isPlayerOn() check during operation:', {
-        'pianobar.isRunning': pianobar.isRunning,
-        'pianobar.status': pianobar.status,
-        'buttonLocked': buttonLocked,
-        'result': result
-      });
-    }
-    return result;
+    return pianobar.isRunning;
   };
 
   const isPlaying = () => {
@@ -80,14 +70,18 @@ function PianobarPage() {
     };
   }, [isPlayerOn(), isPlaying(), currentSong.songDuration, actions]);
   
+  // Log what song is being displayed in the UI
+  useEffect(() => {
+    if (currentSong.title && currentSong.artist) {
+      console.log('🎵 [SONG-DISPLAY] UI now showing:', currentSong.title, 'by', currentSong.artist);
+    }
+  }, [currentSong.title, currentSong.artist]);
+  
   // Check pianobar status when component mounts
   useEffect(() => {
-    console.log('🚀 PianobarPage mounted - initializing...');
-    
     // Force fresh state for mobile/tablets
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      console.log('📱 Mobile device detected - forcing fresh state');
       // Clear any potentially cached state
       actions.updatePianobarStatus({
         isRunning: null,
@@ -102,14 +96,12 @@ function PianobarPage() {
     // If WebSocket isn't connected after 2 seconds, refresh again
     setTimeout(() => {
       if (!wsConnected) {
-        console.log('⚠️ WebSocket not connected after 2s, refreshing state...');
         actions.refreshPianobar();
       }
     }, 2000);
     
     // Request current state from WebSocket when it connects
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log('📡 Requesting current state from WebSocket');
       wsRef.current.send(JSON.stringify({ type: 'GET_STATE' }));
     }
   }, []);
@@ -128,13 +120,11 @@ function PianobarPage() {
         websocket = new WebSocket(`ws://${window.location.hostname}:3001/api/pianobar/ws`);
         
         websocket.onopen = () => {
-          console.log('Pianobar WebSocket connected');
           setWsConnected(true);
           reconnectAttempts = 0; // Reset counter on successful connection
           
           // Immediately request current state
           websocket.send(JSON.stringify({ type: 'GET_STATE' }));
-          console.log('Requested current state from server');
           
           // Also refresh via API as backup
           actions.refreshPianobar();
@@ -143,18 +133,7 @@ function PianobarPage() {
         websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       
-      // ADD THIS COMPREHENSIVE LOGGING
-      console.log('=== WEBSOCKET MESSAGE RECEIVED ===');
-      console.log('Message type:', data.type);
-      console.log('Full message:', JSON.stringify(data));
-      console.log('================================');
-      
-      console.log('WebSocket message received:', data);
-      
       if (data.type === 'status') {
-        console.log('Status update received:', data.data);
-        console.log('>>> Processing status update, NOT STATE_UPDATE');
-        
         // Update player status
         actions.updatePianobarStatus({
           isRunning: data.data.isPianobarRunning || (data.data.status !== 'stopped'),
@@ -165,20 +144,8 @@ function PianobarPage() {
           }
         });
       } else if (data.type === 'event') {
-        console.log(`Event received: ${data.data.eventType}`, data.data);
-        
         if (data.data.eventType === 'songstart') {
-          console.log('SONG START EVENT with data:', {
-            title: data.data.title,
-            artist: data.data.artist,
-            album: data.data.album,
-            stationName: data.data.stationName,
-            songDuration: data.data.songDuration,
-            songPlayed: data.data.songPlayed,
-            rating: data.data.rating,
-            coverArt: data.data.coverArt,
-            detailUrl: data.data.detailUrl
-          });
+          console.log('🎵 [SONG-CHANGE] New song from WebSocket:', data.data.title, 'by', data.data.artist);
           
           // Update current song info in AppContext (persists across navigation)
           actions.updateCurrentSong({
@@ -190,7 +157,8 @@ function PianobarPage() {
             songPlayed: parseInt(data.data.songPlayed) || 0,
             rating: parseInt(data.data.rating) || 0,
             coverArt: data.data.coverArt || '',
-            detailUrl: data.data.detailUrl || ''
+            detailUrl: data.data.detailUrl || '',
+            lastSongStartTimestamp: Date.now() // Add timestamp for event ordering
           });
           
           // Also update in global state for consistency
@@ -204,39 +172,28 @@ function PianobarPage() {
             }
           });
         } else if (data.data.eventType === 'usergetstations' && data.data.stations) {
-          console.log('STATIONS LIST RECEIVED:', data.data.stations);
           // Update station list dynamically
           const stationList = parseStationList(data.data.stations);
           if (stationList && stationList.length > 0) {
-            console.log('Parsed station list:', stationList);
             actions.updatePianobarStations(stationList.map(station => station.name));
           }
         } else if (data.data.eventType === 'songlove') {
-          console.log('SONG LOVE EVENT received');
           // Update rating in AppContext
           actions.updateCurrentSong({ rating: 1 });
         } else if (data.data.eventType === 'songfinish') {
-          console.log('SONG FINISH EVENT received');
+          // Do NOT update UI state with songfinish events
+          // This prevents old song data from overriding current song information
         } else if (data.data.eventType === 'stationchange') {
-          console.log('STATION CHANGE EVENT received:', data.data.stationName);
+          // Station change handling
         }
       } else if (data.type === 'STATE_UPDATE') {
-        console.log('STATE_UPDATE received:', data.data);
-        
         // Check version to prevent out-of-order updates
         const newVersion = data.data.version || 0;
         const currentVersion = lastVersionRef.current;
         
-        console.log(`State update: v${currentVersion} -> v${newVersion}`);
-        
         if (newVersion > currentVersion) {
           // Accept this update
           lastVersionRef.current = newVersion;
-          console.log('State update ACCEPTED - updating both pianobar and currentSong state');
-          
-          // ADD DEBUGGING HERE
-          console.log('BEFORE update - pianobar state:', JSON.stringify(pianobar));
-          console.log('Update payload - isRunning:', data.data.player.isRunning);
           
           // Update pianobar state from server central state
           actions.updatePianobarStatus({
@@ -248,15 +205,14 @@ function PianobarPage() {
             }
           });
           
-          // ADD DEBUGGING HERE
-          console.log('AFTER updatePianobarStatus called');
-          // Note: The state might not update immediately due to React's async nature
-          setTimeout(() => {
-            console.log('AFTER update (delayed) - pianobar state:', JSON.stringify(pianobar));
-            console.log('isPlayerOn() result:', isPlayerOn());
-          }, 100);
-          
           // Update currentSong state from server central state
+          const songFromState = data.data.currentSong;
+          if (songFromState && (songFromState.title || songFromState.artist)) {
+            console.log('🎵 [SONG-CHANGE] Song from STATE_UPDATE:', songFromState.title, 'by', songFromState.artist);
+          }
+          
+          // 🚫👻 RACE CONDITION PROTECTION: Add timestamp to STATE_UPDATE song data
+          // This ensures updateCurrentSong can reject old data if a newer songstart event already arrived
           actions.updateCurrentSong({
             title: data.data.currentSong.title || '',
             artist: data.data.currentSong.artist || '',
@@ -266,35 +222,28 @@ function PianobarPage() {
             songPlayed: parseInt(data.data.currentSong.songPlayed) || 0,
             rating: parseInt(data.data.currentSong.rating) || 0,
             coverArt: data.data.currentSong.coverArt || '',
-            detailUrl: data.data.currentSong.detailUrl || ''
+            detailUrl: data.data.currentSong.detailUrl || '',
+            // Add timestamp from server data or current time (will be older than recent songstart events)
+            lastUpdated: data.data.timestamp || Date.now() - 1000 // Slightly older to prioritize songstart events
           });
-          
-          console.log('State update applied successfully');
-        } else {
-          console.log(`State update REJECTED - version ${newVersion} <= current ${currentVersion}`);
         }
       }
     };
     
         websocket.onclose = () => {
-          console.log('Pianobar WebSocket disconnected');
           setWsConnected(false);
           
           // Attempt to reconnect if we haven't exceeded max attempts
           if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
-            console.log(`Attempting WebSocket reconnection ${reconnectAttempts}/${maxReconnectAttempts} in ${reconnectDelay}ms`);
             
             reconnectTimer = setTimeout(() => {
               connectWebSocket();
             }, reconnectDelay);
-          } else {
-            console.log('Max WebSocket reconnection attempts reached. Falling back to polling.');
           }
         };
         
         websocket.onerror = (error) => {
-          console.error('WebSocket error:', error);
           setWsConnected(false);
         };
         
@@ -879,32 +828,13 @@ function PianobarPage() {
             {/* Turn On/Off Button */}
             {(() => {
             const playerOn = isPlayerOn();
-            console.log('🎛️ Button render decision:', {
-              'isPlayerOn()': playerOn,
-              'showing': playerOn ? 'Turn Off button' : 'Turn On button',
-              'handler': playerOn ? 'handleStopPlayer' : 'handleStartPlayer'
-            });
             
             // Determine button text based on current action or state
             const getButtonText = () => {
               if (buttonAction === 'starting') return 'Starting...';
               if (buttonAction === 'stopping') return 'Stopping...';
               if (buttonLocked) return buttonAction ? `${buttonAction}...` : 'Processing...';
-              const text = playerOn ? 'Turn Off' : 'Turn On';
-              
-              console.log('🎯 Button text decision:', {
-                'buttonAction': buttonAction,
-                'buttonLocked': buttonLocked,
-                'playerOn': playerOn,
-                'finalText': buttonAction ? `${buttonAction}...` : text
-              });
-              
-              return text;
-            };
-            
-            // Determine which handler to use (based on current state when clicked)
-            const getClickHandler = () => {
-              return playerOn ? handleStopPlayer : handleStartPlayer;
+              return playerOn ? 'Turn Off' : 'Turn On';
             };
             
             // Determine button color
@@ -918,14 +848,7 @@ function PianobarPage() {
             return (
               <button 
                 onClick={() => {
-                  console.log('🖱️ BUTTON CLICKED!');
                   const handler = playerOn ? handleStopPlayer : handleStartPlayer;
-                  console.log('🎮 BUTTON CLICK - Handler selected:', {
-                    playerOn,
-                    handlerName: playerOn ? 'handleStopPlayer' : 'handleStartPlayer',
-                    buttonLocked,
-                    showOperationMessage
-                  });
                   handler();
                 }}
                 className={`px-4 py-2 rounded text-white ${getButtonColor()}`}

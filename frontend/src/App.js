@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -10,6 +10,14 @@ import SettingsPage from './pages/SettingsPage';
 import { AppProvider } from './utils/AppContext';
 
 function App() {
+  // Clear stale cache on app initialization
+  useEffect(() => {
+    if (localStorage.getItem('pianobar_cache_version') !== '2.0') {
+      localStorage.clear();
+      localStorage.setItem('pianobar_cache_version', '2.0');
+      console.log('🚫👻 Cleared stale pianobar cache - cache version upgraded to 2.0');
+    }
+  }, []);
   return (
     <AppProvider>
       <Router>

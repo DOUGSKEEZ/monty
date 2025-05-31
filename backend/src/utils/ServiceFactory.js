@@ -18,14 +18,14 @@ const path = require('path');
 
 // Import interface definitions
 const IWeatherService = require('../interfaces/IWeatherService');
-const IMusicService = require('../interfaces/IMusicService');
+// const IMusicService = require('../interfaces/IMusicService'); // REMOVED: Legacy MusicService
 const IBluetoothService = require('../interfaces/IBluetoothService');
 const IPianobarService = require('../interfaces/IPianobarService');
 
 // Import service implementations
 const WeatherService = require('../services/WeatherService');
 const SchedulerService = require('../services/SchedulerService');
-const MusicService = require('../services/musicService.di');
+// const MusicService = require('../services/musicService.di'); // REMOVED: Legacy MusicService
 const BluetoothService = require('../services/BluetoothService');
 // Using new PianobarCommandInterface instead of old PianobarService
 const PianobarService = require('../services/PianobarService');
@@ -117,35 +117,9 @@ function createSchedulerService() {
 }
 
 /**
- * Create a properly configured Music Service
- * @returns {MusicService} - Configured music service
+ * Legacy MusicService removed - functionality replaced by PianobarService
+ * Use createActualPianobarService() instead
  */
-function createMusicService() {
-  if (!container.has('musicService')) {
-    // First ensure bluetooth service is registered
-    if (!container.has('bluetoothService')) {
-      createBluetoothService();
-    }
-    
-    // Register music service in container
-    container.register('musicService', MusicService, {
-      dependencies: [
-        'configManager',
-        'retryHelper',
-        'circuitBreaker',
-        'serviceRegistry',
-        'serviceWatchdog'
-      ],
-      lifecycle: Lifecycle.SINGLETON
-    });
-    
-    // Verify implementation against interface
-    const musicService = container.resolve('musicService');
-    IMusicService.verifyImplementation(musicService, 'MusicService');
-  }
-  
-  return container.resolve('musicService');
-}
 
 /**
  * Create a properly configured Bluetooth Service
@@ -195,7 +169,7 @@ function initializeContainer() {
   createWeatherService();
   createSchedulerService();
   createBluetoothService();
-  createMusicService();
+  // createMusicService(); // REMOVED: Legacy MusicService replaced by PianobarService
   
   return container;
 }
@@ -307,7 +281,7 @@ module.exports = {
   registerCoreDependencies,
   createWeatherService,
   createSchedulerService,
-  createMusicService,
+  // createMusicService, // REMOVED: Legacy MusicService
   createBluetoothService,
   createPianobarService,
   createActualPianobarService,

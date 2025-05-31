@@ -17,8 +17,17 @@ const IPianobarService = require('../interfaces/IPianobarService');
 const logger = require('../utils/logger').getModuleLogger('pianobar-service');
 const prometheusMetrics = require('./PrometheusMetricsService');
 
+// Singleton instance management
+let instance = null;
+
 class PianobarService extends IPianobarService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog) {
+    // Enforce singleton
+    if (instance) {
+      logger.warn('PianobarService instance already exists, returning existing instance');
+      return instance;
+    }
+    
     super();
     
     // Store dependencies
@@ -106,6 +115,9 @@ class PianobarService extends IPianobarService {
     
     // Set up status file watcher
     this.setupStatusFileWatcher();
+    
+    // Store the instance
+    instance = this;
   }
   
   /**
@@ -554,6 +566,46 @@ class PianobarService extends IPianobarService {
   }
   
   /**
+   * Check for existing pianobar processes and kill them if found
+   */
+  async checkForExistingProcesses() {
+    try {
+      const { stdout } = await execPromise('pgrep -f pianobar || echo ""', { timeout: 3000 });
+      const pids = stdout.trim().split('\n').filter(Boolean);
+      
+      if (pids.length > 0) {
+        logger.warn(`Found ${pids.length} existing pianobar processes: ${pids.join(', ')}`);
+        
+        // Kill all existing processes
+        for (const pid of pids) {
+          try {
+            await execPromise(`kill -9 ${pid}`, { timeout: 1000 });
+            logger.info(`Killed pianobar process ${pid}`);
+          } catch (killError) {
+            logger.debug(`Error killing process ${pid}: ${killError.message}`);
+          }
+        }
+        
+        // Wait for processes to die
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Verify they're gone
+        const { stdout: checkAfter } = await execPromise('pgrep -f pianobar || echo ""', { timeout: 3000 });
+        const remaining = checkAfter.trim().split('\n').filter(Boolean);
+        
+        if (remaining.length > 0) {
+          throw new Error(`Failed to kill all pianobar processes, ${remaining.length} still running`);
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error(`Error checking for existing processes: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Start pianobar
    */
   async startPianobar(silent = false) {
@@ -580,11 +632,14 @@ class PianobarService extends IPianobarService {
    */
   async _startPianobarImpl(silent = false) {
     try {
-      // Check if already running
+      // First check and kill any existing processes
+      await this.checkForExistingProcesses();
+      
+      // Check if already running (should be false after killing)
       const isRunning = await this.checkPianobarStatus(silent);
       if (isRunning) {
         if (!silent) {
-          logger.info('Pianobar is already running');
+          logger.warn('Pianobar is still running after cleanup attempt');
         }
         return {
           success: true,
@@ -1432,39 +1487,61 @@ class PianobarService extends IPianobarService {
    * Safely update central state with version increment
    */
   async updateCentralState(updates, source = 'unknown') {
+    console.log(`[DEBUG-STATE] updateCentralState called by: ${source}`);
+    console.log(`[DEBUG-STATE] Updates received:`, JSON.stringify(updates, null, 2));
+    console.log(`[DEBUG-STATE] Current state lock: ${this.stateLock}`);
+    
     // Wait for lock to be released
     while (this.stateLock) {
+      console.log(`[DEBUG-STATE] Waiting for state lock to be released...`);
       await new Promise(resolve => setTimeout(resolve, 10));
     }
     
     try {
       this.stateLock = true;
+      console.log(`[DEBUG-STATE] State lock acquired`);
       
       const oldVersion = this.centralState.version;
+      console.log(`[DEBUG-STATE] Current version: ${oldVersion}`);
+      
+      // Log current song before update
+      console.log(`[DEBUG-STATE] Current song before update:`, JSON.stringify(this.centralState.currentSong, null, 2));
       
       // Deep merge updates into central state
       if (updates.player) {
         this.centralState.player = { ...this.centralState.player, ...updates.player };
+        console.log(`[DEBUG-STATE] Player state updated:`, JSON.stringify(this.centralState.player, null, 2));
       }
       if (updates.currentSong) {
         this.centralState.currentSong = { ...this.centralState.currentSong, ...updates.currentSong };
+        console.log(`[DEBUG-STATE] Current song updated:`, JSON.stringify(this.centralState.currentSong, null, 2));
       }
       if (updates.stations) {
         this.centralState.stations = [...updates.stations];
+        console.log(`[DEBUG-STATE] Stations updated: ${updates.stations.length} stations`);
       }
       
       // Increment version and update timestamp
       this.centralState.version = oldVersion + 1;
       this.centralState.timestamp = Date.now();
       
+      console.log(`[DEBUG-STATE] State version incremented: v${oldVersion} -> v${this.centralState.version}`);
       logger.debug(`Central state updated by ${source}: v${oldVersion} -> v${this.centralState.version}`);
       
       // Persist state to file
-      await this.persistState();
+      console.log(`[DEBUG-STATE] About to persist state to file...`);
+      const persistResult = await this.persistState();
+      console.log(`[DEBUG-STATE] State persist result: ${persistResult}`);
       
+      console.log(`[DEBUG-STATE] Central state update completed successfully`);
       return this.centralState.version;
+    } catch (error) {
+      console.error(`[DEBUG-STATE] ERROR in updateCentralState: ${error.message}`);
+      console.error(`[DEBUG-STATE] Error stack: ${error.stack}`);
+      throw error;
     } finally {
       this.stateLock = false;
+      console.log(`[DEBUG-STATE] State lock released`);
     }
   }
   
@@ -1594,4 +1671,5 @@ class PianobarService extends IPianobarService {
   }
 }
 
+// Export the class directly
 module.exports = PianobarService;

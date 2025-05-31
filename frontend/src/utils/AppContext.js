@@ -73,7 +73,12 @@ export const AppProvider = ({ children }) => {
       const stored = localStorage.getItem('monty_currentSong');
       if (stored) {
         const parsed = JSON.parse(stored);
-        console.log('🎵 Loaded currentSong from localStorage:', parsed);
+        // 🟡 [CACHE-DATA] Log localStorage data load
+        console.log('🟡 [CACHE-DATA]', { 
+          source: 'localStorage', 
+          data: parsed, 
+          timestamp: Date.now() 
+        });
         return parsed;
       }
     } catch (error) {
@@ -90,7 +95,8 @@ export const AppProvider = ({ children }) => {
       songDuration: 0,
       songPlayed: 0,
       coverArt: '',
-      detailUrl: ''
+      detailUrl: '',
+      lastSongStartTimestamp: 0
     };
   });
 
@@ -118,7 +124,7 @@ export const AppProvider = ({ children }) => {
       loadMusicData(false);
       loadPianobarData(false);
       // Bluetooth status is refreshed separately
-    }, 600000); // Refresh every 10 minutes (saves API calls)
+    }, 10000); // Refresh every 10 seconds (WebSocket priority system prevents race conditions)
     
     // Set up background state sync every 30 seconds
     const syncInterval = setInterval(() => {
@@ -290,13 +296,58 @@ export const AppProvider = ({ children }) => {
       
       const statusData = statusRes.data || {};
       
-      setPianobar({
-        status: statusData,
-        stations: stationsRes.data?.stations || [],
-        isRunning: statusData.isPianobarRunning || false,
-        isPlaying: statusData.isPlaying || false,
-        loading: false,
-        error: null,
+      // 🚫👻 RACE CONDITION FIX: Don't overwrite recent WebSocket data
+      setPianobar(prev => {
+        const now = Date.now();
+        const hasRecentWebSocketUpdate = prev.lastWebSocketUpdate && (now - prev.lastWebSocketUpdate < 10000); // 10 seconds
+        
+        // 🔴 [API-DATA] Log API data arrival
+        console.log('🔴 [API-DATA]', { 
+          source: 'API', 
+          data: statusData, 
+          timestamp: now,
+          hasRecentWebSocket: hasRecentWebSocketUpdate,
+          showLoading: showLoading
+        });
+        
+        if (hasRecentWebSocketUpdate && !showLoading) {
+          console.log('🔒 [DECISION] Using WebSocket data, skipping API - recent WebSocket update exists');
+          
+          // 🚫👻 BUG FIX: Simply preserve the current pianobar state that WebSocket already set
+          // Don't mix in currentSong state as it may contain stale localStorage data
+          const preservedState = {
+            ...prev,
+            // Only update stations since they don't come from WebSocket frequently  
+            stations: stationsRes.data?.stations || prev.stations,
+            loading: false,
+            error: null,
+          };
+          console.log('🟢 [STATE-UPDATE]', { 
+            source: 'API-preserve-WebSocket', 
+            oldData: prev, 
+            newData: preservedState, 
+            timestamp: now 
+          });
+          return preservedState;
+        }
+        
+        console.log('📡 [DECISION] Using API data, no recent WebSocket updates');
+        const newApiState = {
+          status: statusData,
+          stations: stationsRes.data?.stations || [],
+          isRunning: statusData.isPianobarRunning || false,
+          isPlaying: statusData.isPlaying || false,
+          loading: false,
+          error: null,
+          lastApiUpdate: now,
+        };
+        console.log('🟢 [STATE-UPDATE]', { 
+          source: 'API-overwrite', 
+          oldData: prev, 
+          newData: newApiState, 
+          timestamp: now 
+        });
+        return newApiState;
       });
     } catch (error) {
       if (!isSilent) {
@@ -898,12 +949,33 @@ export const AppProvider = ({ children }) => {
 
   // Update pianobar status directly from WebSocket
   const updatePianobarStatus = (newStatusData) => {
-    setPianobar(prev => ({
-      ...prev,
-      ...newStatusData,
-      loading: false,
-      error: null
-    }));
+    const now = Date.now();
+    
+    // 🔵 [WS-DATA] Log WebSocket data arrival
+    console.log('🔵 [WS-DATA]', { 
+      source: 'WebSocket', 
+      data: newStatusData, 
+      timestamp: now 
+    });
+    
+    setPianobar(prev => {
+      const newWebSocketState = {
+        ...prev,
+        ...newStatusData,
+        loading: false,
+        error: null,
+        lastWebSocketUpdate: now // 🚫👻 RACE CONDITION FIX: Mark WebSocket update time
+      };
+      
+      console.log('🟢 [STATE-UPDATE]', { 
+        source: 'WebSocket-update', 
+        oldData: prev, 
+        newData: newWebSocketState, 
+        timestamp: now 
+      });
+      
+      return newWebSocketState;
+    });
   };
   
   // Update pianobar stations list directly
@@ -918,10 +990,52 @@ export const AppProvider = ({ children }) => {
 
   // Update current song data from WebSocket events with persistence
   const updateCurrentSong = (songData) => {
+    // Add timestamp to incoming data if not present
+    const incomingTimestamp = songData.lastUpdated || Date.now();
+    
+    // 🚫🔄 RACE CONDITION PROTECTION: Prevent old data from overwriting new data
+    if (currentSong.lastUpdated && incomingTimestamp < currentSong.lastUpdated) {
+      console.log('🛡️ [RACE-PROTECTION] Ignoring older song data update', {
+        incomingTimestamp,
+        currentTimestamp: currentSong.lastUpdated,
+        incomingData: songData,
+        reason: 'Older timestamp - race condition protection'
+      });
+      return; // Don't update with older data
+    }
+    
+    // Event ordering protection: prevent old songfinish data from overriding recent songstart data
+    if (songData.lastSongStartTimestamp && currentSong.lastSongStartTimestamp) {
+      // If this update has a songstart timestamp that's older than our current one, ignore it
+      if (songData.lastSongStartTimestamp < currentSong.lastSongStartTimestamp) {
+        console.log('🛡️ [EVENT-ORDERING] Ignoring older song data update', {
+          incomingTimestamp: songData.lastSongStartTimestamp,
+          currentTimestamp: currentSong.lastSongStartTimestamp,
+          reason: 'Older songstart timestamp'
+        });
+        return; // Don't update with older data
+      }
+    }
+    
+    // 🚫⏱️ PROGRESS UPDATE PROTECTION: Special handling for progress-only updates
+    if (Object.keys(songData).length === 1 && songData.songPlayed !== undefined) {
+      // This is just a progress update - only update songPlayed without spreading old data
+      const progressOnlyUpdate = {
+        ...currentSong,
+        songPlayed: songData.songPlayed,
+        lastUpdated: Math.max(incomingTimestamp, Date.now())
+      };
+      setCurrentSong(progressOnlyUpdate);
+      
+      // Don't save progress-only updates to localStorage (too frequent)
+      console.log('🎶 [PROGRESS-UPDATE] Updated songPlayed to:', songData.songPlayed);
+      return;
+    }
+    
     const newSongData = {
       ...currentSong,
       ...songData,
-      lastUpdated: Date.now()
+      lastUpdated: Math.max(incomingTimestamp, Date.now()) // Ensure timestamp always moves forward
     };
     
     setCurrentSong(newSongData);
@@ -929,7 +1043,12 @@ export const AppProvider = ({ children }) => {
     // Persist to localStorage immediately
     try {
       localStorage.setItem('monty_currentSong', JSON.stringify(newSongData));
-      console.log('💾 Saved currentSong to localStorage:', newSongData);
+      // 🟡 [CACHE-DATA] Log localStorage data save
+      console.log('🟡 [CACHE-DATA]', { 
+        source: 'localStorage-save', 
+        data: newSongData, 
+        timestamp: Date.now() 
+      });
     } catch (error) {
       console.warn('Failed to save currentSong to localStorage:', error);
     }
@@ -952,6 +1071,7 @@ export const AppProvider = ({ children }) => {
       songPlayed: 0,
       coverArt: '',
       detailUrl: '',
+      lastSongStartTimestamp: 0,
       lastUpdated: Date.now()
     };
     

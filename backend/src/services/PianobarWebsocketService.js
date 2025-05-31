@@ -289,10 +289,15 @@ class PianobarWebsocketService {
     
     switch (eventData.eventType) {
       case 'songstart':
+        console.log(`[DEBUG-WS] songstart event received: ${eventData.title} by ${eventData.artist}`);
+        console.log(`[DEBUG-WS] pianobarService exists: ${!!this.pianobarService}`);
+        console.log(`[DEBUG-WS] pianobarService type: ${typeof this.pianobarService}`);
+        
         logger.info(`Now playing: ${eventData.artist} - ${eventData.title}`);
         
         // Update central state if PianobarService is available
         if (this.pianobarService) {
+          console.log(`[DEBUG-WS] About to update central state...`);
           this.pianobarService.updateCentralState({
             player: {
               isRunning: true,
@@ -310,12 +315,17 @@ class PianobarWebsocketService {
               coverArt: eventData.coverArt || null,
               detailUrl: eventData.detailUrl || null
             }
-          }, 'websocket-songstart').then(() => {
-            // Broadcast state update after central state is updated
+          }, 'websocket-songstart').then((version) => {
+            console.log(`[DEBUG-WS] Central state updated successfully to version: ${version}`);
             this.broadcastStateUpdate();
+            console.log(`[DEBUG-WS] State update broadcasted`);
           }).catch(err => {
-            logger.error(`Error updating central state in songstart: ${err.message}`);
+            console.error(`[DEBUG-WS] Central state update FAILED: ${err.message}`);
+            console.error(`[DEBUG-WS] Error stack: ${err.stack}`);
           });
+        } else {
+          console.error(`[DEBUG-WS] CRITICAL: No pianobarService reference - cannot update central state!`);
+          console.error(`[DEBUG-WS] this.pianobarService = ${this.pianobarService}`);
         }
         
         // Keep legacy currentStatus update for backward compatibility

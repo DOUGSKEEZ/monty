@@ -1,0 +1,253 @@
+🟢 handleStartPlayer called - STARTING pianobar PianobarPage.js:487
+Player state before start: 
+Object { "pianobar.isRunning": false, "isPlayerOn()": false }
+PianobarPage.js:488
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726308814 }
+AppContext.js:955
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726308814 }
+AppContext.js:970
+🎵 [SONG-CHANGE] Song from STATE_UPDATE: Life After You by Daughtry PianobarPage.js:211
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726308815 }
+​
+data: Object { title: "Life After You", artist: "Daughtry", album: "Leave This Town", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726308815
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726308814 }
+AppContext.js:970
+Pianobar started successfully PianobarPage.js:500
+🔴 [API-DATA] 
+Object { source: "API", data: {…}, timestamp: 1748726308870, hasRecentWebSocket: true, showLoading: false }
+AppContext.js:305
+🔒 [DECISION] Using WebSocket data, skipping API - recent WebSocket update exists AppContext.js:314
+🟢 [STATE-UPDATE] 
+Object { source: "API-preserve-WebSocket", oldData: {…}, newData: {…}, timestamp: 1748726308870 }
+AppContext.js:325
+🔴 [API-DATA] 
+Object { source: "API", data: {…}, timestamp: 1748726308872, hasRecentWebSocket: true, showLoading: false }
+AppContext.js:305
+🔒 [DECISION] Using WebSocket data, skipping API - recent WebSocket update exists AppContext.js:314
+🟢 [STATE-UPDATE] 
+Object { source: "API-preserve-WebSocket", oldData: {…}, newData: {…}, timestamp: 1748726308872 }
+AppContext.js:325
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726309133 }
+AppContext.js:955
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726309133 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726309133 }
+AppContext.js:970
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726309136 }
+AppContext.js:955
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726309136 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726309136 }
+AppContext.js:970
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726309819 }
+​
+data: Object { title: "Santeria", artist: "Sublime", album: "Sublime (10th Anniversary Edition / Deluxe Edition)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726309819
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🎵 [SONG-DISPLAY] UI now showing: Santeria by Sublime PianobarPage.js:76
+Making API request to: http://192.168.0.15:3001/api/pianobar/status api.js:18
+Making API request to: http://192.168.0.15:3001/api/pianobar/stations api.js:18
+Received response from http://192.168.0.15:3001/api/pianobar/stations: 200 api.js:30
+Received response from http://192.168.0.15:3001/api/pianobar/status: 200 api.js:30
+🔴 [API-DATA] 
+Object { source: "API", data: {…}, timestamp: 1748726309939, hasRecentWebSocket: true, showLoading: true }
+AppContext.js:305
+📡 [DECISION] Using API data, no recent WebSocket updates AppContext.js:334
+🟢 [STATE-UPDATE] 
+Object { source: "API-overwrite", oldData: {…}, newData: {…}, timestamp: 1748726309939 }
+AppContext.js:344
+🔴 [API-DATA] 
+Object { source: "API", data: {…}, timestamp: 1748726309939, hasRecentWebSocket: true, showLoading: true }
+AppContext.js:305
+📡 [DECISION] Using API data, no recent WebSocket updates AppContext.js:334
+🟢 [STATE-UPDATE] 
+Object { source: "API-overwrite", oldData: {…}, newData: {…}, timestamp: 1748726309939 }
+AppContext.js:344
+🎵 [SONG-CHANGE] New song from WebSocket: Breakdown by Seether PianobarPage.js:148
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726310164 }
+​
+data: Object { title: "Breakdown", artist: "Seether", album: "Finding Beauty In Negative Spaces (Bonus Track Version)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726310164
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726310164 }
+AppContext.js:955
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726310164 }
+AppContext.js:955
+🎵 [SONG-CHANGE] Song from STATE_UPDATE: Breakdown by Seether PianobarPage.js:211
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726310165 }
+​
+data: Object { title: "Breakdown", artist: "Seether", album: "Finding Beauty In Negative Spaces (Bonus Track Version)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726310165
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🎵 [SONG-CHANGE] New song from WebSocket: Breakdown by Seether PianobarPage.js:148
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726310165 }
+​
+data: Object { title: "Breakdown", artist: "Seether", album: "Finding Beauty In Negative Spaces (Bonus Track Version)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726310165
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726310165 }
+AppContext.js:955
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310164 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310164 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310164 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310164 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310165 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310165 }
+AppContext.js:970
+🎵 [SONG-DISPLAY] UI now showing: Breakdown by Seether PianobarPage.js:76
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726310466 }
+AppContext.js:955
+🔵 [WS-DATA] 
+Object { source: "WebSocket", data: {…}, timestamp: 1748726310467 }
+AppContext.js:955
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310466 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310466 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310467 }
+AppContext.js:970
+🟢 [STATE-UPDATE] 
+Object { source: "WebSocket-update", oldData: {…}, newData: {…}, timestamp: 1748726310467 }
+AppContext.js:970
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726311168 }
+​
+data: Object { title: "Santeria", artist: "Sublime", album: "Sublime (10th Anniversary Edition / Deluxe Edition)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726311168
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🎵 [SONG-DISPLAY] UI now showing: Santeria by Sublime PianobarPage.js:76
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726312172 }
+​
+data: Object { title: "Santeria", artist: "Sublime", album: "Sublime (10th Anniversary Edition / Deluxe Edition)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726312172
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726313171 }
+​
+data: Object { title: "Santeria", artist: "Sublime", album: "Sublime (10th Anniversary Edition / Deluxe Edition)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726313171
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726314173 }
+​
+data: Object { title: "Santeria", artist: "Sublime", album: "Sublime (10th Anniversary Edition / Deluxe Edition)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726314173
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726315172 }
+​
+data: Object { title: "Santeria", artist: "Sublime", album: "Sublime (10th Anniversary Edition / Deluxe Edition)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726315172
+​
+<prototype>: Object { … }
+AppContext.js:1032
+🟡 [CACHE-DATA] 
+Object { source: "localStorage-save", data: {…}, timestamp: 1748726316173 }
+​
+data: Object { title: "Santeria", artist: "Sublime", album: "Sublime (10th Anniversary Edition / Deluxe Edition)", … }
+​
+source: "localStorage-save"
+​
+timestamp: 1748726316173
+​
+<prototype>: Object { … }
+AppContext.js:1032
+Making API request to: http://192.168.0.15:3001/api/state api.js:18
+Received response from http://192.168.0.15:3001/api/state: 200 api.js:30
+⬆️ Synced state to backend: 
+Object { success: true, updates: {…}, lastUpdated: 1748726316527 }
+AppContext.js:1106
+Making API request to: http://192.168.0.15:3001/api/weather/current api.js:18
+Making API request to: http://192.168.0.15:3001/api/weather/forecast api.js:18
+Making API request to: http://192.168.0.15:3001/api/weather/sun-times api.js:18
+Making API request to: http://192.168.0.15:3001/api/weather/temperatures api.js:18
+Making API request to: http://192.168.0.15:3001/api/scheduler/config api.js:18
+Making API request to: http://192.168.0.15:3001/api/scheduler/wake-up/status api.js:18
+Making API request to: http://192.168.0.15:3001/api/scheduler/status api.js:18
+Making API request to: http://192.168.0.15:3001/api/pianobar/next api.js:18
+Received response from http://192.168.0.15:3001/api/weather/current: 200 api.js:30
+Received response from http://192.168.0.15:3001/api/weather/forecast: 200 api.js:30
+Received response from http://192.168.0.15:3001/api/weather/sun-times: 200 api.js:30

@@ -126,9 +126,36 @@ app.get('/metrics', prometheusMetrics.getMetricsHandler());
 
 // Initialize ServiceFactory container before loading routes
 console.log('[DEBUG] Initializing ServiceFactory...');
-const { initializeContainer, createSchedulerService } = require('./utils/ServiceFactory');
+const { initializeContainer, createSchedulerService, createActualPianobarService } = require('./utils/ServiceFactory');
 initializeContainer();
 console.log('[DEBUG] ServiceFactory initialized');
+
+// CRITICAL: Create and register PianobarService BEFORE WebSocket initialization
+console.log('[DEBUG] Creating PianobarService at startup...');
+try {
+  const pianobarService = createActualPianobarService();
+  
+  // Initialize the service
+  pianobarService.initialize()
+    .then(result => {
+      if (result.success) {
+        console.log('[DEBUG] ✅ PianobarService initialized successfully at startup');
+        logger.info('PianobarService created and initialized at server startup');
+      } else {
+        console.log('[DEBUG] ⚠️ PianobarService initialization warning:', result.message);
+        logger.warn(`PianobarService initialization warning: ${result.message}`);
+      }
+    })
+    .catch(err => {
+      console.error('[DEBUG] ❌ PianobarService initialization failed:', err.message);
+      logger.error(`PianobarService initialization failed: ${err.message}`);
+    });
+    
+  console.log('[DEBUG] ✅ PianobarService created and registered in ServiceRegistry');
+} catch (error) {
+  console.error('[DEBUG] ❌ Error creating PianobarService at startup:', error.message);
+  logger.error(`Error creating PianobarService at startup: ${error.message}`);
+}
 
 // Initialize SchedulerService explicitly after server starts
 console.log('[DEBUG] SchedulerService initialization will be triggered after server startup...');
@@ -150,9 +177,9 @@ console.log('[DEBUG] About to require schedulerRoutes...');
 const schedulerRoutes = require('./routes/scheduler');
 console.log('[DEBUG] schedulerRoutes imported');
 
-console.log('[DEBUG] About to require musicRoutes...');
-const musicRoutes = require('./routes/music');
-console.log('[DEBUG] musicRoutes imported');
+// console.log('[DEBUG] About to require musicRoutes...');
+// const musicRoutes = require('./routes/music'); // REMOVED: Legacy music service replaced by PianobarService
+// console.log('[DEBUG] musicRoutes imported');
 
 console.log('[DEBUG] About to require bluetoothRoutes...');
 const bluetoothRoutes = require('./routes/bluetooth');
@@ -724,7 +751,7 @@ serviceRegistry.register('scheduler-service', {
   }
 });
 
-// Note: MusicService is now registered through the DI container in ServiceFactory.js
+// Note: Legacy MusicService removed - PianobarService handles music functionality
 
 serviceRegistry.register('shade-service', {
   isCore: false,
@@ -894,7 +921,7 @@ app.use('/api/config', configRoutes);
 // app.use('/api/shades', shadeRoutes); // Removed - React calls ShadeCommander directly
 app.use('/api/weather', weatherRoutes);
 app.use('/api/scheduler', schedulerRoutes);
-app.use('/api/music', musicRoutes);
+// app.use('/api/music', musicRoutes); // Removed - Legacy music service now Pianobar is the music service
 app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);
 app.use('/api/state', stateRoutes);

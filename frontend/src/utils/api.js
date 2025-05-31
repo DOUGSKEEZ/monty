@@ -295,95 +295,98 @@ export const bluetoothApi = {
     fetchApi('/bluetooth/diagnostics'),
 };
 
-// Music API endpoints
+// Music API endpoints (redirected to pianobar for compatibility)
 export const musicApi = {
   /**
-   * Get music player status
+   * Get music player status (redirected to pianobar)
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Music status
    */
   getStatus: (silent = false) => 
-    fetchApi(`/music/status${silent ? '?silent=true' : ''}`, {}, silent),
+    fetchApi(`/pianobar/status${silent ? '?silent=true' : ''}`, {}, silent),
   
   /**
-   * Get available stations
+   * Get available stations (redirected to pianobar)
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Stations list
    */
   getStations: (silent = false) => 
-    fetchApi(`/music/stations${silent ? '?silent=true' : ''}`, {}, silent),
+    fetchApi(`/pianobar/stations${silent ? '?silent=true' : ''}`, {}, silent),
   
   /**
-   * Control the music player with unified endpoint
-   * @param {string} action - Action to perform (start, stop, command, connectBluetooth, disconnectBluetooth)
+   * Control the music player with unified endpoint (mapped to pianobar actions)
+   * @param {string} action - Action to perform (start, stop, play, pause, next, etc.)
    * @param {Object} options - Additional options for the action
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
-  controlMusic: (action, options = {}, silent = false) => 
-    fetchApi(`/music/control${silent ? '?silent=true' : ''}`, {
-      method: 'POST',
-      body: JSON.stringify({ 
-        action, 
-        options,
-        silent
-      }),
-    }, silent),
+  controlMusic: (action, options = {}, silent = false) => {
+    // Map legacy actions to pianobar endpoints
+    switch(action) {
+      case 'start':
+        return fetchApi('/pianobar/start', { method: 'POST' }, silent);
+      case 'stop':
+        return fetchApi('/pianobar/stop', { method: 'POST' }, silent);
+      case 'play':
+        return fetchApi('/pianobar/play', { method: 'POST' }, silent);
+      case 'pause':
+        return fetchApi('/pianobar/pause', { method: 'POST' }, silent);
+      case 'next':
+        return fetchApi('/pianobar/next', { method: 'POST' }, silent);
+      case 'love':
+        return fetchApi('/pianobar/love', { method: 'POST' }, silent);
+      default:
+        return fetchApi('/pianobar/command', {
+          method: 'POST',
+          body: JSON.stringify({ command: action }),
+        }, silent);
+    }
+  },
   
-  // Legacy methods - use controlMusic instead
+  // Legacy methods - redirected to pianobar for compatibility
   /**
-   * Start music player (legacy method - use controlMusic instead)
+   * Start music player (legacy method - redirected to pianobar)
    * @param {boolean} connectBluetooth - Whether to connect to Bluetooth first
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
   startPlayer: (connectBluetooth = true, silent = false) => 
-    fetchApi(`/music/start${silent ? '?silent=true' : ''}`, {
-      method: 'POST',
-      body: JSON.stringify({ connectBluetooth, silent }),
-    }, silent),
+    fetchApi('/pianobar/start', { method: 'POST' }, silent),
   
   /**
-   * Stop music player (legacy method - use controlMusic instead)
+   * Stop music player (legacy method - redirected to pianobar)
    * @param {boolean} disconnectBluetooth - Whether to disconnect Bluetooth after
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
   stopPlayer: (disconnectBluetooth = true, silent = false) => 
-    fetchApi('/music/stop', {
-      method: 'POST',
-      body: JSON.stringify({ disconnectBluetooth, silent }),
-    }, silent),
+    fetchApi('/pianobar/stop', { method: 'POST' }, silent),
   
   /**
-   * Send control command to music player (legacy method - use controlMusic instead)
+   * Send control command to music player (legacy method - redirected to pianobar)
    * @param {string} command - Control command
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
   sendCommand: (command, silent = false) => 
-    fetchApi(`/music/control${silent ? '?silent=true' : ''}`, {
+    fetchApi('/pianobar/command', {
       method: 'POST',
-      body: JSON.stringify({ command, silent }),
+      body: JSON.stringify({ command }),
     }, silent),
   
   /**
-   * Connect to Bluetooth speaker (legacy method - use controlMusic instead)
+   * Connect to Bluetooth speaker (legacy method - use bluetoothApi instead)
    * @returns {Promise<Object>} - Result
    */
   connectBluetooth: () => 
-    fetchApi('/music/bluetooth/connect', {
-      method: 'POST',
-    }),
+    fetchApi('/bluetooth/connect', { method: 'POST' }),
   
   /**
-   * Disconnect from Bluetooth speaker (legacy method - use controlMusic instead)
+   * Disconnect from Bluetooth speaker (legacy method - use bluetoothApi instead)
    * @returns {Promise<Object>} - Result
    */
   disconnectBluetooth: () => 
-    fetchApi('/music/bluetooth/disconnect', {
-      method: 'POST',
-    }),
+    fetchApi('/bluetooth/disconnect', { method: 'POST' }),
 };
 
 // Pianobar API endpoints
