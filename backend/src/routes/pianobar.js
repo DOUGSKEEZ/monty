@@ -290,20 +290,53 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// Get central state from PianobarService
+// Get simplified state (combines status and sync state)
 router.get('/state', async (req, res) => {
   try {
-    const pianobarService = getActualPianobarService();
-    const state = pianobarService.getState();
+    // Get status from status endpoint data
+    let statusData = {
+      status: 'stopped',
+      isPianobarRunning: false,
+      isPlaying: false
+    };
     
-    logger.debug(`Central state retrieved: version ${state.version}`);
+    if (fs.existsSync(statusFilePath)) {
+      try {
+        statusData = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'));
+      } catch (parseError) {
+        logger.warn(`Error parsing status file: ${parseError.message}`);
+      }
+    }
+    
+    // Combine with shared state for cross-device info
+    const combinedState = {
+      version: 1,
+      timestamp: Date.now(),
+      player: {
+        isRunning: statusData.isPianobarRunning || false,
+        isPlaying: statusData.isPlaying || false,
+        status: statusData.status || 'stopped'
+      },
+      currentSong: {
+        title: sharedState.track.title || null,
+        artist: sharedState.track.artist || null,
+        album: sharedState.track.album || null,
+        stationName: sharedState.track.stationName || null,
+        songDuration: sharedState.track.songDuration || null,
+        songPlayed: sharedState.track.songPlayed || null,
+        rating: sharedState.track.rating || null,
+        coverArt: sharedState.track.coverArt || null,
+        detailUrl: sharedState.track.detailUrl || null
+      },
+      stations: []
+    };
     
     res.json({
       success: true,
-      data: state
+      data: combinedState
     });
   } catch (error) {
-    logger.error(`Error getting central state: ${error.message}`);
+    logger.error(`Error getting simplified state: ${error.message}`);
     
     // Return default state on error
     res.status(200).json({
@@ -906,6 +939,70 @@ router.get('/debug-logs', async (req, res) => {
       success: false, 
       error: error.message 
     });
+  }
+});
+
+// Simple state management for cross-device sync
+let sharedState = {
+  shared: {
+    isRunning: false,
+    isPlaying: false,
+    currentStation: '',
+    bluetoothConnected: false
+  },
+  track: {
+    title: '',
+    artist: '',
+    album: '',
+    stationName: '',
+    songDuration: 0,
+    songPlayed: 0,
+    rating: 0,
+    coverArt: '',
+    detailUrl: ''
+  },
+  lastUpdated: Date.now()
+};
+
+// GET shared state for cross-device sync
+router.get('/sync-state', (req, res) => {
+  try {
+    res.json({
+      success: true,
+      state: sharedState,
+      timestamp: Date.now()
+    });
+  } catch (error) {
+    logger.error(`Error getting shared state: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST update shared state for cross-device sync
+router.post('/sync-state', (req, res) => {
+  try {
+    const { shared, track } = req.body;
+    
+    if (shared) {
+      sharedState.shared = { ...sharedState.shared, ...shared };
+      logger.debug('Updated shared state:', shared);
+    }
+    
+    if (track) {
+      sharedState.track = { ...sharedState.track, ...track };
+      logger.debug('Updated track info:', track.title || 'no title');
+    }
+    
+    sharedState.lastUpdated = Date.now();
+    
+    res.json({
+      success: true,
+      state: sharedState,
+      timestamp: sharedState.lastUpdated
+    });
+  } catch (error) {
+    logger.error(`Error updating shared state: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

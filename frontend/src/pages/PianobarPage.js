@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../utils/AppContext';
 
 function PianobarPage() {
@@ -15,17 +15,35 @@ function PianobarPage() {
   // Love animation state
   const [isAnimatingLove, setIsAnimatingLove] = useState(false);
   
-  // Simple track info state (no more dual state management)
-  const [trackInfo, setTrackInfo] = useState({
-    title: '',
-    artist: '',
-    album: '',
-    stationName: '',
-    songDuration: 0,
-    songPlayed: 0,
-    rating: 0,
-    coverArt: '',
-    detailUrl: ''
+  // Simple track info state with localStorage persistence
+  const [trackInfo, setTrackInfo] = useState(() => {
+    try {
+      const stored = localStorage.getItem('monty_trackInfo');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load trackInfo from localStorage:', error);
+    }
+    return {
+      title: '',
+      artist: '',
+      album: '',
+      stationName: '',
+      songDuration: 0,
+      songPlayed: 0,
+      rating: 0,
+      coverArt: '',
+      detailUrl: ''
+    };
+  });
+  
+  // Shared state for cross-device sync (lean!)
+  const [sharedState, setSharedState] = useState({
+    isRunning: false,
+    isPlaying: false,
+    currentStation: '',
+    bluetoothConnected: false
   });
   
   // WebSocket state
@@ -40,12 +58,76 @@ function PianobarPage() {
 
   // Helper functions (moved to top to avoid hoisting issues)
   const isPlayerOn = () => {
-    return pianobar.isRunning;
+    return pianobar.isRunning || sharedState.isRunning;
   };
 
   const isPlaying = () => {
-    return isPlayerOn() && pianobar.isPlaying;
+    return (isPlayerOn() && pianobar.isPlaying) || sharedState.isPlaying;
   };
+  
+  // Sync functions for cross-device state
+  const loadSharedState = async () => {
+    try {
+      const response = await fetch('/api/pianobar/sync-state');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSharedState(data.state.shared);
+          setTrackInfo(data.state.track);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load shared state:', error);
+    }
+  };
+  
+  const syncSharedState = async () => {
+    try {
+      const currentState = {
+        isRunning: pianobar.isRunning,
+        isPlaying: pianobar.isPlaying,
+        currentStation: selectedStation,
+        bluetoothConnected: bluetooth.isConnected
+      };
+      
+      await fetch('/api/pianobar/sync-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shared: currentState })
+      });
+    } catch (error) {
+      console.warn('Failed to sync shared state:', error);
+    }
+  };
+  
+  const syncTrackInfo = async (trackData) => {
+    try {
+      await fetch('/api/pianobar/sync-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track: trackData })
+      });
+    } catch (error) {
+      console.warn('Failed to sync track info:', error);
+    }
+  };
+  
+  // Debounced sync to prevent spam
+  const debouncedSyncSharedState = useMemo(() => {
+    let timeout;
+    return (state) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => syncSharedState(), 2000);
+    };
+  }, []);
+  
+  const debouncedSyncTrackInfo = useMemo(() => {
+    let timeout;
+    return (trackData) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => syncTrackInfo(trackData), 1000);
+    };
+  }, []);
 
   // Format time in MM:SS format
   const formatTime = (seconds) => {
@@ -81,10 +163,29 @@ function PianobarPage() {
     };
   }, [isPlayerOn(), isPlaying(), trackInfo.songDuration]);
   
-  // Check pianobar status when component mounts
+  // Persist trackInfo to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('monty_trackInfo', JSON.stringify(trackInfo));
+    } catch (error) {
+      console.warn('Failed to save trackInfo to localStorage:', error);
+    }
+  }, [trackInfo]);
+  
+  // Load shared state on mount and set up sync
   useEffect(() => {
     // Initial status check
     actions.refreshPianobar();
+    
+    // Load shared state from backend
+    loadSharedState();
+    
+    // Set up periodic sync every 10 seconds
+    const syncInterval = setInterval(() => {
+      syncSharedState();
+    }, 10000);
+    
+    return () => clearInterval(syncInterval);
   }, []);
   
   // Setup WebSocket connection for real-time updates
@@ -109,18 +210,31 @@ function PianobarPage() {
           
           // Only handle simple status updates
           if (data.type === 'status') {
-            actions.updatePianobarStatus({
+            const newSharedState = {
               isRunning: data.data.isPianobarRunning || (data.data.status !== 'stopped'),
               isPlaying: data.data.status === 'playing',
+              currentStation: pianobar.status?.stationId || '',
+              bluetoothConnected: bluetooth.isConnected
+            };
+            
+            setSharedState(newSharedState);
+            
+            // Update pianobar context for other components
+            actions.updatePianobarStatus({
+              isRunning: newSharedState.isRunning,
+              isPlaying: newSharedState.isPlaying,
               status: {
                 ...pianobar.status,
                 status: data.data.status
               }
             });
+            
+            // Sync to backend
+            debouncedSyncSharedState(newSharedState);
           }
           // Handle song updates simply
           else if (data.type === 'song') {
-            setTrackInfo({
+            const newTrackInfo = {
               title: data.data.title || '',
               artist: data.data.artist || '',
               album: data.data.album || '',
@@ -130,7 +244,11 @@ function PianobarPage() {
               rating: parseInt(data.data.rating) || 0,
               coverArt: data.data.coverArt || '',
               detailUrl: data.data.detailUrl || ''
-            });
+            };
+            setTrackInfo(newTrackInfo);
+            
+            // Sync track info to backend for cross-device sharing
+            debouncedSyncTrackInfo(newTrackInfo);
           }
           // Handle love events
           else if (data.type === 'love') {
