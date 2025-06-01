@@ -212,25 +212,9 @@ function PianobarPage() {
     }
   }, [trackInfo]);
   
-  // Periodic progress sync (every 10 seconds while playing)
-  useEffect(() => {
-    let progressSyncInterval = null;
-    
-    if (isPlayerOn() && isPlaying() && trackInfo.songDuration > 0) {
-      progressSyncInterval = setInterval(() => {
-        // Only sync if we have meaningful progress
-        if (trackInfo.songPlayed > 0) {
-          debouncedSyncTrackInfo(trackInfo);
-        }
-      }, 10000); // Every 10 seconds
-    }
-    
-    return () => {
-      if (progressSyncInterval) {
-        clearInterval(progressSyncInterval);
-      }
-    };
-  }, [isPlayerOn(), isPlaying(), trackInfo.songDuration, trackInfo.title]);
+  // REMOVED: Periodic progress sync - Backend is now source of truth
+  // The WebSocket service automatically updates backend state when songs change
+  // Clients should only RECEIVE data, not send localStorage data back to backend
   
   // Load shared state on mount and set up sync
   useEffect(() => {
@@ -331,10 +315,8 @@ function PianobarPage() {
                 detailUrl: data.data.detailUrl || ''
               };
               
-              // Only sync to backend for new songs to avoid overriding local progress
-              if (isNewSong) {
-                debouncedSyncTrackInfo(newTrackInfo);
-              }
+              // REMOVED: Client-to-backend track sync - Backend is source of truth
+              // The WebSocket service already updates backend state automatically
               
               return newTrackInfo;
             });
@@ -843,21 +825,20 @@ function PianobarPage() {
     }
   };
 
-  // Enhanced refresh function - get latest track & progress!
+  // Enhanced refresh function - ONLY fetch from backend (source of truth)
   const handleRefreshAll = async () => {
     try {
-      console.log('🔄 Loading latest track info and progress...');
+      console.log('🔄 Loading latest track info and progress from backend...');
       
       // 1. Refresh pianobar status first
       await actions.refreshPianobar();
       
-      // 2. Load latest shared state (gets current track and progress)
+      // 2. Load latest shared state (gets current track and progress from backend)
       await loadSharedState();
       
-      // 3. Update shared state with current pianobar status (sync our status to backend)
-      await syncSharedState();
+      // REMOVED: No longer sync client data to backend - backend is source of truth
       
-      console.log('✅ Refresh complete - loaded latest track and progress');
+      console.log('✅ Refresh complete - loaded latest data from backend');
     } catch (error) {
       console.error('Error during refresh:', error);
     }
