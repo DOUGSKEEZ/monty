@@ -62,7 +62,11 @@ function PianobarPage() {
   };
 
   const isPlaying = () => {
-    return (isPlayerOn() && pianobar.isPlaying) || sharedState.isPlaying;
+    // Prioritize actual pianobar status over shared state
+    if (isPlayerOn() && pianobar.isPlaying !== undefined) {
+      return pianobar.isPlaying;
+    }
+    return sharedState.isPlaying;
   };
   
   // Sync functions for cross-device state
@@ -128,6 +132,19 @@ function PianobarPage() {
       timeout = setTimeout(() => syncTrackInfo(trackData), 1000);
     };
   }, []);
+  
+  // Immediate sync functions (for refresh button)
+  const syncTrackInfoNow = async (trackData) => {
+    try {
+      await fetch('/api/pianobar/sync-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track: trackData })
+      });
+    } catch (error) {
+      console.warn('Failed to sync track info immediately:', error);
+    }
+  };
 
   // Format time in MM:SS format
   const formatTime = (seconds) => {
@@ -171,6 +188,26 @@ function PianobarPage() {
       console.warn('Failed to save trackInfo to localStorage:', error);
     }
   }, [trackInfo]);
+  
+  // Periodic progress sync (every 10 seconds while playing)
+  useEffect(() => {
+    let progressSyncInterval = null;
+    
+    if (isPlayerOn() && isPlaying() && trackInfo.songDuration > 0) {
+      progressSyncInterval = setInterval(() => {
+        // Only sync if we have meaningful progress
+        if (trackInfo.songPlayed > 0) {
+          debouncedSyncTrackInfo(trackInfo);
+        }
+      }, 10000); // Every 10 seconds
+    }
+    
+    return () => {
+      if (progressSyncInterval) {
+        clearInterval(progressSyncInterval);
+      }
+    };
+  }, [isPlayerOn(), isPlaying(), trackInfo.songDuration, trackInfo.title]);
   
   // Load shared state on mount and set up sync
   useEffect(() => {
@@ -766,6 +803,26 @@ function PianobarPage() {
     }
   };
 
+  // Enhanced refresh function - get latest track & progress!
+  const handleRefreshAll = async () => {
+    try {
+      console.log('🔄 Loading latest track info and progress...');
+      
+      // 1. Refresh pianobar status first
+      await actions.refreshPianobar();
+      
+      // 2. Load latest shared state (gets current track and progress)
+      await loadSharedState();
+      
+      // 3. Update shared state with current pianobar status (sync our status to backend)
+      await syncSharedState();
+      
+      console.log('✅ Refresh complete - loaded latest track and progress');
+    } catch (error) {
+      console.error('Error during refresh:', error);
+    }
+  };
+
   const { song, artist, album, station } = getSongInfo();
 
   return (
@@ -1111,9 +1168,9 @@ function PianobarPage() {
                 ))}
               </select>
               <button 
-                onClick={() => actions.refreshPianobar()}
-                className="p-2 bg-gray-200 hover:bg-gray-300 rounded-full"
-                title="Refresh Status"
+                onClick={handleRefreshAll}
+                className="p-2 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded-full transition-colors"
+                title="Sync Track & Progress"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>

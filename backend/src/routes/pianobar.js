@@ -903,6 +903,96 @@ router.get('/debug-events', async (req, res) => {
   }
 });
 
+// Get current song and real-time progress from pianobar events
+router.get('/current-track', async (req, res) => {
+  try {
+    const eventDir = path.join(process.env.HOME || '/home/monty', '.config/pianobar/event_data');
+    
+    // Find the most recent songstart event
+    let mostRecentSongStart = null;
+    let songStartTime = 0;
+    
+    try {
+      const files = fs.readdirSync(eventDir);
+      logger.debug(`Found ${files.length} files in event directory`);
+      
+      const songStartFiles = files
+        .filter(f => f.startsWith('songstart-') && f.endsWith('.json'))
+        .map(f => {
+          const timestamp = parseInt(f.replace('songstart-', '').replace('.json', ''));
+          return { filename: f, timestamp };
+        })
+        .sort((a, b) => b.timestamp - a.timestamp);
+      
+      logger.debug(`Found ${songStartFiles.length} songstart files`);
+      
+      if (songStartFiles.length > 0) {
+        const latestFile = songStartFiles[0];
+        const filePath = path.join(eventDir, latestFile.filename);
+        logger.debug(`Reading latest songstart file: ${filePath}`);
+        
+        // Read and clean the JSON content
+        let fileContent = fs.readFileSync(filePath, 'utf8');
+        // Replace curly quotes with straight quotes for JSON parsing
+        fileContent = fileContent.replace(/[""]/g, '"').replace(/['']/g, "'");
+        
+        mostRecentSongStart = JSON.parse(fileContent);
+        songStartTime = latestFile.timestamp;
+      }
+    } catch (readError) {
+      logger.error(`Error reading event files: ${readError.message}`);
+      return res.status(500).json({
+        success: false,
+        error: `Could not read event files: ${readError.message}`
+      });
+    }
+    
+    if (!mostRecentSongStart) {
+      return res.json({
+        success: false,
+        message: 'No recent song events found'
+      });
+    }
+    
+    // Calculate current progress
+    const now = Date.now();
+    const elapsedMs = now - songStartTime;
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    const songDuration = parseInt(mostRecentSongStart.songDuration) || 0;
+    const currentProgress = Math.min(elapsedSeconds, songDuration);
+    
+    const currentTrack = {
+      title: mostRecentSongStart.title || '',
+      artist: mostRecentSongStart.artist || '',
+      album: mostRecentSongStart.album || '',
+      stationName: mostRecentSongStart.stationName || '',
+      songDuration: songDuration,
+      songPlayed: currentProgress,
+      rating: parseInt(mostRecentSongStart.rating) || 0,
+      coverArt: mostRecentSongStart.coverArt || '',
+      detailUrl: mostRecentSongStart.detailUrl || '',
+      eventTimestamp: songStartTime,
+      calculatedAt: now
+    };
+    
+    res.json({
+      success: true,
+      track: currentTrack,
+      debug: {
+        elapsedMs,
+        elapsedSeconds,
+        songStartTime: new Date(songStartTime).toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error(`Error getting current track: ${error.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // Debug endpoint to check pianobar logs
 router.get('/debug-logs', async (req, res) => {
   try {

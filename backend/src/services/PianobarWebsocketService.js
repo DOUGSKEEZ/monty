@@ -171,7 +171,12 @@ class PianobarWebsocketService {
           if (!filePath.endsWith('.json')) return;
           
           try {
-            const eventData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            // Read and clean the JSON content to handle problematic characters
+            let fileContent = fs.readFileSync(filePath, 'utf8');
+            // Replace problematic Unicode quotes with standard quotes for JSON parsing
+            fileContent = fileContent.replace(/[""]/g, '"').replace(/['']/g, "'");
+            
+            const eventData = JSON.parse(fileContent);
             
             // Simple event processing
             if (eventData.eventType === 'songstart') {
