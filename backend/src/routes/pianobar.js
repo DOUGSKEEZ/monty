@@ -308,33 +308,81 @@ router.get('/state', async (req, res) => {
       }
     }
     
-    // Combine with shared state for cross-device info
-    const combinedState = {
-      version: 1,
-      timestamp: Date.now(),
-      player: {
-        isRunning: statusData.isPianobarRunning || false,
-        isPlaying: statusData.isPlaying || false,
-        status: statusData.status || 'stopped'
-      },
-      currentSong: {
-        title: sharedState.track.title || null,
-        artist: sharedState.track.artist || null,
-        album: sharedState.track.album || null,
-        stationName: sharedState.track.stationName || null,
-        songDuration: sharedState.track.songDuration || null,
-        songPlayed: sharedState.track.songPlayed || null,
-        rating: sharedState.track.rating || null,
-        coverArt: sharedState.track.coverArt || null,
-        detailUrl: sharedState.track.detailUrl || null
-      },
-      stations: []
-    };
-    
-    res.json({
-      success: true,
-      data: combinedState
-    });
+    // Get the shared state from the GET endpoint to ensure consistency
+    try {
+      const sharedStateResponse = await fetch(`http://localhost:${PORT}/api/pianobar/sync-state`).then(r => r.json());
+      const currentSharedState = sharedStateResponse.success ? sharedStateResponse.state : {
+        track: {
+          title: '',
+          artist: '',
+          album: '',
+          stationName: '',
+          songDuration: 0,
+          songPlayed: 0,
+          rating: 0,
+          coverArt: '',
+          detailUrl: ''
+        }
+      };
+      
+      // Combine with shared state for cross-device info
+      const combinedState = {
+        version: 1,
+        timestamp: Date.now(),
+        player: {
+          isRunning: statusData.isPianobarRunning || false,
+          isPlaying: statusData.isPlaying || false,
+          status: statusData.status || 'stopped'
+        },
+        currentSong: {
+          title: currentSharedState.track.title || null,
+          artist: currentSharedState.track.artist || null,
+          album: currentSharedState.track.album || null,
+          stationName: currentSharedState.track.stationName || null,
+          songDuration: currentSharedState.track.songDuration || null,
+          songPlayed: currentSharedState.track.songPlayed || null,
+          rating: currentSharedState.track.rating || null,
+          coverArt: currentSharedState.track.coverArt || null,
+          detailUrl: currentSharedState.track.detailUrl || null
+        },
+        stations: []
+      };
+      
+      res.json({
+        success: true,
+        data: combinedState
+      });
+    } catch (fetchError) {
+      logger.warn(`Error fetching shared state: ${fetchError.message}`);
+      
+      // Fallback to basic state without track info
+      const combinedState = {
+        version: 1,
+        timestamp: Date.now(),
+        player: {
+          isRunning: statusData.isPianobarRunning || false,
+          isPlaying: statusData.isPlaying || false,
+          status: statusData.status || 'stopped'
+        },
+        currentSong: {
+          title: null,
+          artist: null,
+          album: null,
+          stationName: null,
+          songDuration: null,
+          songPlayed: null,
+          rating: null,
+          coverArt: null,
+          detailUrl: null
+        },
+        stations: []
+      };
+      
+      res.json({
+        success: true,
+        data: combinedState
+      });
+    }
   } catch (error) {
     logger.error(`Error getting simplified state: ${error.message}`);
     

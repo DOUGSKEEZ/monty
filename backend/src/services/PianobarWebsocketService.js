@@ -196,6 +196,9 @@ class PianobarWebsocketService {
                 type: 'song',
                 data: this.currentTrack
               });
+              
+              // Also update backend shared state for cross-device sync
+              this.updateBackendSharedState(this.currentTrack);
             }
             else if (eventData.eventType === 'songlove') {
               this.broadcast({ type: 'love', data: {} });
@@ -297,6 +300,30 @@ class PianobarWebsocketService {
    */
   getClientCount() {
     return this.clients.size;
+  }
+  
+  /**
+   * Update backend shared state for cross-device sync
+   * @param {Object} trackData - The track information to sync
+   */
+  async updateBackendSharedState(trackData) {
+    try {
+      const axios = require('axios');
+      const baseURL = 'http://localhost:3001';
+      
+      await axios.post(`${baseURL}/api/pianobar/sync-state`, {
+        track: trackData
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      });
+      
+      logger.debug('Successfully updated backend shared state with new track info');
+    } catch (error) {
+      logger.warn(`Failed to update backend shared state: ${error.message}`);
+    }
   }
   
   /**

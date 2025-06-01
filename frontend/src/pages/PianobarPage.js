@@ -15,10 +15,33 @@ function PianobarPage() {
   // Love animation state
   const [isAnimatingLove, setIsAnimatingLove] = useState(false);
   
-  // Simple track info state with localStorage persistence
+  // Cache version for forcing refreshes when needed
+  const CACHE_VERSION = '2025-06-01-v1';
+  
+  // Simple track info state with versioned localStorage persistence
   const [trackInfo, setTrackInfo] = useState(() => {
     try {
       const stored = localStorage.getItem('monty_trackInfo');
+      const storedVersion = localStorage.getItem('monty_cacheVersion');
+      
+      // Force refresh if version doesn't match
+      if (storedVersion !== CACHE_VERSION) {
+        console.log('🔄 Cache version mismatch - clearing stale localStorage data');
+        localStorage.removeItem('monty_trackInfo');
+        localStorage.setItem('monty_cacheVersion', CACHE_VERSION);
+        return {
+          title: '',
+          artist: '',
+          album: '',
+          stationName: '',
+          songDuration: 0,
+          songPlayed: 0,
+          rating: 0,
+          coverArt: '',
+          detailUrl: ''
+        };
+      }
+      
       if (stored) {
         return JSON.parse(stored);
       }
@@ -211,11 +234,28 @@ function PianobarPage() {
   
   // Load shared state on mount and set up sync
   useEffect(() => {
-    // Initial status check
-    actions.refreshPianobar();
+    console.log('🚀 PianobarPage mounted - forcing fresh data load');
     
-    // Load shared state from backend
-    loadSharedState();
+    // Force fresh data load on page visit
+    const forceRefreshOnMount = async () => {
+      try {
+        // 1. Load latest from backend first (overrides any stale localStorage)
+        await loadSharedState();
+        
+        // 2. Refresh pianobar status
+        await actions.refreshPianobar();
+        
+        // 3. Sync our current state to backend
+        await syncSharedState();
+        
+        console.log('✅ Fresh data loaded successfully on page mount');
+      } catch (error) {
+        console.warn('Error during mount refresh:', error);
+      }
+    };
+    
+    // Execute immediately
+    forceRefreshOnMount();
     
     // Set up periodic sync every 10 seconds
     const syncInterval = setInterval(() => {
@@ -1169,8 +1209,8 @@ function PianobarPage() {
               </select>
               <button 
                 onClick={handleRefreshAll}
-                className="p-2 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded-full transition-colors"
-                title="Sync Track & Progress"
+                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-all duration-200 transform hover:scale-105 shadow-md"
+                title="🔄 Force Sync Latest Track & Progress"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
