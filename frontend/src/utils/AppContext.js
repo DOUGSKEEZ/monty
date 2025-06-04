@@ -90,7 +90,7 @@ export const AppProvider = ({ children }) => {
       loadWeatherData(false);
       loadSchedulerData(false);
       loadMusicData(false);
-      loadPianobarData(false);
+      // loadPianobarData(false); // REMOVED: WebSocket handles pianobar updates
       // Bluetooth status is refreshed separately
     }, 10000); // Refresh every 10 seconds (WebSocket priority system prevents race conditions)
     
