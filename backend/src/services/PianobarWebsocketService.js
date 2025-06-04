@@ -204,10 +204,16 @@ class PianobarWebsocketService {
               this.broadcast({ type: 'love', data: {} });
             }
             else if (eventData.eventType === 'usergetstations') {
+              const stations = eventData.stations || [];
+              
+              // Broadcast to WebSocket clients
               this.broadcast({
                 type: 'stations',
-                data: { stations: eventData.stations || [] }
+                data: { stations: stations }
               });
+              
+              // Update the stations file for the /stations API endpoint
+              this.updateStationsFile(stations);
             }
             
             // Clean up
@@ -323,6 +329,27 @@ class PianobarWebsocketService {
       logger.debug('Successfully updated backend shared state with new track info');
     } catch (error) {
       logger.warn(`Failed to update backend shared state: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Update stations file when new station list is received
+   * @param {Array} stations - The stations array from pianobar
+   */
+  async updateStationsFile(stations) {
+    try {
+      const stationsFilePath = path.join(process.env.HOME || '/home/monty', 'monty/data/cache/pianobar_stations.json');
+      
+      const stationsData = {
+        stations: stations,
+        fetchTime: Date.now(),
+        lastUpdated: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(stationsFilePath, JSON.stringify(stationsData, null, 2), 'utf8');
+      logger.info(`Updated stations file with ${stations.length} stations`);
+    } catch (error) {
+      logger.warn(`Failed to update stations file: ${error.message}`);
     }
   }
   

@@ -17,6 +17,10 @@ from commander.models.scene import (
     SceneExecutionResponse,
     SceneExecutionResult
 )
+from commander.models.shade import (
+    SceneExecutionLog,
+    SceneExecutionHistory
+)
 from commander.services.shade_service import shade_service
 from commander.services.async_retry_service import async_retry_service
 
@@ -25,6 +29,9 @@ router = APIRouter()
 
 # Path to scenes directory
 SCENES_DIR = FilePath("/home/monty/monty/shades/data/scenes")
+
+# In-memory scene execution logs (last 100 executions)
+scene_execution_logs: List[SceneExecutionLog] = []
 
 def load_scene(scene_name: str) -> SceneDefinition:
     """Load a scene from JSON file"""
@@ -111,6 +118,61 @@ async def list_scenes():
         )
 
 @router.get(
+    "/logs",
+    response_model=SceneExecutionHistory,
+    summary="Get scene execution history",
+    description="""
+    Get recent scene execution logs for monitoring and troubleshooting.
+    
+    **Returns:**
+    - Last 100 scene executions
+    - Success rates and timing information
+    - Detailed command results for each execution
+    
+    **Use this to:**
+    - Monitor scene reliability over time
+    - Troubleshoot scene execution issues
+    - Display scene execution history in monitoring dashboards
+    - Track which shades are frequently failing
+    
+    **Perfect for:**
+    - Monty dashboard showing recent scene activity
+    - Alerting when scene success rates drop
+    - Debugging automation schedules
+    """,
+    responses={
+        200: {"description": "Scene execution history"},
+        500: {"description": "Error retrieving logs"},
+    }
+)
+async def get_scene_execution_logs():
+    """Get recent scene execution history"""
+    try:
+        logger.info("Fetching scene execution logs")
+        
+        # Return logs in reverse chronological order (newest first)
+        recent_logs = sorted(scene_execution_logs, key=lambda x: x.execution_time, reverse=True)
+        
+        logger.info(f"✅ Retrieved {len(recent_logs)} scene execution logs")
+        
+        return SceneExecutionHistory(
+            total_executions=len(recent_logs),
+            executions=recent_logs
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Error fetching scene execution logs: {e}")
+        
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "error": "LogRetrievalError",
+                "message": f"Failed to retrieve scene logs: {str(e)}"
+            }
+        )
+
+@router.get(
     "/{scene_name}",
     response_model=SceneDetailResponse,
     summary="Get specific scene details",
@@ -175,6 +237,7 @@ async def get_scene_details(
                 "scene_name": scene_name
             }
         )
+
 
 @router.post(
     "/{scene_name}/execute",
@@ -346,6 +409,16 @@ async def execute_scene(
         
         logger.info(f"✅ Scene '{scene_name}' first cycle completed: {message}")
         
+        # Log scene execution for monitoring
+        if not execution_params.dry_run:  # Don't log dry runs
+            _log_scene_execution(
+                scene_name=scene_name,
+                total_commands=len(results),
+                successful_commands=successful_commands,
+                duration_ms=total_time,
+                command_results=results
+            )
+        
         return SceneExecutionResponse(
             success=overall_success,
             scene_name=scene_name,
@@ -383,3 +456,44 @@ async def execute_scene(
                 "execution_time_ms": execution_time
             }
         )
+
+def _log_scene_execution(
+    scene_name: str,
+    total_commands: int,
+    successful_commands: int,
+    duration_ms: int,
+    command_results: List[SceneExecutionResult]
+):
+    """Log scene execution for monitoring and tracking"""
+    global scene_execution_logs
+    
+    # Create detailed command log entries
+    commands_log = []
+    for result in command_results:
+        commands_log.append({
+            "shade_id": result.shade_id,
+            "action": result.action,
+            "success": result.success,
+            "message": result.message,
+            "execution_time_ms": result.execution_time_ms,
+            "retry_attempt": result.retry_attempt
+        })
+    
+    # Create scene execution log entry
+    log_entry = SceneExecutionLog(
+        scene_name=scene_name,
+        total_commands=total_commands,
+        successful_commands=successful_commands,
+        failed_commands=total_commands - successful_commands,
+        duration_ms=duration_ms,
+        commands=commands_log
+    )
+    
+    # Add to logs
+    scene_execution_logs.append(log_entry)
+    
+    # Keep only last 100 executions
+    if len(scene_execution_logs) > 100:
+        scene_execution_logs = scene_execution_logs[-100:]
+    
+    logger.info(f"📊 Logged scene execution: {scene_name} - {log_entry.status} ({log_entry.success_rate:.0f}% success rate)")

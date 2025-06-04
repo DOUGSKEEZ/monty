@@ -493,6 +493,15 @@ export const pianobarApi = {
       method: 'POST',
       body: JSON.stringify({ command }),
     }),
+  
+  /**
+   * 🚨 NUCLEAR OPTION: Force kill all pianobar processes
+   * @returns {Promise<Object>} - Result
+   */
+  kill: () => 
+    fetchApi('/pianobar/kill', {
+      method: 'POST',
+    }),
 };
 
 // Config API endpoints

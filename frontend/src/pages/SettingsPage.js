@@ -703,6 +703,54 @@ function SettingsPage() {
         )}
       </div>
 
+      {/* System Controls Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+          <span className="mr-2">⚙️</span>
+          System Controls
+        </h2>
+        
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-red-800 mb-2 flex items-center">
+            <span className="mr-2">🚨</span>
+            Emergency Controls
+          </h3>
+          
+          <p className="text-red-700 text-sm mb-4">
+            Use this button if Pianobar becomes unresponsive or stuck. This will forcefully terminate all Pianobar processes.
+          </p>
+          
+          <button
+            onClick={async () => {
+              if (window.confirm('⚠️ Are you sure you want to FORCE KILL all Pianobar processes?\n\nThis will immediately terminate Pianobar and stop all music playback.')) {
+                try {
+                  setOperationMessage('Force killing Pianobar processes...');
+                  setSaveSuccess('loading');
+                  
+                  const result = await actions.controlPianobar('kill');
+                  
+                  if (result) {
+                    showSuccess('🚨 Pianobar processes terminated successfully');
+                  } else {
+                    showError('Failed to kill Pianobar processes');
+                  }
+                } catch (error) {
+                  showError(`Error killing Pianobar: ${error.message}`);
+                }
+              }
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg flex items-center transition-colors duration-200"
+          >
+            <span className="mr-2 text-xl">☠️</span>
+            NUCLEAR OPTION: Kill Pianobar
+          </button>
+          
+          <p className="text-xs text-red-600 mt-2">
+            This button uses <code>kill -9</code> to forcefully terminate processes. Use only when normal stop doesn't work.
+          </p>
+        </div>
+      </div>
+
       {/* Timezone Settings Section */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">

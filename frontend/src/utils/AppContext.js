@@ -898,6 +898,9 @@ export const AppProvider = ({ children }) => {
           }
           result = await pianobarApi.sendCommand(options.command);
           break;
+        case 'kill':
+          result = await pianobarApi.kill();
+          break;
         default:
           throw new Error(`Unknown pianobar action: ${action}`);
       }

@@ -838,6 +838,135 @@ router.post('/select-station', async (req, res) => {
   }
 });
 
+// Refresh stations - simply re-read the stations file
+router.post('/refresh-stations', async (req, res) => {
+  try {
+    // Just force a fresh read of the stations file
+    // The file is updated automatically when pianobar sends usergetstations events
+    if (fs.existsSync(stationsFilePath)) {
+      const stationsData = JSON.parse(fs.readFileSync(stationsFilePath, 'utf8'));
+      res.json({
+        success: true,
+        message: 'Stations refreshed from cache',
+        data: {
+          stations: stationsData.stations || [],
+          lastUpdated: stationsData.lastUpdated || stationsData.fetchTime,
+          count: (stationsData.stations || []).length
+        }
+      });
+    } else {
+      res.json({
+        success: false,
+        message: 'No stations file found. Stations will be available after pianobar fetches them.',
+        data: { stations: [], count: 0 }
+      });
+    }
+  } catch (error) {
+    logger.error(`Error refreshing stations: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// NUCLEAR OPTION: Force kill pianobar process
+router.post('/kill', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
+    
+    logger.warn('🚨 NUCLEAR OPTION: Force killing all pianobar processes');
+    
+    // First, try to find pianobar processes
+    let pids = [];
+    try {
+      const { stdout } = await execPromise('pgrep pianobar');
+      pids = stdout.trim().split('\n').filter(pid => pid.length > 0);
+    } catch (error) {
+      // No processes found is not an error for this operation
+    }
+    
+    if (pids.length === 0) {
+      logger.info('No pianobar processes found to kill');
+      
+      // Still update status file to reflect stopped state
+      const statusData = {
+        status: 'stopped',
+        isPianobarRunning: false,
+        isPlaying: false,
+        updateTime: Date.now(),
+        killTime: Date.now(),
+        note: 'Force killed (no processes found)'
+      };
+      fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
+      
+      return res.json({
+        success: true,
+        message: 'No pianobar processes were running',
+        pidsKilled: [],
+        processesFound: 0
+      });
+    }
+    
+    // Force kill all pianobar processes with SIGKILL
+    let killedPids = [];
+    let errors = [];
+    
+    for (const pid of pids) {
+      try {
+        await execPromise(`kill -9 ${pid}`);
+        killedPids.push(pid);
+        logger.info(`Force killed pianobar process PID: ${pid}`);
+      } catch (killError) {
+        logger.warn(`Failed to kill PID ${pid}: ${killError.message}`);
+        errors.push(`PID ${pid}: ${killError.message}`);
+      }
+    }
+    
+    // Update status file to reflect killed state
+    const statusData = {
+      status: 'stopped',
+      isPianobarRunning: false,
+      isPlaying: false,
+      updateTime: Date.now(),
+      killTime: Date.now(),
+      note: `Force killed ${killedPids.length} process(es)`
+    };
+    fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
+    
+    // Update central state
+    await updateCentralStateViaService({
+      player: {
+        isRunning: false,
+        isPlaying: false,
+        status: 'stopped'
+      }
+    }, 'nuclear-kill');
+    
+    // Broadcast state update
+    const wsService = getWebSocketService();
+    if (wsService) {
+      wsService.broadcastStateUpdate();
+      logger.debug('Broadcasted state update after nuclear kill');
+    }
+    
+    res.json({
+      success: true,
+      message: `Successfully force-killed ${killedPids.length} pianobar process(es)`,
+      pidsKilled: killedPids,
+      processesFound: pids.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    logger.error(`Error in nuclear kill: ${error.message}`);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      message: 'Nuclear kill failed'
+    });
+  }
+});
+
 // Send raw command 
 router.post('/command', async (req, res) => {
   try {

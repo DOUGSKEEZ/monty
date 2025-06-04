@@ -451,7 +451,7 @@ async def send_shade_command_fast(shade_id: int, command: str) -> Dict[str, Any]
                 "shade_id": shade_id,
                 "action": command,
                 "execution_time_ms": execution_time_ms,
-                "arduino_response": result.get("responses"),
+                "arduino_response": "\n".join(result.get("responses", [])) if result.get("responses") else None,
                 "port": result.get("port")
             }
         else:

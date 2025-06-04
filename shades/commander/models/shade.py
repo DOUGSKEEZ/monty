@@ -1,7 +1,7 @@
 # /commander/models/shade.py
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -164,6 +164,84 @@ class ErrorResponse(BaseModel):
                 "message": "Shade 999 not found in database",
                 "shade_id": 999,
                 "timestamp": "2025-05-25T14:30:00Z"
+            }
+        }
+
+# 🎬 SCENE EXECUTION TRACKING - "How did that scene go?"
+class SceneExecutionLog(BaseModel):
+    """
+    Log entry for scene execution - perfect for monitoring scene success rates.
+    
+    Usage Examples:
+    - Dashboard shows: "Good Morning scene: ✅ Complete (5/5 shades)"
+    - Scene history: "Last 10 executions, 90% success rate"
+    - Troubleshooting: "Scene failed because shade 14 didn't respond"
+    """
+    scene_name: str = Field(..., description="Name of the scene that was executed")
+    execution_time: datetime = Field(default_factory=datetime.now, description="When the scene started")
+    total_commands: int = Field(..., description="Total number of shade commands in scene")
+    successful_commands: int = Field(..., description="Number of commands that succeeded")
+    failed_commands: int = Field(..., description="Number of commands that failed")
+    duration_ms: int = Field(..., description="Total time to execute all commands")
+    commands: List[Dict[str, Any]] = Field(..., description="Detailed results for each shade command")
+    
+    @property
+    def success_rate(self) -> float:
+        """Calculate success rate as percentage"""
+        if self.total_commands == 0:
+            return 0.0
+        return (self.successful_commands / self.total_commands) * 100
+    
+    @property
+    def status(self) -> str:
+        """Get human-readable status for UI display"""
+        if self.successful_commands == self.total_commands:
+            return "✅ Complete"
+        elif self.successful_commands == 0:
+            return "❌ Failed"
+        else:
+            return f"⚠️ Partial ({self.success_rate:.0f}%)"
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "scene_name": "good_morning",
+                "execution_time": "2025-06-04T07:00:00Z",
+                "total_commands": 5,
+                "successful_commands": 4,
+                "failed_commands": 1,
+                "duration_ms": 2500,
+                "commands": [
+                    {
+                        "shade_id": 14,
+                        "action": "u",
+                        "success": True,
+                        "message": "Shade 14 UP fire-and-forget command sent",
+                        "arduino_response": "TX OK: 5C 35 B1 48 | FEFF | BCEC --- UP"
+                    },
+                    {
+                        "shade_id": 28,
+                        "action": "u", 
+                        "success": False,
+                        "message": "Fire-and-forget command failed silently",
+                        "arduino_response": "No Arduino connection"
+                    }
+                ]
+            }
+        }
+
+class SceneExecutionHistory(BaseModel):
+    """Response for scene execution history"""
+    success: bool = Field(True, description="Request success status")
+    total_executions: int = Field(..., description="Total number of logged executions")
+    executions: List[SceneExecutionLog] = Field(..., description="List of recent scene executions")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "total_executions": 25,
+                "executions": []
             }
         }
 

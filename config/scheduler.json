@@ -9,10 +9,10 @@
     "good_night_timing": "civil_twilight_end"
   },
   "wake_up": {
-    "enabled": false,
-    "time": "09:45",
-    "last_triggered": "2025-05-31T15:45:00.063Z",
-    "good_morning_delay_minutes": 20
+    "enabled": true,
+    "time": "08:15",
+    "last_triggered": null,
+    "good_morning_delay_minutes": 30
   },
   "home_away": {
     "status": "home",
