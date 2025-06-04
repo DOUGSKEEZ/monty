@@ -43,5 +43,20 @@
     "astronomicalTwilightEnd": "2025-06-04T04:25:58+00:00",
     "cached_at": 1748984446793,
     "expires_at": 1749070846793
+  },
+  "2025-06-04": {
+    "date": "2025-06-04",
+    "sunrise": 1749036946000,
+    "sunset": 1749090580000,
+    "sunriseTime": "5:35 AM",
+    "sunsetTime": "8:29 PM",
+    "civilTwilightBegin": "2025-06-04T11:05:15+00:00",
+    "civilTwilightEnd": "2025-06-05T03:00:11+00:00",
+    "nauticalTwilightBegin": "2025-06-04T10:24:50+00:00",
+    "nauticalTwilightEnd": "2025-06-05T03:40:37+00:00",
+    "astronomicalTwilightBegin": "2025-06-04T09:38:28+00:00",
+    "astronomicalTwilightEnd": "2025-06-05T04:26:58+00:00",
+    "cached_at": 1749016801064,
+    "expires_at": 1749103201064
   }
 }

@@ -121,7 +121,7 @@ function ShadesPage() {
   const getRooms = () => {
     if (shades.loading || !shades.config || !shades.config.shades) {
       // Return all four room types even if config isn't loaded yet
-      return ['Main Level', 'Bedroom', 'Office', 'Loft'];
+      return ['Main Level', 'Office', 'Bedroom', 'Loft'];
     }
     
     // Extract unique room names
@@ -129,7 +129,7 @@ function ShadesPage() {
     
     // If any of the main rooms are missing from the config, ensure they are added
     const rooms = Array.from(roomSet);
-    const requiredRooms = ['Main Level', 'Bedroom', 'Office', 'Loft'];
+    const requiredRooms = ['Main Level', 'Office', 'Bedroom', 'Loft'];
     
     for (const required of requiredRooms) {
       if (!rooms.includes(required)) {
@@ -284,11 +284,59 @@ function ShadesPage() {
         {/* "All" Room Type Controls - Top row, original sizing */}
         <div className="bg-gray-100 p-3 rounded-lg mb-4">
           <div className="flex justify-center flex-wrap gap-4">
-            {/* Solar Type ALL Control */}
+            {/* Privacy Type ALL Control - LEFT SIDE (White Box) */}
+            {(activeRoom === 'Main Level' || activeRoom === 'Bedroom' || activeRoom === 'Office') && privacyShades.some(s => s.location === 'All') && (
+              <div className="p-3 border rounded flex flex-col items-center bg-white shadow-sm w-36">
+                <span className="font-medium mb-2 text-gray-800">ALL Privacy</span>
+                <div className="flex flex-col items-center space-y-4">
+                  <button 
+                    onClick={() => {
+                      if (activeRoom === 'Office') return handleShadeCommand(33, 'u');
+                      if (activeRoom === 'Bedroom') return handleShadeCommand(44, 'u');
+                      if (activeRoom === 'Main Level') return handleShadeCommand(14, 'u');
+                    }}
+                    title={`Raise all ${activeRoom} privacy shades`}
+                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (activeRoom === 'Office') return handleShadeCommand(33, 's');
+                      if (activeRoom === 'Bedroom') return handleShadeCommand(44, 's');
+                      if (activeRoom === 'Main Level') return handleShadeCommand(14, 's');
+                    }}
+                    title={`Stop all ${activeRoom} privacy shades`}
+                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (activeRoom === 'Office') return handleShadeCommand(33, 'd');
+                      if (activeRoom === 'Bedroom') return handleShadeCommand(44, 'd');
+                      if (activeRoom === 'Main Level') return handleShadeCommand(14, 'd');
+                    }}
+                    title={`Lower all ${activeRoom} privacy shades`}
+                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Solar Type ALL Control - RIGHT SIDE (Dark Box) */}
             {(activeRoom === 'Main Level' || activeRoom === 'Office') && solarShades.some(s => s.location === 'All') && (
-              <div className="p-3 border rounded flex flex-col items-center">
-                <span className="font-medium mb-2">ALL Solar Shades</span>
-                <div className="flex flex-col items-center space-y-2">
+              <div className="p-3 border rounded flex flex-col items-center bg-gray-800 text-white shadow-sm w-36">
+                <span className="font-medium mb-2">ALL Solar</span>
+                <div className="flex flex-col items-center space-y-4">
                   <button 
                     onClick={() => {
                       if (activeRoom === 'Office') return handleShadeCommand(36, 'u');
@@ -296,9 +344,10 @@ function ShadesPage() {
                       return actions.triggerShadeScene(`${activeRoom.toLowerCase().replace(/\s+/g, '-')}-solar-up`);
                     }}
                     title={`Raise all ${activeRoom} solar shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                    style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                     </svg>
                   </button>
@@ -309,9 +358,10 @@ function ShadesPage() {
                       return actions.triggerShadeScene(`${activeRoom.toLowerCase().replace(/\s+/g, '-')}-solar-stop`);
                     }}
                     title={`Stop all ${activeRoom} solar shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                    style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                     </svg>
                   </button>
@@ -322,9 +372,10 @@ function ShadesPage() {
                       return actions.triggerShadeScene(`${activeRoom.toLowerCase().replace(/\s+/g, '-')}-solar-down`);
                     }}
                     title={`Lower all ${activeRoom} solar shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                    style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
@@ -332,86 +383,38 @@ function ShadesPage() {
               </div>
             )}
             
-            {/* Privacy Type ALL Control */}
-            {(activeRoom === 'Main Level' || activeRoom === 'Bedroom' || activeRoom === 'Office') && privacyShades.some(s => s.location === 'All') && (
-              <div className="p-3 border rounded flex flex-col items-center">
-                <span className="font-medium mb-2">ALL Privacy Shades</span>
-                <div className="flex flex-col items-center space-y-2">
-                  <button 
-                    onClick={() => {
-                      if (activeRoom === 'Office') return handleShadeCommand(33, 'u');
-                      if (activeRoom === 'Bedroom') return handleShadeCommand(44, 'u');
-                      if (activeRoom === 'Main Level') return handleShadeCommand(14, 'u');
-                      return actions.triggerShadeScene(`${activeRoom.toLowerCase().replace(/\s+/g, '-')}-privacy-up`);
-                    }}
-                    title={`Raise all ${activeRoom} privacy shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (activeRoom === 'Office') return handleShadeCommand(33, 's');
-                      if (activeRoom === 'Bedroom') return handleShadeCommand(44, 's');
-                      if (activeRoom === 'Main Level') return handleShadeCommand(14, 's');
-                      return actions.triggerShadeScene(`${activeRoom.toLowerCase().replace(/\s+/g, '-')}-privacy-stop`);
-                    }}
-                    title={`Stop all ${activeRoom} privacy shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                    </svg>
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (activeRoom === 'Office') return handleShadeCommand(33, 'd');
-                      if (activeRoom === 'Bedroom') return handleShadeCommand(44, 'd');
-                      if (activeRoom === 'Main Level') return handleShadeCommand(14, 'd');
-                      return actions.triggerShadeScene(`${activeRoom.toLowerCase().replace(/\s+/g, '-')}-privacy-down`);
-                    }}
-                    title={`Lower all ${activeRoom} privacy shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {/* Blackout Type ALL Control */}
+            {/* Blackout Type ALL Control - RIGHT SIDE (Dark Box) */}
             {(activeRoom === 'Bedroom') && blackoutShades.some(s => s.location === 'All') && (
-              <div className="p-3 border rounded flex flex-col items-center">
-                <span className="font-medium mb-2">ALL Blackout Shades</span>
-                <div className="flex flex-col items-center space-y-2">
+              <div className="p-3 border rounded flex flex-col items-center bg-gray-800 text-white shadow-sm w-36">
+                <span className="font-medium mb-2">ALL Blackout</span>
+                <div className="flex flex-col items-center space-y-4">
                   <button 
                     onClick={() => handleShadeCommand(40, 'u')}
                     title={`Raise all ${activeRoom} blackout shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                    style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                     </svg>
                   </button>
                   <button 
                     onClick={() => handleShadeCommand(40, 's')}
                     title={`Stop all ${activeRoom} blackout shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                    style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                     </svg>
                   </button>
                   <button 
                     onClick={() => handleShadeCommand(40, 'd')}
                     title={`Lower all ${activeRoom} blackout shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                    style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
@@ -421,33 +424,33 @@ function ShadesPage() {
             
             {/* If no specific type controls, show a single ALL control */}
             {activeRoom === 'Loft' && (
-              <div className="p-3 border rounded flex flex-col items-center">
-                <span className="font-medium mb-2">ALL Loft Shades</span>
-                <div className="flex flex-col items-center space-y-2">
+              <div className="p-3 border rounded flex flex-col items-center bg-white shadow-sm w-36">
+                <span className="font-medium mb-2 text-gray-800">ALL Loft</span>
+                <div className="flex flex-col items-center space-y-4">
                   <button 
                     onClick={() => handleShadeCommand(48, 'u')}
                     title={`Raise all ${activeRoom} shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                     </svg>
                   </button>
                   <button 
                     onClick={() => handleShadeCommand(48, 's')}
                     title={`Stop all ${activeRoom} shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                     </svg>
                   </button>
                   <button 
                     onClick={() => handleShadeCommand(48, 'd')}
                     title={`Lower all ${activeRoom} shades`}
-                    className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center"
+                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
@@ -465,36 +468,36 @@ function ShadesPage() {
               {/* Kitchen Section */}
               <div className="bg-gray-50 p-3 rounded shadow mb-4">
                 <h3 className="text-md font-semibold mb-2">Kitchen</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-1">
                   
                   {/* Portrait 01 */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Portrait 01</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(15, 'u')} title="Raise Kitchen Portrait 01 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(1, 'u')} title="Raise Kitchen Portrait 01 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(15, 's')} title="Stop Kitchen Portrait 01 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(1, 's')} title="Stop Kitchen Portrait 01 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(15, 'd')} title="Lower Kitchen Portrait 01 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(1, 'd')} title="Lower Kitchen Portrait 01 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(1, 'u')} title="Raise Kitchen Portrait 01 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(15, 'u')} title="Raise Kitchen Portrait 01 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(1, 's')} title="Stop Kitchen Portrait 01 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(15, 's')} title="Stop Kitchen Portrait 01 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(1, 'd')} title="Lower Kitchen Portrait 01 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(15, 'd')} title="Lower Kitchen Portrait 01 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -505,31 +508,31 @@ function ShadesPage() {
                   {/* Portrait 02 */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Portrait 02</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(16, 'u')} title="Raise Kitchen Portrait 02 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(2, 'u')} title="Raise Kitchen Portrait 02 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(16, 's')} title="Stop Kitchen Portrait 02 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(2, 's')} title="Stop Kitchen Portrait 02 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(16, 'd')} title="Lower Kitchen Portrait 02 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(2, 'd')} title="Lower Kitchen Portrait 02 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(2, 'u')} title="Raise Kitchen Portrait 02 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(16, 'u')} title="Raise Kitchen Portrait 02 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(2, 's')} title="Stop Kitchen Portrait 02 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(16, 's')} title="Stop Kitchen Portrait 02 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(2, 'd')} title="Lower Kitchen Portrait 02 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(16, 'd')} title="Lower Kitchen Portrait 02 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -540,31 +543,31 @@ function ShadesPage() {
                   {/* Portrait 03 */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Portrait 03</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(17, 'u')} title="Raise Kitchen Portrait 03 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(3, 'u')} title="Raise Kitchen Portrait 03 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(17, 's')} title="Stop Kitchen Portrait 03 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(3, 's')} title="Stop Kitchen Portrait 03 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(17, 'd')} title="Lower Kitchen Portrait 03 solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(3, 'd')} title="Lower Kitchen Portrait 03 privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(3, 'u')} title="Raise Kitchen Portrait 03 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(17, 'u')} title="Raise Kitchen Portrait 03 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(3, 's')} title="Stop Kitchen Portrait 03 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(17, 's')} title="Stop Kitchen Portrait 03 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(3, 'd')} title="Lower Kitchen Portrait 03 privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(17, 'd')} title="Lower Kitchen Portrait 03 solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -575,31 +578,31 @@ function ShadesPage() {
                   {/* Patio Door */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Patio Door</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(18, 'u')} title="Raise Kitchen Patio Door solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(4, 'u')} title="Raise Kitchen Patio Door privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(18, 's')} title="Stop Kitchen Patio Door solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(4, 's')} title="Stop Kitchen Patio Door privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(18, 'd')} title="Lower Kitchen Patio Door solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(4, 'd')} title="Lower Kitchen Patio Door privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(4, 'u')} title="Raise Kitchen Patio Door privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(18, 'u')} title="Raise Kitchen Patio Door solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(4, 's')} title="Stop Kitchen Patio Door privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(18, 's')} title="Stop Kitchen Patio Door solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(4, 'd')} title="Lower Kitchen Patio Door privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(18, 'd')} title="Lower Kitchen Patio Door solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -610,31 +613,31 @@ function ShadesPage() {
                   {/* Media Window */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Media Window</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(19, 'u')} title="Raise Kitchen Media Window solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(5, 'u')} title="Raise Kitchen Media Window privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(19, 's')} title="Stop Kitchen Media Window solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(5, 's')} title="Stop Kitchen Media Window privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(19, 'd')} title="Lower Kitchen Media Window solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(5, 'd')} title="Lower Kitchen Media Window privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(5, 'u')} title="Raise Kitchen Media Window privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(19, 'u')} title="Raise Kitchen Media Window solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(5, 's')} title="Stop Kitchen Media Window privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(19, 's')} title="Stop Kitchen Media Window solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(5, 'd')} title="Lower Kitchen Media Window privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(19, 'd')} title="Lower Kitchen Media Window solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -647,36 +650,36 @@ function ShadesPage() {
               {/* Great Room Section */}
               <div className="bg-gray-50 p-3 rounded shadow mb-4">
                 <h3 className="text-md font-semibold mb-2">Great Room</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-1">
                   
                   {/* Main Left */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Main Left</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(20, 'u')} title="Raise Great Room Main Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(6, 'u')} title="Raise Great Room Main Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(20, 's')} title="Stop Great Room Main Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(6, 's')} title="Stop Great Room Main Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(20, 'd')} title="Lower Great Room Main Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(6, 'd')} title="Lower Great Room Main Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(6, 'u')} title="Raise Great Room Main Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(20, 'u')} title="Raise Great Room Main Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(6, 's')} title="Stop Great Room Main Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(20, 's')} title="Stop Great Room Main Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(6, 'd')} title="Lower Great Room Main Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(20, 'd')} title="Lower Great Room Main Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -687,31 +690,31 @@ function ShadesPage() {
                   {/* Main Right */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Main Right</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(21, 'u')} title="Raise Great Room Main Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(7, 'u')} title="Raise Great Room Main Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(21, 's')} title="Stop Great Room Main Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(7, 's')} title="Stop Great Room Main Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(21, 'd')} title="Lower Great Room Main Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(7, 'd')} title="Lower Great Room Main Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(7, 'u')} title="Raise Great Room Main Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(21, 'u')} title="Raise Great Room Main Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(7, 's')} title="Stop Great Room Main Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(21, 's')} title="Stop Great Room Main Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(7, 'd')} title="Lower Great Room Main Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(21, 'd')} title="Lower Great Room Main Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -722,31 +725,31 @@ function ShadesPage() {
                   {/* Upper Left */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Upper Left</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(22, 'u')} title="Raise Great Room Upper Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(8, 'u')} title="Raise Great Room Upper Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(22, 's')} title="Stop Great Room Upper Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(8, 's')} title="Stop Great Room Upper Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(22, 'd')} title="Lower Great Room Upper Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(8, 'd')} title="Lower Great Room Upper Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(8, 'u')} title="Raise Great Room Upper Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(22, 'u')} title="Raise Great Room Upper Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(8, 's')} title="Stop Great Room Upper Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(22, 's')} title="Stop Great Room Upper Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(8, 'd')} title="Lower Great Room Upper Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(22, 'd')} title="Lower Great Room Upper Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -757,31 +760,31 @@ function ShadesPage() {
                   {/* Upper Right */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Upper Right</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(23, 'u')} title="Raise Great Room Upper Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(9, 'u')} title="Raise Great Room Upper Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(23, 's')} title="Stop Great Room Upper Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(9, 's')} title="Stop Great Room Upper Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(23, 'd')} title="Lower Great Room Upper Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(9, 'd')} title="Lower Great Room Upper Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(9, 'u')} title="Raise Great Room Upper Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(23, 'u')} title="Raise Great Room Upper Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(9, 's')} title="Stop Great Room Upper Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(23, 's')} title="Stop Great Room Upper Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(9, 'd')} title="Lower Great Room Upper Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(23, 'd')} title="Lower Great Room Upper Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -794,36 +797,36 @@ function ShadesPage() {
               {/* Dining & Laundry Section */}
               <div className="bg-gray-50 p-3 rounded shadow mb-4">
                 <h3 className="text-md font-semibold mb-2">Dining & Laundry</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-1">
                   
                   {/* Dining Table */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Dining Table</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(26, 'u')} title="Raise Dining Table solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(12, 'u')} title="Raise Dining Table privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(26, 's')} title="Stop Dining Table solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(12, 's')} title="Stop Dining Table privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(26, 'd')} title="Lower Dining Table solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(12, 'd')} title="Lower Dining Table privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(12, 'u')} title="Raise Dining Table privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(26, 'u')} title="Raise Dining Table solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(12, 's')} title="Stop Dining Table privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(26, 's')} title="Stop Dining Table solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(12, 'd')} title="Lower Dining Table privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(26, 'd')} title="Lower Dining Table solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -834,31 +837,31 @@ function ShadesPage() {
                   {/* Pantry */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Pantry</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(27, 'u')} title="Raise Pantry solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(13, 'u')} title="Raise Pantry privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(27, 's')} title="Stop Pantry solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(13, 's')} title="Stop Pantry privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(27, 'd')} title="Lower Pantry solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(13, 'd')} title="Lower Pantry privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(13, 'u')} title="Raise Pantry privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(27, 'u')} title="Raise Pantry solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(13, 's')} title="Stop Pantry privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(27, 's')} title="Stop Pantry solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(13, 'd')} title="Lower Pantry privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(27, 'd')} title="Lower Pantry solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -869,31 +872,31 @@ function ShadesPage() {
                   {/* Above Projector Left */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Proj Left</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(24, 'u')} title="Raise Above Projector Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(10, 'u')} title="Raise Above Projector Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(24, 's')} title="Stop Above Projector Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(10, 's')} title="Stop Above Projector Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(24, 'd')} title="Lower Above Projector Left solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(10, 'd')} title="Lower Above Projector Left privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(10, 'u')} title="Raise Above Projector Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(24, 'u')} title="Raise Above Projector Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(10, 's')} title="Stop Above Projector Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(24, 's')} title="Stop Above Projector Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(10, 'd')} title="Lower Above Projector Left privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(24, 'd')} title="Lower Above Projector Left solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -904,31 +907,31 @@ function ShadesPage() {
                   {/* Above Projector Right */}
                   <div className="border rounded p-1">
                     <h4 className="font-medium text-center text-xs mb-0.5">Proj Right</h4>
-                    <div className="flex justify-center gap-2">
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Solar</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(25, 'u')} title="Raise Above Projector Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                    <div className="flex justify-center gap-1">
+                      <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(11, 'u')} title="Raise Above Projector Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(25, 's')} title="Stop Above Projector Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(11, 's')} title="Stop Above Projector Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(25, 'd')} title="Lower Above Projector Right solar shade" className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(11, 'd')} title="Lower Above Projector Right privacy shade" className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-0.5 text-center">Privacy</p>
-                        <div className="flex flex-col items-center space-y-1">
-                          <button onClick={() => handleShadeCommand(11, 'u')} title="Raise Above Projector Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                      <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                        <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                        <div className="flex flex-col items-center space-y-3">
+                          <button onClick={() => handleShadeCommand(25, 'u')} title="Raise Above Projector Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(11, 's')} title="Stop Above Projector Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(25, 's')} title="Stop Above Projector Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" /></svg>
                           </button>
-                          <button onClick={() => handleShadeCommand(11, 'd')} title="Lower Above Projector Right privacy shade" className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center">
+                          <button onClick={() => handleShadeCommand(25, 'd')} title="Lower Above Projector Right solar shade" className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                           </button>
                         </div>
@@ -944,19 +947,19 @@ function ShadesPage() {
           {activeRoom === 'Bedroom' && (
             <div className="bg-gray-50 p-3 rounded shadow">
               <h3 className="text-md font-semibold mb-2">Bedroom Windows</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-1">
                 {/* Hard-coded Bedroom Windows */}
                 <div className="border rounded p-1">
                   <h4 className="font-medium text-center text-xs mb-0.5">South</h4>
-                  <div className="flex justify-center gap-2">
+                  <div className="flex justify-center gap-1">
                     {/* Privacy shade controls */}
-                    <div>
-                      <p className="text-xs mb-0.5 text-center">Privacy</p>
-                      <div className="flex flex-col items-center space-y-1">
+                    <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                      <div className="flex flex-col items-center space-y-3">
                         <button 
                           onClick={() => handleShadeCommand(41, 'u')}
                           title="Raise South Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -965,7 +968,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(41, 's')}
                           title="Stop South Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
@@ -974,7 +977,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(41, 'd')}
                           title="Lower South Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -984,14 +987,13 @@ function ShadesPage() {
                     </div>
                     
                     {/* Blackout shade controls */}
-                    <div>
-                      <p className="text-xs mb-0.5 text-center">Blackout</p>
-                      <div className="flex flex-col items-center space-y-1">
+                    <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-white">Blackout</p>
+                      <div className="flex flex-col items-center space-y-3">
                         <button 
                           onClick={() => handleShadeCommand(37, 'u')}
                           title="Raise South Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                           </svg>
@@ -999,8 +1001,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(37, 's')}
                           title="Stop South Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                           </svg>
@@ -1008,8 +1009,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(37, 'd')}
                           title="Lower South Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
@@ -1021,15 +1021,15 @@ function ShadesPage() {
                 
                 <div className="border rounded p-1">
                   <h4 className="font-medium text-center text-xs mb-0.5">Southwest</h4>
-                  <div className="flex justify-center gap-2">
+                  <div className="flex justify-center gap-1">
                     {/* Privacy shade controls */}
-                    <div>
-                      <p className="text-xs mb-0.5 text-center">Privacy</p>
-                      <div className="flex flex-col items-center space-y-1">
+                    <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                      <div className="flex flex-col items-center space-y-3">
                         <button 
                           onClick={() => handleShadeCommand(42, 'u')}
                           title="Raise Southwest Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -1038,7 +1038,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(42, 's')}
                           title="Stop Southwest Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
@@ -1047,7 +1047,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(42, 'd')}
                           title="Lower Southwest Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1057,14 +1057,13 @@ function ShadesPage() {
                     </div>
                     
                     {/* Blackout shade controls */}
-                    <div>
-                      <p className="text-xs mb-0.5 text-center">Blackout</p>
-                      <div className="flex flex-col items-center space-y-1">
+                    <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-white">Blackout</p>
+                      <div className="flex flex-col items-center space-y-3">
                         <button 
                           onClick={() => handleShadeCommand(38, 'u')}
                           title="Raise Southwest Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                           </svg>
@@ -1072,8 +1071,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(38, 's')}
                           title="Stop Southwest Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                           </svg>
@@ -1081,8 +1079,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(38, 'd')}
                           title="Lower Southwest Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
@@ -1094,15 +1091,15 @@ function ShadesPage() {
                 
                 <div className="border rounded p-1">
                   <h4 className="font-medium text-center text-xs mb-0.5">West</h4>
-                  <div className="flex justify-center gap-2">
+                  <div className="flex justify-center gap-1">
                     {/* Privacy shade controls */}
-                    <div>
-                      <p className="text-xs mb-0.5 text-center">Privacy</p>
-                      <div className="flex flex-col items-center space-y-1">
+                    <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
+                      <div className="flex flex-col items-center space-y-3">
                         <button 
                           onClick={() => handleShadeCommand(43, 'u')}
                           title="Raise West Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -1111,7 +1108,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(43, 's')}
                           title="Stop West Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
@@ -1120,7 +1117,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(43, 'd')}
                           title="Lower West Window Privacy Shade"
-                          className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1130,14 +1127,13 @@ function ShadesPage() {
                     </div>
                     
                     {/* Blackout shade controls */}
-                    <div>
-                      <p className="text-xs mb-0.5 text-center">Blackout</p>
-                      <div className="flex flex-col items-center space-y-1">
+                    <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-white">Blackout</p>
+                      <div className="flex flex-col items-center space-y-3">
                         <button 
                           onClick={() => handleShadeCommand(39, 'u')}
                           title="Raise West Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                           </svg>
@@ -1145,8 +1141,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(39, 's')}
                           title="Stop West Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                           </svg>
@@ -1154,8 +1149,7 @@ function ShadesPage() {
                         <button 
                           onClick={() => handleShadeCommand(39, 'd')}
                           title="Lower West Window Blackout Shade"
-                          className="w-7 h-7 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                        >
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
@@ -1172,207 +1166,218 @@ function ShadesPage() {
           {activeRoom === 'Office' && (
             <div className="bg-gray-50 p-3 rounded shadow">
               <h3 className="text-md font-semibold mb-2">Office Solar</h3>
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-2 mb-4">
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Slider Door (Solar)</h4>
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => handleShadeCommand(34, 'u')}
-                      title="Raise Office Slider Door solar shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(34, 's')}
-                      title="Stop Office Slider Door solar shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(34, 'd')}
-                      title="Lower Office Slider Door solar shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+              <div className="flex justify-center space-x-2 mb-4">
+
                 
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Windows (Solar)</h4>
-                  <div className="flex justify-center space-x-2">
+                {/* Windows Solar */}
+                <div className="bg-gray-800 border border-gray-700 rounded-lg p-1 pb-2 w-36">
+                  <h4 className="font-medium text-center text-xs mb-1 text-white">Windows</h4>
+                  <div className="flex flex-col items-center space-y-3">
                     <button 
                       onClick={() => handleShadeCommand(35, 'u')}
                       title="Raise Office Windows solar shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                      style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                       </svg>
                     </button>
                     <button 
                       onClick={() => handleShadeCommand(35, 's')}
                       title="Stop Office Windows solar shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                      style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                       </svg>
                     </button>
                     <button 
                       onClick={() => handleShadeCommand(35, 'd')}
                       title="Lower Office Windows solar shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                      style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
                   </div>
                 </div>
+
+                {/* Slider Door Solar */}
+                <div className="bg-gray-800 border border-gray-700 rounded-lg p-1 pb-2 w-36">
+                  <h4 className="font-medium text-center text-xs mb-1 text-white">Slider Door</h4>
+                  <div className="flex flex-col items-center space-y-3">
+                    <button 
+                      onClick={() => handleShadeCommand(34, 'u')}
+                      title="Raise Office Slider Door solar shade"
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                      style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(34, 's')}
+                      title="Stop Office Slider Door solar shade"
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                      style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(34, 'd')}
+                      title="Lower Office Slider Door solar shade"
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center"
+                      style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
               </div>
               
-              <h3 className="text-md font-semibold mb-2">Office Dimming</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-2">
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Slider Door</h4>
-                  <div className="flex justify-center space-x-2">
+              <h3 className="text-md font-semibold mb-2">Office Privacy</h3>
+              <div className="flex justify-center flex-wrap gap-2">
+                
+                
+                {/* Window Left Privacy */}
+                <div className="bg-white border border-gray-200 rounded-lg p-1 pb-2 w-24">
+                  <h4 className="font-medium text-center text-xs mb-1 text-gray-800">Office Left</h4>
+                  <div className="flex flex-col items-center space-y-3">
+                    <button 
+                      onClick={() => handleShadeCommand(32, 'u')}
+                      title="Raise Office Window Left privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(32, 's')}
+                      title="Stop Office Window Left privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(32, 'd')}
+                      title="Lower Office Window Left privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Window Center Privacy */}
+                <div className="bg-white border border-gray-200 rounded-lg p-1 pb-2 w-24">
+                  <h4 className="font-medium text-center text-xs mb-1 text-gray-800">Office Center</h4>
+                  <div className="flex flex-col items-center space-y-3">
+                    <button 
+                      onClick={() => handleShadeCommand(31, 'u')}
+                      title="Raise Office Window Center privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(31, 's')}
+                      title="Stop Office Window Center privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(31, 'd')}
+                      title="Lower Office Window Center privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Window Right Privacy */}
+                <div className="bg-white border border-gray-200 rounded-lg p-1 pb-2 w-24">
+                  <h4 className="font-medium text-center text-xs mb-1 text-gray-800">Office Right</h4>
+                  <div className="flex flex-col items-center space-y-3">
+                    <button 
+                      onClick={() => handleShadeCommand(30, 'u')}
+                      title="Raise Office Window Right privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(30, 's')}
+                      title="Stop Office Window Right privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => handleShadeCommand(30, 'd')}
+                      title="Lower Office Window Right privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                {/* Slider Door Privacy */}
+                <div className="bg-white border border-gray-200 rounded-lg p-1 pb-2 w-36">
+                  <h4 className="font-medium text-center text-xs mb-1 text-gray-800">Slider Door</h4>
+                  <div className="flex flex-col items-center space-y-3">
                     <button 
                       onClick={() => handleShadeCommand(29, 'u')}
-                      title="Raise Office Slider Door dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      title="Raise Office Slider Door privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                       </svg>
                     </button>
                     <button 
                       onClick={() => handleShadeCommand(29, 's')}
-                      //onClick={() => actions.controlShade(33, 'stop')}
-                      title="Stop Office Slider Door dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      title="Stop Office Slider Door privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                       </svg>
                     </button>
                     <button 
                       onClick={() => handleShadeCommand(29, 'd')}
-                      //onClick={() => actions.controlShade(33, 'down')}
-                      title="Lower Office Slider Door dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      title="Lower Office Slider Door privacy shade"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Window Right</h4>
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => handleShadeCommand(30, 'u')} // for UP button
-                      //onClick={() => actions.controlShade(30, 'up')}
-                      title="Raise Office Window Right dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(30, 's')} // for STOP button
-                      //onClick={() => actions.controlShade(33, 'stop')}
-                      title="Stop Office Window Right dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(30, 'd')} // for DOWN button
-                      //onClick={() => actions.controlShade(33, 'down')}
-                      title="Lower Office Window Right dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Window Center</h4>
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => handleShadeCommand(31, 'u')} // for UP button
-                      title="Raise Office Window Center dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(31, 's')} // for STOP button
-                      title="Stop Office Window Center dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(31, 'd')} // for DOWN button
-                      title="Lower Office Window Center dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Window Left</h4>
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => handleShadeCommand(32, 'u')} // for UP button
-                      title="Raise Office Window Left dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(32, 's')} // for STOP button
-                      title="Stop Office Window Left dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(32, 'd')} // for DOWN button
-                      title="Lower Office Window Left dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
@@ -1393,7 +1398,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(45, 'u')}
                       title="Raise Loft Deskside dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -1402,7 +1407,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(45, 's')}
                       title="Stop Loft Deskside dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
@@ -1411,7 +1416,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(45, 'd')}
                       title="Lower Loft Deskside dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1426,8 +1431,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(46, 'u')}
                       title="Raise Loft Deskside blackout shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                    >
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                       </svg>
@@ -1435,8 +1439,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(46, 's')}
                       title="Stop Loft Deskside blackout shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                    >
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
                       </svg>
@@ -1444,8 +1447,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(46, 'd')}
                       title="Lower Loft Deskside blackout shade"
-                      className="w-9 h-9 bg-gray-300 hover:bg-gray-400 rounded-full flex items-center justify-center"
-                    >
+                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
@@ -1459,7 +1461,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(47, 'u')}
                       title="Raise Loft Back Window dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -1468,7 +1470,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(47, 's')}
                       title="Stop Loft Back Window dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
@@ -1477,7 +1479,7 @@ function ShadesPage() {
                     <button 
                       onClick={() => handleShadeCommand(47, 'd')}
                       title="Lower Loft Back Window dimming shade"
-                      className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center"
+                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

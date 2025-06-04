@@ -132,9 +132,19 @@ function HomePage() {
       }
     }
 
-    // Fall back to basic time-based logic
+    // Fall back to basic time-based logic using configured timezone
+    const timezoneInfo = scheduler.wakeUpStatus?.timezone || 'America/Denver (Mountain Time)';
+    const timezone = timezoneInfo.split(' ')[0];
+    
     const now = new Date();
-    const hour = now.getHours();
+    const currentTime = now.toLocaleTimeString('en-US', { 
+      timeZone: timezone,
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: false 
+    });
+    
+    const hour = parseInt(currentTime.split(':')[0]);
     
     if (hour >= 5 && hour < 10) return getSceneDisplay('good_morning');
     if (hour >= 10 && hour < 16) return getSceneDisplay('good_afternoon');
