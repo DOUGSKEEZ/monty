@@ -32,6 +32,11 @@ class BluetoothService extends IBluetoothService {
     this.isAudioReady = false;
     this.lastConnectionAttempt = 0;
     this.connectionInProgress = false;
+    
+    // Auto-disconnect timer state
+    this.autoDisconnectTimer = null;
+    this.autoDisconnectDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
+    this.pianobarIsRunning = false;
 
     // Register with ServiceRegistry
     this.serviceRegistry.register('BluetoothService', {
@@ -354,7 +359,10 @@ class BluetoothService extends IBluetoothService {
               device: this.bluetoothDevice,
               deviceName: this.bluetoothDeviceName,
               connectionInProgress: this.connectionInProgress,
-              lastConnectionAttempt: this.lastConnectionAttempt
+              lastConnectionAttempt: this.lastConnectionAttempt,
+              pianobarIsRunning: this.pianobarIsRunning,
+              autoDisconnectPending: this.autoDisconnectTimer !== null,
+              autoDisconnectDelayMinutes: this.autoDisconnectDelay / 1000 / 60
             }
           };
         } catch (error) {
@@ -557,6 +565,83 @@ class BluetoothService extends IBluetoothService {
   }
 
   /**
+   * Called when Pianobar service starts/initializes
+   * Cancels any pending auto-disconnect timer
+   */
+  onPianobarStarted() {
+    logger.info('Pianobar started - canceling any pending auto-disconnect');
+    this.pianobarIsRunning = true;
+    this._cancelAutoDisconnectTimer();
+  }
+
+  /**
+   * Called when Pianobar service stops/quits (NOT pause)
+   * Starts the 5-minute auto-disconnect timer
+   */
+  onPianobarStopped() {
+    logger.info('Pianobar stopped - scheduling Bluetooth auto-disconnect in 5 minutes');
+    this.pianobarIsRunning = false;
+    this._scheduleAutoDisconnect();
+  }
+
+  /**
+   * Cancel any pending auto-disconnect timer
+   * @private
+   */
+  _cancelAutoDisconnectTimer() {
+    if (this.autoDisconnectTimer) {
+      clearTimeout(this.autoDisconnectTimer);
+      this.autoDisconnectTimer = null;
+      logger.debug('Auto-disconnect timer canceled');
+    }
+  }
+
+  /**
+   * Schedule auto-disconnect after 5 minutes
+   * @private
+   */
+  _scheduleAutoDisconnect() {
+    // Cancel any existing timer first
+    this._cancelAutoDisconnectTimer();
+    
+    // Only schedule if we're actually connected
+    if (!this.isConnected) {
+      logger.debug('Not scheduling auto-disconnect - not connected to Bluetooth');
+      return;
+    }
+    
+    logger.info(`Bluetooth auto-disconnect scheduled in ${this.autoDisconnectDelay / 1000 / 60} minutes due to Pianobar shutdown`);
+    
+    this.autoDisconnectTimer = setTimeout(async () => {
+      try {
+        // Double-check conditions before disconnecting
+        if (this.pianobarIsRunning) {
+          logger.info('Auto-disconnect canceled - Pianobar is running again');
+          return;
+        }
+        
+        if (!this.isConnected) {
+          logger.info('Auto-disconnect skipped - already disconnected');
+          return;
+        }
+        
+        logger.info('Auto-disconnecting Bluetooth speakers after 5 minutes of Pianobar inactivity');
+        const result = await this.disconnect();
+        
+        if (result.success) {
+          logger.info('✅ Bluetooth auto-disconnect successful - speakers can now enter sleep mode');
+        } else {
+          logger.warn('⚠️ Bluetooth auto-disconnect failed:', result.message);
+        }
+      } catch (error) {
+        logger.error('❌ Error during auto-disconnect:', error.message);
+      } finally {
+        this.autoDisconnectTimer = null;
+      }
+    }, this.autoDisconnectDelay);
+  }
+
+  /**
    * Recovery procedure for the service
    */
   async recoveryProcedure(serviceName, attemptNumber) {
@@ -564,6 +649,9 @@ class BluetoothService extends IBluetoothService {
     try {
       // Reset connection state
       this.connectionInProgress = false;
+      
+      // Cancel any pending auto-disconnect timer
+      this._cancelAutoDisconnectTimer();
       
       // If connected, try to disconnect and reconnect
       if (this.isConnected) {

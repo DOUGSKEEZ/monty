@@ -606,6 +606,41 @@ class PianobarService extends IPianobarService {
   }
   
   /**
+   * Get BluetoothService instance from service registry
+   * @private
+   */
+  _getBluetoothService() {
+    try {
+      if (this.serviceRegistry) {
+        const service = this.serviceRegistry.getService('BluetoothService');
+        return service?.instance;
+      }
+    } catch (error) {
+      logger.debug(`Could not get BluetoothService: ${error.message}`);
+    }
+    return null;
+  }
+
+  /**
+   * Notify BluetoothService about Pianobar lifecycle events
+   * @private
+   */
+  _notifyBluetoothService(event) {
+    const bluetoothService = this._getBluetoothService();
+    if (bluetoothService) {
+      try {
+        if (event === 'started' && typeof bluetoothService.onPianobarStarted === 'function') {
+          bluetoothService.onPianobarStarted();
+        } else if (event === 'stopped' && typeof bluetoothService.onPianobarStopped === 'function') {
+          bluetoothService.onPianobarStopped();
+        }
+      } catch (error) {
+        logger.warn(`Error notifying BluetoothService of ${event} event: ${error.message}`);
+      }
+    }
+  }
+
+  /**
    * Implementation of starting pianobar
    * @private
    */
@@ -692,6 +727,9 @@ class PianobarService extends IPianobarService {
         prometheusMetrics.recordOperation('start-pianobar', true);
         prometheusMetrics.recordGauge('pianobar', 'status', 1);
       }
+      
+      // Notify BluetoothService that Pianobar has started
+      this._notifyBluetoothService('started');
       
       return {
         success: true,
@@ -817,6 +855,9 @@ class PianobarService extends IPianobarService {
         prometheusMetrics.recordGauge('pianobar', 'status', 0);
       }
       
+      // Notify BluetoothService that Pianobar has stopped
+      this._notifyBluetoothService('stopped');
+      
       return {
         success: true,
         message: 'Pianobar stopped successfully',
@@ -835,6 +876,9 @@ class PianobarService extends IPianobarService {
       this.isPianobarRunning = false;
       this.isPlaying = false;
       this.pianobarProcess = null;
+      
+      // Notify BluetoothService even on error since Pianobar is stopped
+      this._notifyBluetoothService('stopped');
       
       // Try to update status file even on error
       try {
