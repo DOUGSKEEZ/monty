@@ -438,6 +438,7 @@ router.get('/config', async (req, res) => {
         scenes: {
           good_afternoon_time: config.scenes.good_afternoon_time || '14:30',
           good_evening_offset_minutes: Math.abs(config.scenes.good_evening_offset_minutes || 60),
+          good_night_offset_minutes: config.scenes.good_night_offset_minutes || 0
         },
         wake_up: {
           enabled: config.wake_up.enabled || false,
@@ -447,9 +448,11 @@ router.get('/config', async (req, res) => {
         },
         music: {
           enabled_for_morning: config.music.enabled_for_morning || true,
-          enabled_for_evening: config.music.enabled_for_evening || true
+          enabled_for_evening: config.music.enabled_for_evening || true,
+          enabled_for_afternoon: config.music.enabled_for_afternoon || false,
+          enabled_for_night: config.music.enabled_for_night || false
         },
-        home_away: config.home_away,
+        // home_away data moved to main config.json under homeStatus.awayPeriods
         nextSceneTimes: health.metrics.nextSceneTimes,
         serviceHealth: {
           status: health.status,
@@ -471,7 +474,7 @@ router.get('/config', async (req, res) => {
  */
 router.put('/scenes', async (req, res) => {
   try {
-    const { good_afternoon_time, good_evening_offset_minutes } = req.body;
+    const { good_afternoon_time, good_evening_offset_minutes, good_night_offset_minutes } = req.body;
     
     const result = await schedulerCircuit.execute(async () => {
       const schedulerService = await getSchedulerService();
@@ -485,6 +488,10 @@ router.put('/scenes', async (req, res) => {
         throw new Error('Good evening offset must be between 0 and 180 minutes');
       }
       
+      if (good_night_offset_minutes !== undefined && (good_night_offset_minutes < -120 || good_night_offset_minutes > 60)) {
+        throw new Error('Good night offset must be between -120 and 60 minutes');
+      }
+      
       // Updates with retry logic
       return await retryHelper.retryOperation(async () => {
         // Update configuration
@@ -495,13 +502,16 @@ router.put('/scenes', async (req, res) => {
           // Store as negative value to match existing pattern
           schedulerService.schedulerConfig.scenes.good_evening_offset_minutes = -Math.abs(good_evening_offset_minutes);
         }
+        if (good_night_offset_minutes !== undefined) {
+          schedulerService.schedulerConfig.scenes.good_night_offset_minutes = good_night_offset_minutes;
+        }
         
         // Save configuration
         schedulerService.saveSchedulerConfig();
         
         // Reschedule all scenes to ensure updates take effect (may fail, but configuration is saved)
         try {
-          if (good_afternoon_time || good_evening_offset_minutes !== undefined) {
+          if (good_afternoon_time || good_evening_offset_minutes !== undefined || good_night_offset_minutes !== undefined) {
             logger.info('Rescheduling all scenes due to configuration changes');
             schedulerService.scheduleAllScenes();
           }
@@ -511,7 +521,8 @@ router.put('/scenes', async (req, res) => {
         
         return {
           good_afternoon_time: schedulerService.schedulerConfig.scenes.good_afternoon_time,
-          good_evening_offset_minutes: Math.abs(schedulerService.schedulerConfig.scenes.good_evening_offset_minutes || 60)
+          good_evening_offset_minutes: Math.abs(schedulerService.schedulerConfig.scenes.good_evening_offset_minutes || 60),
+          good_night_offset_minutes: schedulerService.schedulerConfig.scenes.good_night_offset_minutes || 0
         };
       }, {
         operationName: 'update-scene-settings',

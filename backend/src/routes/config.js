@@ -7,7 +7,17 @@ const logger = require('../utils/logger').getModuleLogger('config-routes');
 router.get('/', (req, res) => {
   try {
     const config = configManager.getConfig();
-    res.json({ success: true, data: config });
+    
+    // Ensure homeStatus returns computed status instead of stored status
+    const configWithComputedStatus = {
+      ...config,
+      homeStatus: {
+        ...config.homeStatus,
+        status: configManager.getCurrentHomeStatus()
+      }
+    };
+    
+    res.json({ success: true, data: configWithComputedStatus });
   } catch (error) {
     logger.error(`Error getting configuration: ${error.message}`);
     res.status(500).json({ success: false, error: 'Failed to get configuration' });
@@ -18,6 +28,20 @@ router.get('/', (req, res) => {
 router.get('/:path', (req, res) => {
   try {
     const { path } = req.params;
+    
+    // Special handling for homeStatus to return computed status
+    if (path === 'homeStatus') {
+      const homeStatus = configManager.get('homeStatus');
+      if (homeStatus) {
+        // Return the computed status instead of stored status
+        const computedStatus = {
+          ...homeStatus,
+          status: configManager.getCurrentHomeStatus()
+        };
+        return res.json({ success: true, data: computedStatus });
+      }
+    }
+    
     const value = configManager.get(path);
     
     if (value === null) {

@@ -379,6 +379,49 @@ class ConfigManager {
     logger.info(`Home status set to ${status}`);
     return true;
   }
+
+  /**
+   * Get the current computed home/away status based on away periods
+   * @returns {string} 'home' or 'away'
+   */
+  getCurrentHomeStatus() {
+    try {
+      // Get the manual status
+      const manualStatus = this.get('homeStatus.status', 'home');
+      
+      // If manually set to away, respect that
+      if (manualStatus === 'away') {
+        return 'away';
+      }
+      
+      // Check if currently in an away period
+      const awayPeriods = this.get('homeStatus.awayPeriods', []);
+      
+      // Use local timezone - get current date in the configured timezone
+      // For now, use UTC but this should be updated to use TimezoneManager when available
+      const currentDateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      for (const period of awayPeriods) {
+        if (currentDateStr >= period.start && currentDateStr <= period.end) {
+          logger.debug(`Currently in away period: ${period.start} to ${period.end} (current: ${currentDateStr})`);
+          return 'away';
+        }
+      }
+      
+      return 'home';
+    } catch (error) {
+      logger.error(`Error computing current home status: ${error.message}`);
+      return 'home'; // Default to home if error
+    }
+  }
+
+  /**
+   * Check if currently in an away period
+   * @returns {boolean} True if currently away
+   */
+  isCurrentlyAway() {
+    return this.getCurrentHomeStatus() === 'away';
+  }
   
   /**
    * Add an away period

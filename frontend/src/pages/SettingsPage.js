@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../utils/AppContext';
+import AwayManager from '../components/AwayManager';
+import AwayDatePicker from '../components/AwayDatePicker';
+import AwayCalendarDisplay from '../components/AwayCalendarDisplay';
+import AwayPeriodsList from '../components/AwayPeriodsList';
 
 function SettingsPage() {
   // Get state and actions from context
@@ -15,16 +19,19 @@ function SettingsPage() {
   // Form states (initialized from context)
   const [sceneSettings, setSceneSettings] = useState({
     good_afternoon_time: '14:30',
-    good_evening_offset_minutes: 60
+    good_evening_offset_minutes: 60,
+    good_night_offset_minutes: 0
   });
   // Draft states for explicit save behavior
   const [sceneDrafts, setSceneDrafts] = useState({
     good_afternoon_time: '14:30',
-    good_evening_offset_minutes: 60
+    good_evening_offset_minutes: 60,
+    good_night_offset_minutes: 0
   });
   const [sceneChanges, setSceneChanges] = useState({
     good_afternoon_time: false,
-    good_evening_offset_minutes: false
+    good_evening_offset_minutes: false,
+    good_night_offset_minutes: false
   });
   const [wakeUpSettings, setWakeUpSettings] = useState({
     enabled: false,
@@ -36,7 +43,9 @@ function SettingsPage() {
   const [wakeUpDelayChanged, setWakeUpDelayChanged] = useState(false);
   const [musicSettings, setMusicSettings] = useState({
     enabled_for_morning: true,
-    enabled_for_evening: true
+    enabled_for_evening: true,
+    enabled_for_afternoon: false,
+    enabled_for_night: false
   });
   const [timezoneSettings, setTimezoneSettings] = useState({
     current: 'America/Denver',
@@ -52,13 +61,15 @@ function SettingsPage() {
       
       const sceneConfig = {
         good_afternoon_time: config.scenes?.good_afternoon_time || '14:30',
-        good_evening_offset_minutes: config.scenes?.good_evening_offset_minutes || 60
+        good_evening_offset_minutes: config.scenes?.good_evening_offset_minutes || 60,
+        good_night_offset_minutes: config.scenes?.good_night_offset_minutes || 0
       };
       setSceneSettings(sceneConfig);
       setSceneDrafts(sceneConfig);
       setSceneChanges({
         good_afternoon_time: false,
-        good_evening_offset_minutes: false
+        good_evening_offset_minutes: false,
+        good_night_offset_minutes: false
       });
       
       const wakeUpConfig = {
@@ -72,7 +83,9 @@ function SettingsPage() {
       
       setMusicSettings({
         enabled_for_morning: config.music?.enabled_for_morning !== false,
-        enabled_for_evening: config.music?.enabled_for_evening !== false
+        enabled_for_evening: config.music?.enabled_for_evening !== false,
+        enabled_for_afternoon: config.music?.enabled_for_afternoon === true,
+        enabled_for_night: config.music?.enabled_for_night === true
       });
       
       // Update timezone settings from location config
@@ -429,7 +442,7 @@ function SettingsPage() {
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Morning Delay (minutes after Rise'n'Shine)
             </label>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center mb-3">
               <input
                 type="number"
                 min="5"
@@ -447,6 +460,19 @@ function SettingsPage() {
                 Update
               </button>
             </div>
+            <label className="flex items-center text-sm">
+              <input
+                type="checkbox"
+                checked={musicSettings.enabled_for_morning}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setMusicSettings(prev => ({ ...prev, enabled_for_morning: enabled }));
+                  updateMusicSettings({ enabled_for_morning: enabled });
+                }}
+                className="mr-2"
+              />
+              <span className="text-gray-600">🎵 Start music automatically</span>
+            </label>
           </div>
         </div>
         
@@ -483,12 +509,12 @@ function SettingsPage() {
           Scene Timing & Scheduling
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div>
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Afternoon Time
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-3">
               <input
                 type="time"
                 value={sceneDrafts.good_afternoon_time}
@@ -503,13 +529,26 @@ function SettingsPage() {
                 Update
               </button>
             </div>
+            <label className="flex items-center text-sm">
+              <input
+                type="checkbox"
+                checked={musicSettings.enabled_for_afternoon}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setMusicSettings(prev => ({ ...prev, enabled_for_afternoon: enabled }));
+                  updateMusicSettings({ enabled_for_afternoon: enabled });
+                }}
+                className="mr-2"
+              />
+              <span className="text-gray-600">🎵 Start music automatically</span>
+            </label>
           </div>
           
           <div>
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Evening (minutes before sunset)
             </label>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center mb-3">
               <input
                 type="number"
                 min="0"
@@ -527,6 +566,58 @@ function SettingsPage() {
                 Update
               </button>
             </div>
+            <label className="flex items-center text-sm">
+              <input
+                type="checkbox"
+                checked={musicSettings.enabled_for_evening}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setMusicSettings(prev => ({ ...prev, enabled_for_evening: enabled }));
+                  updateMusicSettings({ enabled_for_evening: enabled });
+                }}
+                className="mr-2"
+              />
+              <span className="text-gray-600">🎵 Start music automatically</span>
+            </label>
+          </div>
+          
+          <div>
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              Good Night (civil twilight offset)
+            </label>
+            <div className="flex gap-2 items-center mb-3">
+              <input
+                type="number"
+                min="-120"
+                max="60"
+                step="5"
+                value={sceneDrafts.good_night_offset_minutes}
+                onChange={(e) => handleSceneDraftChange('good_night_offset_minutes', parseInt(e.target.value))}
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
+              />
+              <span className="text-sm text-gray-500">minutes</span>
+              <button
+                onClick={() => saveSceneSetting('good_night_offset_minutes')}
+                disabled={saving || !sceneChanges.good_night_offset_minutes}
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+              >
+                Update
+              </button>
+            </div>
+            
+            <label className="flex items-center text-sm">
+              <input
+                type="checkbox"
+                checked={musicSettings.enabled_for_night}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setMusicSettings(prev => ({ ...prev, enabled_for_night: enabled }));
+                  updateMusicSettings({ enabled_for_night: enabled });
+                }}
+                className="mr-2"
+              />
+              <span className="text-gray-600">🎵 Start music automatically</span>
+            </label>
           </div>
         </div>
       </div>
@@ -625,43 +716,6 @@ function SettingsPage() {
         </div>
       </div>
 
-      {/* Music Integration Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <span className="mr-2">🎵</span>
-          Music Integration
-        </h2>
-        
-        <div className="space-y-4">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={musicSettings.enabled_for_morning}
-              onChange={(e) => {
-                const enabled = e.target.checked;
-                setMusicSettings(prev => ({ ...prev, enabled_for_morning: enabled }));
-                updateMusicSettings({ enabled_for_morning: enabled });
-              }}
-              className="mr-2"
-            />
-            <span className="text-gray-700">Enable music for morning scenes</span>
-          </label>
-          
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={musicSettings.enabled_for_evening}
-              onChange={(e) => {
-                const enabled = e.target.checked;
-                setMusicSettings(prev => ({ ...prev, enabled_for_evening: enabled }));
-                updateMusicSettings({ enabled_for_evening: enabled });
-              }}
-              className="mr-2"
-            />
-            <span className="text-gray-700">Enable music for evening scenes</span>
-          </label>
-        </div>
-      </div>
 
       {/* Scene Testing Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -749,6 +803,43 @@ function SettingsPage() {
             This button uses <code>kill -9</code> to forcefully terminate processes. Use only when normal stop doesn't work.
           </p>
         </div>
+      </div>
+
+      {/* Away Status Management Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+          <span className="mr-2">✈️</span>
+          Away Status Management
+        </h2>
+        
+        <p className="text-gray-600 mb-6">
+          Manage periods when you'll be away from home. This helps optimize scheduling and automation.
+        </p>
+        
+        <AwayManager>
+          {(awayContext) => (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Date Picker Column */}
+              <div>
+                <AwayDatePicker 
+                  awayContext={awayContext}
+                  onSuccess={(message) => showSuccess(message)}
+                  onError={(message) => showError(message)}
+                />
+              </div>
+              
+              {/* Calendar Display Column */}
+              <div>
+                <AwayCalendarDisplay awayContext={awayContext} />
+              </div>
+              
+              {/* Periods List Column */}
+              <div>
+                <AwayPeriodsList awayContext={awayContext} />
+              </div>
+            </div>
+          )}
+        </AwayManager>
       </div>
 
       {/* Timezone Settings Section */}

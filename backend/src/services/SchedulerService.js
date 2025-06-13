@@ -83,13 +83,14 @@ class SchedulerService {
   getDefaultConfig() {
     return {
       location: {
-        timezone: "America/Denver",
+        timezone: this.timezoneManager?.getCronTimezone() || "America/Denver",
         city: "Silverthorne, CO"
       },
       scenes: {
         good_afternoon_time: "14:30",
         good_evening_offset_minutes: -60,
-        good_night_offset_minutes: 30
+        good_night_offset_minutes: 0,
+        good_night_timing: "civil_twilight_end"
       },
       home_away: {
         status: "home",
@@ -149,16 +150,24 @@ class SchedulerService {
       times.good_evening = new Date(sunTimesData.sunset + (eveningOffset * 60 * 1000));
       
       // Good Night - use civil twilight end or fallback to sunset + offset
-      const goodNightTiming = this.schedulerConfig.scenes.good_night_timing || "offset";
+      const goodNightTiming = this.schedulerConfig.scenes.good_night_timing || "civil_twilight_end";
+      let baseGoodNightTime;
+      
       if (goodNightTiming === "civil_twilight_end" && sunTimesData.civilTwilightEnd) {
-        times.good_night = new Date(sunTimesData.civilTwilightEnd);
-        logger.debug(`Using civil twilight end for good_night: ${this.timezoneManager.formatForDisplay(times.good_night)}`);
+        baseGoodNightTime = new Date(sunTimesData.civilTwilightEnd);
+        logger.debug(`Using civil twilight end as base for good_night: ${this.timezoneManager.formatForDisplay(baseGoodNightTime)}`);
       } else {
-        // Fallback to sunset + offset for backward compatibility
-        const nightOffset = this.schedulerConfig.scenes.good_night_offset_minutes || 30;
-        times.good_night = new Date(sunTimesData.sunset + (nightOffset * 60 * 1000));
-        logger.debug(`Using sunset + ${nightOffset} minutes for good_night: ${this.timezoneManager.formatForDisplay(times.good_night)}`);
+        // Fallback to sunset + 30 minutes for backward compatibility
+        const fallbackOffset = this.schedulerConfig.scenes.good_night_offset_minutes_legacy || 30;
+        baseGoodNightTime = new Date(sunTimesData.sunset + (fallbackOffset * 60 * 1000));
+        logger.debug(`Using sunset + ${fallbackOffset} minutes as base for good_night: ${this.timezoneManager.formatForDisplay(baseGoodNightTime)}`);
       }
+      
+      // Apply user-configurable offset to the base time
+      const userOffset = this.schedulerConfig.scenes.good_night_offset_minutes || 0;
+      times.good_night = new Date(baseGoodNightTime.getTime() + (userOffset * 60 * 1000));
+      
+      logger.debug(`Applied user offset of ${userOffset} minutes to good_night: ${this.timezoneManager.formatForDisplay(times.good_night)}`);
       
       this.nextSceneTimes = times;
       
@@ -553,6 +562,10 @@ class SchedulerService {
         shouldStartMusic = musicConfig.enabled_for_morning === true;
       } else if (sceneName === 'good_evening') {
         shouldStartMusic = musicConfig.enabled_for_evening === true;
+      } else if (sceneName === 'good_afternoon') {
+        shouldStartMusic = musicConfig.enabled_for_afternoon === true;
+      } else if (sceneName === 'good_night') {
+        shouldStartMusic = musicConfig.enabled_for_night === true;
       }
       
       if (!shouldStartMusic) {
@@ -746,28 +759,8 @@ class SchedulerService {
    */
   isHomeStatusActive() {
     try {
-      const homeAway = this.schedulerConfig.home_away || {};
-      const status = homeAway.status || 'home';
-      
-      if (status === 'away') {
-        return false;
-      }
-      
-      // Check if currently in an away period
-      const now = new Date();
-      const awayPeriods = homeAway.away_periods || [];
-      
-      for (const period of awayPeriods) {
-        const startDate = new Date(period.start_date);
-        const endDate = new Date(period.end_date);
-        
-        if (now >= startDate && now <= endDate) {
-          logger.debug(`Currently in away period: ${period.description}`);
-          return false;
-        }
-      }
-      
-      return true;
+      // Use configManager's computed status which handles both manual status and away periods
+      return this.configManager.getCurrentHomeStatus() === 'home';
     } catch (error) {
       logger.error(`Error checking home/away status: ${error.message}`);
       return true; // Default to home if error
@@ -1282,7 +1275,7 @@ class SchedulerService {
       uptime: Math.floor(uptime),
       metrics: {
         scheduledJobs: this.scheduledJobs.size,
-        homeAwayStatus: this.schedulerConfig.home_away?.status || 'home',
+        homeAwayStatus: this.configManager.get('homeStatus.status', 'home'),
         lastExecutedScene: this.lastExecutedScene,
         nextSceneTimes: Object.keys(this.nextSceneTimes).reduce((acc, key) => {
           if (key === 'good_afternoon_display') {
@@ -1326,7 +1319,7 @@ class SchedulerService {
    * Get home/away status
    */
   getHomeAwayStatus() {
-    return this.schedulerConfig.home_away?.status || 'home';
+    return this.configManager.getCurrentHomeStatus();
   }
 
   /**

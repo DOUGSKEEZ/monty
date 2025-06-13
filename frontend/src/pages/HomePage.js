@@ -120,14 +120,36 @@ function HomePage() {
       const goodEvening24 = convertTo24Hour(sceneTimes.good_evening);
       const goodNight24 = convertTo24Hour(sceneTimes.good_night);
 
+      // DEBUG: Log the times for troubleshooting
+      console.log('=== SHADE SCENE DEBUG ===');
+      console.log('Current time (MT):', currentTime);
+      console.log('Scene times (raw):', sceneTimes);
+      console.log('Scene times (24hr):', {
+        goodAfternoon24,
+        goodEvening24,
+        goodNight24
+      });
+
       // Compare with current time to determine active scene
+      // Handle day rollover: if it's between midnight and 6 AM and we had a good_night time yesterday
+      const currentHour = parseInt(currentTime.split(':')[0]);
+      const isNightTime = currentHour >= 0 && currentHour < 6;
+      
       if (goodNight24 && currentTime >= goodNight24) {
+        console.log('✓ Showing Good Night (currentTime >= goodNight24)');
+        return getSceneDisplay('good_night');
+      } else if (goodNight24 && isNightTime) {
+        // If it's between midnight and 6 AM and we have a good_night time, we're still in good_night period
+        console.log('✓ Showing Good Night (after midnight, still night time until 6 AM)');
         return getSceneDisplay('good_night');
       } else if (goodEvening24 && currentTime >= goodEvening24) {
+        console.log('✓ Showing Good Evening (currentTime >= goodEvening24)');
         return getSceneDisplay('good_evening');
       } else if (goodAfternoon24 && currentTime >= goodAfternoon24) {
+        console.log('✓ Showing Good Afternoon (currentTime >= goodAfternoon24)');
         return getSceneDisplay('good_afternoon');
       } else {
+        console.log('✓ Showing Good Morning (fallback)');
         return getSceneDisplay('good_morning');
       }
     }

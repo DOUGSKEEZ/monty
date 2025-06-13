@@ -1,7 +1,8 @@
 {
-  "status": "playing",
-  "isPianobarRunning": true,
-  "isPlaying": true,
-  "updateTime": 1749001472743,
-  "startTime": 1748995223371
+  "status": "stopped",
+  "isPianobarRunning": false,
+  "isPlaying": false,
+  "updateTime": 1749843527652,
+  "killTime": 1749843527652,
+  "note": "Force killed (no processes found)"
 }

@@ -525,6 +525,35 @@ export const configApi = {
       method: 'POST',
       body: JSON.stringify({ key, value }),
     }),
+
+  /**
+   * Get away periods configuration
+   * @returns {Promise<Object>} - Away periods data
+   */
+  getAwayPeriods: () => 
+    fetchApi('/config/homeStatus.awayPeriods'),
+
+  /**
+   * Add a new away period
+   * @param {string} startDate - Start date in YYYY-MM-DD format
+   * @param {string} endDate - End date in YYYY-MM-DD format
+   * @returns {Promise<Object>} - Result
+   */
+  addAwayPeriod: (startDate, endDate) => 
+    fetchApi('/config/away-periods', {
+      method: 'POST',
+      body: JSON.stringify({ startDate, endDate }),
+    }),
+
+  /**
+   * Remove an away period by index
+   * @param {number} index - Index of the period to remove
+   * @returns {Promise<Object>} - Result
+   */
+  removeAwayPeriod: (index) => 
+    fetchApi(`/config/away-periods/${index}`, {
+      method: 'DELETE',
+    }),
 };
 
 // State API endpoints for persistent state management

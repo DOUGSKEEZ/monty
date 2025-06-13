@@ -6,27 +6,18 @@
   "scenes": {
     "good_afternoon_time": "14:30",
     "good_evening_offset_minutes": -60,
-    "good_night_timing": "civil_twilight_end"
+    "good_night_timing": "civil_twilight_end",
+    "good_night_offset_minutes": -5
   },
   "wake_up": {
-    "enabled": true,
-    "time": "08:15",
-    "last_triggered": null,
+    "enabled": false,
+    "time": "08:45",
+    "last_triggered": "2025-06-05T14:45:00.024Z",
     "good_morning_delay_minutes": 30
   },
-  "home_away": {
-    "status": "home",
-    "away_periods": [
-      {
-        "start_date": "2025-06-01",
-        "end_date": "2025-06-03",
-        "description": "Summer vacation"
-      }
-    ]
-  },
   "music": {
-    "enabled_for_morning": true,
-    "enabled_for_evening": true,
+    "enabled_for_morning": false,
+    "enabled_for_evening": false,
     "bluetooth_retry_attempts": 3,
     "bluetooth_retry_delay_seconds": 30
   }
