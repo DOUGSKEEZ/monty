@@ -84,20 +84,25 @@ export const AppProvider = ({ children }) => {
     // Load persistent state from backend
     // Removed backend state loading
     
-    // Set up interval to refresh data periodically
-    // Optimized for One Call API 3.0 limits (1000 calls/day)
-    const refreshInterval = setInterval(() => {
+    // Set up intelligent polling with different intervals for different data types
+    // Weather/scheduler: Every 2 minutes (less frequent, not critical for real-time updates)
+    // Music: Every 30 seconds (WebSocket failover, more frequent but not excessive)
+    
+    const weatherSchedulerInterval = setInterval(() => {
       loadWeatherData(false);
       loadSchedulerData(false);
+    }, 120000); // Weather/scheduler every 2 minutes
+    
+    const musicInterval = setInterval(() => {
       loadMusicData(false);
       // loadPianobarData(false); // REMOVED: WebSocket handles pianobar updates
-      // Bluetooth status is refreshed separately
-    }, 10000); // Refresh every 10 seconds (WebSocket priority system prevents race conditions)
+    }, 30000); // Music every 30 seconds for WebSocket failover
     
     // Removed background sync
     
     return () => {
-      clearInterval(refreshInterval);
+      clearInterval(weatherSchedulerInterval);
+      clearInterval(musicInterval);
       // Removed sync interval cleanup
     };
   }, []); // CRITICAL: Remove the dependency array that was causing re-renders

@@ -1,3 +1,4 @@
+require('newrelic');  // Must be first line!
 console.log('[DEBUG] Loading modules...');
 
 const prometheusMetrics = require("./services/PrometheusMetricsService");
@@ -5,6 +6,9 @@ console.log('[DEBUG] Loaded PrometheusMetricsService');
 
 const metricsMiddleware = require("./middleware/metricsMiddleware");
 console.log('[DEBUG] Loaded metricsMiddleware');
+
+const multiVendorMetricsMiddleware = require("./middleware/multiVendorMetricsMiddleware");
+console.log('[DEBUG] Loaded multiVendorMetricsMiddleware');
 
 const express = require('express');
 console.log('[DEBUG] Loaded express');
@@ -92,6 +96,7 @@ console.log('[DEBUG] HTTP logger configured');
 
 console.log('[DEBUG] Setting up metrics middleware...');
 app.use(metricsMiddleware); // Add metrics middleware
+app.use(multiVendorMetricsMiddleware); // Add multi-vendor metrics middleware
 console.log('[DEBUG] Metrics middleware configured');
 
 // Add request logger for debugging (excluding map tiles)
@@ -192,6 +197,10 @@ console.log('[DEBUG] pianobarRoutes imported successfully!');
 console.log('[DEBUG] About to require stateRoutes...');
 const stateRoutes = require('./routes/state');
 console.log('[DEBUG] stateRoutes imported');
+
+console.log('[DEBUG] About to require monitoringRoutes...');
+const monitoringRoutes = require('./routes/monitoring');
+console.log('[DEBUG] monitoringRoutes imported');
 
 // API Routes
 app.get('/api/health', async (req, res) => {
@@ -925,6 +934,7 @@ app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);
 app.use('/api/state', stateRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 // Catch-all route for client-side routing (production only)
 if (process.env.NODE_ENV === 'production') {
