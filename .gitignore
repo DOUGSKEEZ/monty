@@ -62,3 +62,4 @@ wheels/
 # OS files
 .DS_Store
 Thumbs.db
+backend/.env.monitoring
