@@ -3,10 +3,10 @@
  * New Relic agent configuration for Monty Home Automation
  */
 exports.config = {
-  app_name: ['monty-home-automation'],
-  license_key: process.env.NEW_RELIC_LICENSE_KEY,
+  app_name: ['monty'],
+  license_key: process.env.NEW_RELIC_LICENSE_KEY ||  process.env.NEW_RELIC_ACCOUNT_KEY,
   logging: {
-    level: 'trace', // Changed to 'trace' for debugging
+    level: 'info',
     filepath: 'stdout'
   },
   // Add this to help debug

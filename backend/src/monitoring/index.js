@@ -31,7 +31,8 @@ console.log('[MONITORING] Enabled agents:', enabledAgents); //Added for debuggin
 if (enabledAgents.newRelic) {
   try {
     console.log('[MONITORING] Loading New Relic agent...');
-    require('./newrelic');
+    process.env.NEW_RELIC_HOME = __dirname;
+    require('newrelic');
     logger.info('New Relic APM agent loaded');
   } catch (error) {
     logger.error('Failed to load New Relic agent:', error.message);
