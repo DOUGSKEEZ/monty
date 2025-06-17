@@ -45,7 +45,7 @@ mkdir -p ~/monty/logs
 # Start Backend (Node.js)
 echo "🚀 Starting Backend (Node.js)..."
 cd ~/monty/backend
-nohup npm run dev > ~/monty/logs/backend.log 2>&1 &
+./dev.sh > ~/monty/logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "   Backend started with PID: $BACKEND_PID"
 

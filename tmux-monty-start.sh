@@ -25,7 +25,7 @@ tmux new-session -d -s $SESSION_NAME -n "Services"
 # Start with Backend in main pane
 tmux send-keys -t $SESSION_NAME:Services "cd ~/monty/backend" C-m
 tmux send-keys -t $SESSION_NAME:Services "echo '🚀 Starting Backend...'" C-m
-tmux send-keys -t $SESSION_NAME:Services "npm run dev" C-m
+tmux send-keys -t $SESSION_NAME:Services "./dev.sh" C-m
 
 # Split vertically to create Middle panel (ShadeCommander)
 tmux split-window -h -t $SESSION_NAME:Services

@@ -90,12 +90,31 @@ Start with these **FREE** options:
 - **Configuration Guide**: `monitoring-config.env.example`
 - **API Documentation**: `/api/monitoring/` endpoints
 
-## Support
+# Monitoring Implementation Status
 
-All monitoring integrations are now active and sending data. You can:
-- View metrics in each platform's dashboard
-- Get alerts on issues
-- Track home automation performance
-- Compare platforms side-by-side
+## Currently Active
+- **Prometheus + Grafana**: Local metrics (always on)
+- **New Relic APM**: Application performance monitoring
 
-Happy monitoring! 📊🏠
+## New Relic Setup
+### Node.js (Backend)
+- Config: `backend/src/monitoring/newrelic.js`
+- App Name: monty-home-automation
+- Status: ✅ Active
+
+### Python (ShadeCommander)
+- Config: `shades/commander/newrelic.ini`
+- App Name: ShadeCommander
+- Status: ✅ Active
+
+## Quick Commands
+```bash
+# Toggle New Relic on/off
+./backend/toggle-monitoring.sh newrelic
+
+# Check monitoring status
+./backend/toggle-monitoring.sh status
+
+# View New Relic dashboards
+# Node.js: https://one.newrelic.com/nr1-core/apm-application/MTM4Mjg5MDF8QVBNXEFQQF
+# Python: https://one.newrelic.com/nr1-core/apm-application/[YOUR_PYTHON_APP_ID]

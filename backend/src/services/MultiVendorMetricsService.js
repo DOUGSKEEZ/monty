@@ -9,39 +9,51 @@ class MultiVendorMetricsService {
     this.isInitialized = false;
     this.providers = {};
     
-    // Initialize based on environment variables
-    this.initializeProviders();
-    
-    this.isInitialized = true;
-    this.logger.info('MultiVendorMetricsService initialized with providers:', Object.keys(this.providers));
+    // DON'T initialize providers in constructor - wait for lazy init
   }
-  
+
+  // Lazy initialization to ensure env vars are loaded
+  ensureInitialized() {
+    if (!this.isInitialized) {
+      // Load monitoring environment variables if not already loaded
+      if (!process.env.NEW_RELIC_LICENSE_KEY && !process.env.DATADOG_API_KEY) {
+        const dotenv = require('dotenv');
+        const path = require('path');
+        dotenv.config({ path: path.join(__dirname, '../../.env.monitoring') });
+      }
+      
+      this.initializeProviders();
+      this.isInitialized = true;
+      this.logger.info('MultiVendorMetricsService initialized with providers:', Object.keys(this.providers));
+    }
+  }
   initializeProviders() {
-    // DataDog
-    if (process.env.DATADOG_API_KEY) {
+    // DataDog - Only if ACTUALLY configured with a real key
+    if (process.env.DATADOG_API_KEY && process.env.DATADOG_API_KEY !== 'your_datadog_api_key_here') {
       this.providers.datadog = this.initializeDataDog();
     }
-    
-    // Splunk
-    if (process.env.SPLUNK_HEC_TOKEN && process.env.SPLUNK_HOST) {
+  
+    // Splunk - Only if ACTUALLY configured
+    if (process.env.SPLUNK_HEC_TOKEN && process.env.SPLUNK_HEC_TOKEN !== 'your_splunk_hec_token_here' && 
+        process.env.SPLUNK_HOST && process.env.SPLUNK_HOST !== 'your_splunk_host_here') {
       this.providers.splunk = this.initializeSplunk();
     }
-    
-    // New Relic
-    if (process.env.NEW_RELIC_LICENSE_KEY) {
+  
+    // New Relic - Only if ACTUALLY configured (you have this one!)
+    if (process.env.NEW_RELIC_LICENSE_KEY && process.env.NEW_RELIC_LICENSE_KEY.startsWith('NRAK-')) {
       this.providers.newrelic = this.initializeNewRelic();
     }
-    
-    // Elastic/ELK Stack
-    if (process.env.ELASTICSEARCH_URL) {
+  
+    // Elastic/ELK Stack - Only if ACTUALLY configured
+    if (process.env.ELASTICSEARCH_URL && process.env.ELASTICSEARCH_URL !== 'your_elasticsearch_url_here') {
       this.providers.elasticsearch = this.initializeElasticsearch();
     }
-    
-    // Honeycomb
-    if (process.env.HONEYCOMB_API_KEY) {
+  
+    // Honeycomb - Only if ACTUALLY configured
+    if (process.env.HONEYCOMB_API_KEY && process.env.HONEYCOMB_API_KEY !== 'your_honeycomb_api_key_here') {
       this.providers.honeycomb = this.initializeHoneycomb();
     }
-    
+  
     // Console provider (always available for development)
     this.providers.console = this.initializeConsole();
   }
@@ -171,6 +183,8 @@ class MultiVendorMetricsService {
   
   // Unified API to send metrics to all configured providers
   async sendMetric(name, value, type = 'gauge', tags = {}) {
+    this.ensureInitialized(); // Lazy init here!
+    
     const promises = [];
     
     for (const [providerName, provider] of Object.entries(this.providers)) {
@@ -189,6 +203,8 @@ class MultiVendorMetricsService {
   
   // Unified API to send events to all configured providers
   async sendEvent(title, text, tags = {}, level = 'info') {
+    this.ensureInitialized(); // Lazy init here!
+    
     const promises = [];
     
     for (const [providerName, provider] of Object.entries(this.providers)) {
@@ -494,6 +510,16 @@ class MultiVendorMetricsService {
   
   // Console implementations (for development/debugging)
   async sendConsoleMetric(name, value, type, tags) {
+    // Filter out noisy HTTP metrics
+    const quietMetrics = [
+      'http_requests_total',
+      'http_request_duration',
+    ];
+    
+    if (quietMetrics.includes(name)) {
+      return; // Skip these
+    }
+    
     this.logger.info(`[METRIC] ${name}: ${value} (${type})`, tags);
   }
   
@@ -533,6 +559,8 @@ class MultiVendorMetricsService {
   
   // Get status of all providers
   getProviderStatus() {
+    this.ensureInitialized();
+    
     const status = {};
     for (const [name, provider] of Object.entries(this.providers)) {
       status[name] = {

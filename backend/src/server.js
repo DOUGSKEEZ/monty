@@ -1,6 +1,7 @@
-require('newrelic');  // Must be first line!
-console.log('[DEBUG] Loading modules...');
+require('./monitoring');  // Must be first line!
 
+console.log('[DEBUG] Loading modules...');
+// ... rest of server.js
 const prometheusMetrics = require("./services/PrometheusMetricsService");
 console.log('[DEBUG] Loaded PrometheusMetricsService');
 
@@ -1064,7 +1065,14 @@ app.get('/ping', (req, res) => {
 
 // Additional debug logging for server startup
 console.log(`DEBUG: About to start server on port ${PORT}...`);
-
+// Add this near the bottom, before server.listen
+if (global.newrelic) {
+  console.log('[NEW RELIC] Agent is loaded and available');
+  console.log('[NEW RELIC] App name:', global.newrelic.agent.config.app_name);
+  console.log('[NEW RELIC] Agent state:', global.newrelic.agent.setState ? 'ready' : 'not ready');
+} else {
+  console.log('[NEW RELIC] Agent is NOT loaded');
+}
 // Directly start the server without specifying host (which defaults to all interfaces)
 // This is important because on some Linux configurations, 127.0.0.1 binding can be restrictive
 try {
