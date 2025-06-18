@@ -1,45 +1,74 @@
-console.log('[MONITORING] Module loaded!');
-
 /**
- * Monitoring Configuration Loader
- * Loads appropriate APM agents based on environment variables
+ * Monty Monitoring Module
+ * This module initializes monitoring agents (New Relic, Datadog) before the application starts.
+ * It must be self-contained as it's loaded via the -r flag before other modules.
  */
 
-// Load monitoring environment variables FIRST
-const dotenv = require('dotenv');
+// Load environment variables from monitoring-specific .env file
 const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
 
-// Load from .env.monitoring file
-const monitoringEnvPath = path.join(__dirname, '../../.env.monitoring');
-dotenv.config({ path: monitoringEnvPath });
+// Load monitoring-specific environment variables
+const envPath = path.join(__dirname, '../../.env.monitoring');
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+  console.log('[MONITORING] Loaded env from:', envPath);
+} else {
+  console.warn('[MONITORING] No .env.monitoring file found, using default environment');
+}
 
-console.log('[MONITORING] Loaded env from:', monitoringEnvPath);
-console.log('[MONITORING] NEW_RELIC_LICENSE_KEY present:', !!process.env.NEW_RELIC_LICENSE_KEY);
+// Check for required environment variables
+const NEW_RELIC_LICENSE_KEY = process.env.NEW_RELIC_LICENSE_KEY;
+const NEW_RELIC_APP_NAME = process.env.NEW_RELIC_APP_NAME || 'Monty Backend';
+const NEW_RELIC_DISTRIBUTED_TRACING_ENABLED = process.env.NEW_RELIC_DISTRIBUTED_TRACING_ENABLED === 'true';
+const NEW_RELIC_LOGGING_ENABLED = process.env.NEW_RELIC_LOGGING_ENABLED === 'true';
 
-const logger = require('../utils/logger');
-
-// Load monitoring configs from environment
+// Determine which agents to enable
 const enabledAgents = {
-  newRelic: process.env.NEW_RELIC_LICENSE_KEY && process.env.NEW_RELIC_ENABLED !== 'false' ? true : false,
-  datadog: process.env.DATADOG_API_KEY && process.env.DATADOG_ENABLED !== 'false' ? true : false,
-  // Future: splunk, honeycomb, etc.
+  newRelic: !!NEW_RELIC_LICENSE_KEY,
+  datadog: false // Datadog not currently implemented
 };
 
-console.log('[MONITORING] Enabled agents:', enabledAgents); //Added for debugging why New Relic agent not starting
+console.log('[MONITORING] Module loaded!');
+console.log('[MONITORING] NEW_RELIC_LICENSE_KEY present:', !!NEW_RELIC_LICENSE_KEY);
+console.log('[MONITORING] Enabled agents:', enabledAgents);
 
-// Initialize enabled agents
+// Initialize New Relic if enabled
 if (enabledAgents.newRelic) {
   try {
     console.log('[MONITORING] Loading New Relic agent...');
-    process.env.NEW_RELIC_HOME = __dirname;
+    
+    // Set New Relic configuration
+    process.env.NEW_RELIC_APP_NAME = NEW_RELIC_APP_NAME;
+    process.env.NEW_RELIC_DISTRIBUTED_TRACING_ENABLED = NEW_RELIC_DISTRIBUTED_TRACING_ENABLED;
+    process.env.NEW_RELIC_LOGGING_ENABLED = NEW_RELIC_LOGGING_ENABLED;
+    
+    // Load New Relic agent
     require('newrelic');
-    logger.info('New Relic APM agent loaded');
+    
+    console.log('[MONITORING] New Relic agent loaded successfully');
   } catch (error) {
-    logger.error('Failed to load New Relic agent:', error.message);
+    console.error('[MONITORING] Failed to load New Relic agent:', error.message);
+    console.error('[MONITORING] Stack trace:', error.stack);
   }
 }
 
-// Future agents will be loaded here
-// if (enabledAgents.datadog) { require('./datadog'); }
+// Initialize Datadog if enabled
+if (enabledAgents.datadog) {
+  try {
+    console.log('[MONITORING] Loading Datadog agent...');
+    // Datadog initialization code will go here
+    console.log('[MONITORING] Datadog agent loaded successfully');
+  } catch (error) {
+    console.error('[MONITORING] Failed to load Datadog agent:', error.message);
+    console.error('[MONITORING] Stack trace:', error.stack);
+  }
+}
 
-module.exports = enabledAgents;
+// Export monitoring status
+module.exports = {
+  enabledAgents,
+  isNewRelicEnabled: enabledAgents.newRelic,
+  isDatadogEnabled: enabledAgents.datadog
+};

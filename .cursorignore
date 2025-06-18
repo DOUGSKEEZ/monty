@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+*/node_modules/
+venv/
+*/venv/
+
+# Build outputs
+dist/
+build/
+*.pyc
+__pycache__/
+*/__pycache__/
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Environment files (for indexing - still respect .gitignore for security)
+.env*
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large binary files
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend build
+frontend/build/
+frontend/coverage/
+
+# Backend specific
+backend/coverage/
+backend/dist/
+
+# Python specific
+*.egg-info/
+.pytest_cache/

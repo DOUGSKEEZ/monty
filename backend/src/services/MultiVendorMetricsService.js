@@ -33,9 +33,12 @@ class MultiVendorMetricsService {
       this.providers.datadog = this.initializeDataDog();
     }
   
-    // Splunk - Only if ACTUALLY configured
-    if (process.env.SPLUNK_HEC_TOKEN && process.env.SPLUNK_HEC_TOKEN !== 'your_splunk_hec_token_here' && 
-        process.env.SPLUNK_HOST && process.env.SPLUNK_HOST !== 'your_splunk_host_here') {
+    // Splunk - Only if ACTUALLY configured and SPLUNK_ENABLED is not 'false'
+    if (
+      process.env.SPLUNK_ENABLED !== 'false' &&
+      process.env.SPLUNK_HEC_TOKEN && process.env.SPLUNK_HEC_TOKEN !== 'your_splunk_hec_token_here' &&
+      process.env.SPLUNK_HOST && process.env.SPLUNK_HOST !== 'your_splunk_host_here'
+    ) {
       this.providers.splunk = this.initializeSplunk();
     }
   
@@ -86,14 +89,14 @@ class MultiVendorMetricsService {
   
   initializeSplunk() {
     try {
-      const https = require('https');
       const config = {
         host: process.env.SPLUNK_HOST,
-        port: process.env.SPLUNK_PORT || 8088,
+        port: process.env.SPLUNK_PORT || 8088, // 8088 for HEC
         token: process.env.SPLUNK_HEC_TOKEN,
-        index: process.env.SPLUNK_INDEX || 'monty_metrics'
+        index: process.env.SPLUNK_INDEX || 'monty',
+        source: process.env.SPLUNK_SOURCE || 'monty:metrics',
+        sourcetype: process.env.SPLUNK_SOURCETYPE || 'monty:metrics'
       };
-      
       this.logger.info('Splunk HEC client initialized');
       return {
         type: 'splunk',
@@ -192,7 +195,8 @@ class MultiVendorMetricsService {
         promises.push(
           provider.sendMetric(name, value, type, tags)
             .catch(error => {
-              this.logger.error(`Error sending metric to ${providerName}:`, error.message);
+              this.logger.error(`Error sending metric to ${providerName}:`, error.message || error);
+              this.logger.debug(`Full error details for ${providerName}:`, error);
             })
         );
       }
@@ -212,7 +216,8 @@ class MultiVendorMetricsService {
         promises.push(
           provider.sendEvent(title, text, tags, level)
             .catch(error => {
-              this.logger.error(`Error sending event to ${providerName}:`, error.message);
+              this.logger.error(`Error sending event to ${providerName}:`, error.message || error);
+              this.logger.debug(`Full error details for ${providerName}:`, error);
             })
         );
       }
@@ -256,22 +261,18 @@ class MultiVendorMetricsService {
   
   // Splunk implementations
   async sendSplunkMetric(config, name, value, type, tags) {
-    const https = require('https');
-    
     const event = {
-      event: 'metric',
-      source: 'monty-backend',
-      sourcetype: 'monty:metrics',
-      index: config.index,
-      fields: {
+      event: {
         metric_name: name,
         metric_value: value,
         metric_type: type,
-        timestamp: new Date().toISOString(),
         ...tags
-      }
+      },
+      time: Math.floor(Date.now() / 1000),
+      source: config.source,
+      sourcetype: config.sourcetype,
+      index: config.index
     };
-    
     return this.sendToSplunk(config, event);
   }
   
@@ -281,44 +282,62 @@ class MultiVendorMetricsService {
         title: title,
         description: text,
         level: level,
-        timestamp: new Date().toISOString(),
         ...tags
       },
-      source: 'monty-backend',
+      time: Math.floor(Date.now() / 1000),
+      source: config.source,
       sourcetype: 'monty:events',
       index: config.index
     };
-    
     return this.sendToSplunk(config, event);
   }
   
   async sendToSplunk(config, event) {
     const https = require('https');
+    const url = require('url');
     
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify(event);
+      const fullUrl = `https://${config.host}:${config.port}/services/collector/event`;
+      this.logger.debug(`Sending to Splunk URL: ${fullUrl}`);
       
+      const parsedUrl = url.parse(fullUrl);
       const options = {
-        hostname: config.host,
-        port: config.port,
-        path: '/services/collector',
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || 443,
+        path: parsedUrl.path,
         method: 'POST',
         headers: {
           'Authorization': `Splunk ${config.token}`,
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData)
-        }
+        },
+        rejectUnauthorized: false  // Add this for self-signed certs
       };
       
       const req = https.request(options, (res) => {
-        if (res.statusCode === 200) {
-          resolve();
-        } else {
-          reject(new Error(`Splunk returned status ${res.statusCode}`));
-        }
+        this.logger.debug(`Splunk response status code: ${res.statusCode}`);
+        
+        let responseBody = '';
+        res.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        
+        res.on('end', () => {
+          if (res.statusCode === 200 || res.statusCode === 201) {
+            resolve();
+          } else {
+            this.logger.error(`Splunk error response body: ${responseBody}`);
+            reject(new Error(`Splunk returned status ${res.statusCode}`));
+          }
+        });
       });
       
-      req.on('error', reject);
+      req.on('error', (error) => {
+        this.logger.error('Splunk request error:', error);
+        reject(error);
+      });
+      
       req.write(postData);
       req.end();
     });

@@ -1,8 +1,17 @@
 const winston = require('winston');
 const https = require('https');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
 
-// Custom Splunk HEC Transport that sends flat JSON
+// Load monitoring environment variables if not already loaded
+const envPath = path.join(__dirname, '../../.env.monitoring');
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
+
+// Custom Splunk HEC Transport that sends flat JSON with dot notation
 class SplunkHECTransport extends winston.transports.Http {
   constructor(options) {
     super(options);
@@ -11,6 +20,7 @@ class SplunkHECTransport extends winston.transports.Http {
   }
 
   log(info, callback) {
+    
     // Create completely flat event structure for Splunk
     const flatEvent = {
       timestamp: info.timestamp,
@@ -73,10 +83,6 @@ class SplunkHECTransport extends winston.transports.Http {
   sendToSplunk(payload, callback) {
     const postData = JSON.stringify(payload);
     
-    // Log what we're sending to Splunk for debugging (only in development)
-    if (process.env.NODE_ENV === 'development' && process.env.SPLUNK_DEBUG === 'true') {
-      console.log('🔹 Splunk HEC Payload:', JSON.stringify(payload, null, 2));
-    }
     
     const options = {
       hostname: this.splunkConfig.host,
@@ -87,7 +93,11 @@ class SplunkHECTransport extends winston.transports.Http {
         'Authorization': `Splunk ${this.splunkConfig.token}`,
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData)
-      }
+      },
+      // Handle SSL for Splunk Cloud 
+      // Note: For production, ensure proper SSL certificate validation
+      rejectUnauthorized: process.env.SPLUNK_VERIFY_SSL !== 'false',
+      servername: this.splunkConfig.host
     };
 
     const req = https.request(options, (res) => {
@@ -97,20 +107,19 @@ class SplunkHECTransport extends winston.transports.Http {
       });
       res.on('end', () => {
         if (res.statusCode === 200) {
-          if (process.env.SPLUNK_DEBUG === 'true') {
-            console.log('✅ Splunk HEC success:', res.statusCode);
-          }
           callback(null, true);
         } else {
+          // Only log errors, not debug info
+          console.error('Splunk HEC error:', res.statusCode, responseData);
           callback(new Error(`Splunk HEC error: ${res.statusCode} ${responseData}`));
         }
       });
     });
 
     req.on('error', (error) => {
-      // Don't crash the application if Splunk is unreachable
-      if (process.env.SPLUNK_DEBUG === 'true') {
-        console.log('❌ Splunk HEC connection failed:', error.message);
+      // Only log actual connection errors, not debug info
+      if (error.code !== 'ECONNREFUSED' && error.code !== 'SELF_SIGNED_CERT_IN_CHAIN') {
+        console.error('Splunk connection error:', error.message);
       }
       // Call callback with null to prevent winston from crashing
       callback(null, false);
@@ -118,9 +127,6 @@ class SplunkHECTransport extends winston.transports.Http {
 
     req.setTimeout(5000, () => {
       req.destroy();
-      if (process.env.SPLUNK_DEBUG === 'true') {
-        console.log('⏱️ Splunk HEC request timeout');
-      }
       callback(null, false);
     });
 
@@ -132,30 +138,37 @@ class SplunkHECTransport extends winston.transports.Http {
 // Standard log actions/events
 const LOG_ACTIONS = {
   // System events
-  SYSTEM: {
-    STARTUP: 'system:startup',
-    SHUTDOWN: 'system:shutdown',
-    ERROR: 'system:error',
-    API_REQUEST: 'api:request',
-    API_RESPONSE: 'api:response'
-  },
+  SYSTEM_STARTUP: 'system:startup',
+  SYSTEM_SHUTDOWN: 'system:shutdown',
+  SYSTEM_ERROR: 'system:error',
+  
+  // API events
+  API_REQUEST: 'api:request',
+  API_RESPONSE: 'api:response',
+  API_ERROR: 'api:error',
+  
   // Database events
-  DATABASE: {
-    QUERY: 'db:query',
-    ERROR: 'db:error'
-  },
+  DB_QUERY: 'db:query',
+  DB_ERROR: 'db:error',
+  
   // Cache events
-  CACHE: {
-    HIT: 'cache:hit',
-    MISS: 'cache:miss',
-    ERROR: 'cache:error'
-  },
+  CACHE_HIT: 'cache:hit',
+  CACHE_MISS: 'cache:miss',
+  CACHE_ERROR: 'cache:error',
+  
   // External service events
-  EXTERNAL: {
-    REQUEST: 'external:request',
-    RESPONSE: 'external:response',
-    ERROR: 'external:error'
-  }
+  EXTERNAL_REQUEST: 'external:request',
+  EXTERNAL_RESPONSE: 'external:response',
+  EXTERNAL_ERROR: 'external:error',
+  
+  // Authentication events
+  AUTH_LOGIN: 'auth:login',
+  AUTH_LOGOUT: 'auth:logout',
+  AUTH_ERROR: 'auth:error',
+  
+  // Business events
+  BUSINESS_OPERATION: 'business:operation',
+  BUSINESS_ERROR: 'business:error'
 };
 
 // Log levels with their priorities
@@ -167,11 +180,11 @@ const LOG_LEVELS = {
   trace: 4
 };
 
-class Logger {
-  constructor() {
-    this.serviceName = process.env.SERVICE_NAME || 'monty-backend';
-    this.version = process.env.SERVICE_VERSION || '1.0.0';
-    this.environment = process.env.NODE_ENV || 'development';
+class EnhancedLogger {
+  constructor(options = {}) {
+    this.serviceName = options.serviceName || process.env.SERVICE_NAME || 'monty-backend';
+    this.version = options.version || process.env.SERVICE_VERSION || '1.0.0';
+    this.environment = options.environment || process.env.NODE_ENV || 'development';
     this.correlationId = null;
     this.context = {};
     
@@ -204,11 +217,8 @@ class Logger {
         new winston.transports.Console({
           format: winston.format.combine(
             winston.format.colorize(),
-            winston.format.printf(({ level, message, module, correlationId }) => {
-              // Simple, clean format for development
-              const prefix = module ? `[${module}]` : '';
-              const corr = correlationId ? ` (${correlationId.substring(0, 8)})` : '';
-              return `${level} ${prefix}: ${message}${corr}`;
+            winston.format.printf(({ level, message, module }) => {
+              return module ? `${level} [${module}]: ${message}` : `${level}: ${message}`;
             })
           )
         })
@@ -228,15 +238,15 @@ class Logger {
         sourcetype: process.env.SPLUNK_SOURCETYPE || 'monty:logs'
       };
 
-      transports.push(
-        new SplunkHECTransport({
-          splunk: splunkConfig,
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json()
-          )
-        })
-      );
+      const splunkTransport = new SplunkHECTransport({
+        splunk: splunkConfig,
+        format: winston.format.combine(
+          winston.format.timestamp(),
+          winston.format.json()
+        )
+      });
+      
+      transports.push(splunkTransport);
     }
 
     return transports;
@@ -311,83 +321,65 @@ class Logger {
     this.logger.trace(this._formatMessage('trace', message, meta));
   }
 
-  // Get a logger instance with module context
-  getModuleLogger(moduleName) {
-    const moduleLogger = Object.create(this);
-    moduleLogger.context = { ...this.context, module: moduleName };
-    return moduleLogger;
-  }
-}
-
-// Create singleton instance
-const logger = new Logger();
-
-// Express middleware for request logging
-const httpLogger = (req, res, next) => {
-  // Generate or use existing correlation ID
-  const correlationId = req.headers['x-correlation-id'] || logger.setCorrelationId().correlationId;
-  
-  // Set correlation ID in response headers
-  res.setHeader('x-correlation-id', correlationId);
-  
-  // Add request context to logger
-  logger.setContext({
-    correlationId,
-    requestId: req.id,
-    method: req.method,
-    url: req.url,
-    ip: req.ip,
-    userAgent: req.headers['user-agent']
-  });
-
-  // Track response time
-  const startTime = process.hrtime();
-
-  // Log response when finished (simplified for console, detailed for JSON)
-  res.on('finish', () => {
-    const [seconds, nanoseconds] = process.hrtime(startTime);
-    const duration = seconds * 1000 + nanoseconds / 1000000;
-
-    // Create clean message for console display
-    const statusText = res.statusCode < 400 ? 'OK' : 'ERROR';
-    const cleanMessage = `${req.method} ${req.url} ${res.statusCode} ${statusText} ${Math.round(duration)}ms`;
-
-    logger.info(cleanMessage, {
-      action: LOG_ACTIONS.SYSTEM.API_RESPONSE,
+  // Convenience methods for common log actions
+  logApiRequest(req, res, duration) {
+    this.info('API Request', {
+      action: LOG_ACTIONS.API_REQUEST,
       method: req.method,
       url: req.url,
       statusCode: res.statusCode,
       duration,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
+      ip: req.ip
     });
-  });
+  }
 
-  next();
-};
+  logApiError(req, error) {
+    this.error('API Error', {
+      action: LOG_ACTIONS.API_ERROR,
+      method: req.method,
+      url: req.url,
+      error
+    });
+  }
 
-// Error logging middleware
-const errorLogger = (err, req, res, next) => {
-  logger.error('Request error', {
-    action: LOG_ACTIONS.SYSTEM.ERROR,
-    error: err,
-    method: req.method,
-    url: req.url,
-    statusCode: err.status || 500
-  });
+  logDatabaseQuery(query, duration) {
+    this.debug('Database Query', {
+      action: LOG_ACTIONS.DB_QUERY,
+      query,
+      duration
+    });
+  }
 
-  next(err);
-};
+  logDatabaseError(error) {
+    this.error('Database Error', {
+      action: LOG_ACTIONS.DB_ERROR,
+      error
+    });
+  }
 
-// Export both legacy and enhanced interfaces
+  logExternalRequest(service, request, duration) {
+    this.info('External Service Request', {
+      action: LOG_ACTIONS.EXTERNAL_REQUEST,
+      service,
+      request,
+      duration
+    });
+  }
+
+  logExternalError(service, error) {
+    this.error('External Service Error', {
+      action: LOG_ACTIONS.EXTERNAL_ERROR,
+      service,
+      error
+    });
+  }
+}
+
+// Export a singleton instance
+const logger = new EnhancedLogger();
 module.exports = {
   logger,
-  LOG_LEVELS,
   LOG_ACTIONS,
-  httpLogger,
-  errorLogger,
-  setCorrelationId: (id) => logger.setCorrelationId(id),
-  setContext: (context) => logger.setContext(context),
-  startTimer: (operation) => logger.startTimer(operation),
-  getModuleLogger: (moduleName) => logger.getModuleLogger(moduleName)
-};
+  EnhancedLogger
+}; 

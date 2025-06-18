@@ -14,7 +14,8 @@ class ServiceRegistry {
     this.services = new Map();
     this.listeners = [];
     this.lastHealthCheck = null;
-    logger.info('ServiceRegistry initialized');
+    this.logger = logger.getModuleLogger('service-registry');
+    this.logger.info('ServiceRegistry initialized');
   }
 
   /**
@@ -29,7 +30,7 @@ class ServiceRegistry {
     const isCore = options.isCore !== undefined ? options.isCore : false;
     
     if (this.services.has(name)) {
-      logger.warn(`Service ${name} already registered, updating`);
+      this.logger.warn(`Service ${name} already registered, updating`);
     }
 
     const serviceInfo = {
@@ -52,7 +53,7 @@ class ServiceRegistry {
     };
 
     this.services.set(name, serviceInfo);
-    logger.info(`Service ${name} registered with registry (${isCore ? 'core' : 'optional'})`);
+    this.logger.info(`Service ${name} registered with registry (${isCore ? 'core' : 'optional'})`);
     
     return this;
   }
@@ -66,7 +67,7 @@ class ServiceRegistry {
    */
   setStatus(name, status, errorMessage = null) {
     if (!this.services.has(name)) {
-      logger.warn(`Tried to update status for unregistered service: ${name}`);
+      this.logger.warn(`Tried to update status for unregistered service: ${name}`);
       return false;
     }
     
@@ -86,16 +87,16 @@ class ServiceRegistry {
         // Service became healthy
         service.startTime = Date.now();
         service.metrics.successCount++;
-        logger.info(`Service ${name} is ready`);
+        this.logger.info(`Service ${name} is ready`);
       } else if (status === 'error') {
         // Service has an error
         service.lastError = errorMessage;
         service.metrics.errorCount++;
-        logger.warn(`Service ${name} error: ${errorMessage}`);
+        this.logger.warn(`Service ${name} error: ${errorMessage}`);
       } else if (status === 'warning') {
         // Service has a warning
         service.lastError = errorMessage;
-        logger.warn(`Service ${name} warning: ${errorMessage}`);
+        this.logger.warn(`Service ${name} warning: ${errorMessage}`);
       }
       
       // Notify listeners of status change
@@ -299,7 +300,7 @@ class ServiceRegistry {
       this.updateMetrics(name, { success: false });
       this.setStatus(name, 'error', error.message);
       
-      logger.error(`Health check failed for service ${name}: ${error.message}`);
+      this.logger.error(`Health check failed for service ${name}: ${error.message}`);
       return { status: 'error', message: error.message };
     }
   }

@@ -112,8 +112,8 @@ app.use((req, res, next) => {
 process.on('uncaughtException', (err) => {
   console.error(`UNCAUGHT EXCEPTION: ${err.message}`);
   console.error(err.stack);
-  logger.error(`Uncaught exception: ${err.message}`);
-  logger.error(err.stack);
+  logger.logger.error(`Uncaught exception: ${err.message}`);
+  logger.logger.error(err.stack);
   
   // Don't exit, just log
 });
@@ -146,21 +146,21 @@ try {
     .then(result => {
       if (result.success) {
         console.log('[DEBUG] ✅ PianobarService initialized successfully at startup');
-        logger.info('PianobarService created and initialized at server startup');
+        logger.logger.info('PianobarService created and initialized at server startup');
       } else {
         console.log('[DEBUG] ⚠️ PianobarService initialization warning:', result.message);
-        logger.warn(`PianobarService initialization warning: ${result.message}`);
+        logger.logger.warn(`PianobarService initialization warning: ${result.message}`);
       }
     })
     .catch(err => {
       console.error('[DEBUG] ❌ PianobarService initialization failed:', err.message);
-      logger.error(`PianobarService initialization failed: ${err.message}`);
+      logger.logger.error(`PianobarService initialization failed: ${err.message}`);
     });
     
   console.log('[DEBUG] ✅ PianobarService created and registered in ServiceRegistry');
 } catch (error) {
   console.error('[DEBUG] ❌ Error creating PianobarService at startup:', error.message);
-  logger.error(`Error creating PianobarService at startup: ${error.message}`);
+  logger.logger.error(`Error creating PianobarService at startup: ${error.message}`);
 }
 
 // Initialize SchedulerService explicitly after server starts
@@ -223,7 +223,7 @@ app.get('/api/health', async (req, res) => {
       services = serviceRegistry.getDetailedStatus();
     }
   } catch (error) {
-    logger.warn(`Error getting service health: ${error.message}`);
+    logger.logger.warn(`Error getting service health: ${error.message}`);
   }
   
   const healthStatus = {
@@ -280,10 +280,10 @@ app.get('/api/dashboard', (req, res) => {
     if (serviceRegistry.getDetailedStatus) {
       serviceDetails = serviceRegistry.getDetailedStatus();
       if (serviceDetails['shade-commander']) {
-        logger.info(`🔍 Dashboard serviceDetails for shade-commander: ${JSON.stringify(serviceDetails['shade-commander'])}`);
+        logger.logger.info(`🔍 Dashboard serviceDetails for shade-commander: ${JSON.stringify(serviceDetails['shade-commander'])}`);
       }
       if (serviceDetails['SystemMetrics']) {
-        logger.info(`🔍 Dashboard serviceDetails for SystemMetrics: ${JSON.stringify(serviceDetails['SystemMetrics'])}`);
+        logger.logger.info(`🔍 Dashboard serviceDetails for SystemMetrics: ${JSON.stringify(serviceDetails['SystemMetrics'])}`);
       }
     }
     try {
@@ -606,18 +606,18 @@ app.post('/api/shade-commander/reconnect', async (req, res) => {
   try {
     const axios = require('axios');
     
-    logger.info('Dashboard requested Arduino reconnection via ShadeCommander');
+    logger.logger.info('Dashboard requested Arduino reconnection via ShadeCommander');
     
     const response = await axios.post('http://192.168.0.15:8000/arduino/reconnect', {}, {
       timeout: 15000, // Arduino reconnection can take up to 10 seconds
       headers: { 'Content-Type': 'application/json' }
     });
     
-    logger.info(`Arduino reconnection result: ${response.data.success ? 'Success' : 'Failed'}`);
+    logger.logger.info(`Arduino reconnection result: ${response.data.success ? 'Success' : 'Failed'}`);
     res.json(response.data);
     
   } catch (error) {
-    logger.error(`Arduino reconnection failed: ${error.message}`);
+    logger.logger.error(`Arduino reconnection failed: ${error.message}`);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -647,7 +647,7 @@ serviceRegistry.register('weather-service', {
   checkHealth: async () => {
     try {
       // Simple check to see if weather service is operational
-      const weatherService = require('./services/weatherService');
+      const weatherService = require('./services/WeatherService');
       return { 
         status: weatherService.isInitialized ? 'ok' : 'initializing',
         message: weatherService.isInitialized ? 'Weather service initialized' : 'Weather service initializing'
@@ -755,7 +755,7 @@ serviceRegistry.register('scheduler-service', {
       
       return await schedulerService.healthCheck();
     } catch (error) {
-      logger.error(`Scheduler service health check failed: ${error.message}`);
+      logger.logger.error(`Scheduler service health check failed: ${error.message}`);
       return { status: 'error', message: error.message };
     }
   }
@@ -804,10 +804,10 @@ serviceRegistry.register('shade-commander', {
         // Arduino status is nested under arduino_status in the response
         if (arduinoResponse.data && arduinoResponse.data.arduino_status) {
           arduinoStatus = arduinoResponse.data.arduino_status;
-          logger.info(`Arduino status parsed: connected=${arduinoStatus.connected}, port=${arduinoStatus.port}`);
+          logger.logger.info(`Arduino status parsed: connected=${arduinoStatus.connected}, port=${arduinoStatus.port}`);
         }
       } catch (err) {
-        logger.debug(`Could not fetch Arduino status: ${err.message}`);
+        logger.logger.debug(`Could not fetch Arduino status: ${err.message}`);
       }
       
       try {
@@ -820,10 +820,10 @@ serviceRegistry.register('shade-commander', {
             total_active_tasks: retryResponse.data.total_active_tasks || 0,
             recent_cancellations: retryResponse.data.recent_cancellations || 0
           };
-          logger.info(`Retry stats parsed: active=${retryStats.total_active_tasks}, cancellations=${retryStats.recent_cancellations}`);
+          logger.logger.info(`Retry stats parsed: active=${retryStats.total_active_tasks}, cancellations=${retryStats.recent_cancellations}`);
         }
       } catch (err) {
-        logger.debug(`Could not fetch retry stats: ${err.message}`);
+        logger.logger.debug(`Could not fetch retry stats: ${err.message}`);
       }
       
       const isHealthy = healthResponse.data.status === 'healthy';
@@ -850,15 +850,15 @@ serviceRegistry.register('shade-commander', {
         uptime: healthResponse.data.uptime_seconds
       };
       
-      logger.info(`Final ShadeCommander metrics: ${JSON.stringify(finalMetrics)}`);
-      logger.info(`🚀 CHECKPOINT: About to try ServiceRegistry update...`);
+      logger.logger.info(`Final ShadeCommander metrics: ${JSON.stringify(finalMetrics)}`);
+      logger.logger.info(`🚀 CHECKPOINT: About to try ServiceRegistry update...`);
       
       // Update service registry with our custom metrics BEFORE returning
       try {
-        logger.info(`🔍 Updating ServiceRegistry for shade-commander`);
+        logger.logger.info(`🔍 Updating ServiceRegistry for shade-commander`);
         const service = serviceRegistry.services.get('shade-commander');
         if (service) {
-          logger.info(`Before update - service.metrics keys: ${Object.keys(service.metrics || {}).join(', ')}`);
+          logger.logger.info(`Before update - service.metrics keys: ${Object.keys(service.metrics || {}).join(', ')}`);
           service.metrics = {
             ...service.metrics,
             // Keep standard metrics for compatibility
@@ -873,12 +873,12 @@ serviceRegistry.register('shade-commander', {
             uptime: finalMetrics.uptime
           };
           serviceRegistry.services.set('shade-commander', service);
-          logger.info(`✅ Updated ServiceRegistry with ShadeCommander metrics: Arduino=${finalMetrics.arduinoConnected}, Tasks=${finalMetrics.activeTasks}`);
+          logger.logger.info(`✅ Updated ServiceRegistry with ShadeCommander metrics: Arduino=${finalMetrics.arduinoConnected}, Tasks=${finalMetrics.activeTasks}`);
         } else {
-          logger.error(`❌ Service 'shade-commander' not found in registry! Available services: ${Array.from(serviceRegistry.services.keys()).join(', ')}`);
+          logger.logger.error(`❌ Service 'shade-commander' not found in registry! Available services: ${Array.from(serviceRegistry.services.keys()).join(', ')}`);
         }
       } catch (updateError) {
-        logger.error(`❌ Error updating ServiceRegistry: ${updateError.message}`);
+        logger.logger.error(`❌ Error updating ServiceRegistry: ${updateError.message}`);
       }
       
       return {
@@ -907,10 +907,10 @@ serviceRegistry.register('shade-commander', {
 setTimeout(() => {
   serviceRegistry.checkAllServices()
     .then(() => {
-      logger.info('Initial service health check completed');
+      logger.logger.info('Initial service health check completed');
     })
     .catch(err => {
-      logger.error(`Error during initial health check: ${err.message}`);
+      logger.logger.error(`Error during initial health check: ${err.message}`);
     });
 }, 5000);  // Wait 5 seconds for services to initialize
 
@@ -919,10 +919,10 @@ const HEALTH_CHECK_INTERVAL = 60 * 1000; // 60 seconds
 setInterval(() => {
   serviceRegistry.checkAllServices()
     .then(() => {
-      logger.debug('Periodic service health check completed');
+      logger.logger.debug('Periodic service health check completed');
     })
     .catch(err => {
-      logger.error(`Error during periodic health check: ${err.message}`);
+      logger.logger.error(`Error during periodic health check: ${err.message}`);
     });
 }, HEALTH_CHECK_INTERVAL);
 
@@ -946,7 +946,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // Error handling middleware (should be defined after all routes)
 app.use((err, req, res, next) => {
-  logger.error(`Unhandled error: ${err.message}`, { error: err.stack });
+  logger.logger.error(`Unhandled error: ${err.message}`, { error: err.stack });
   res.status(500).json({
     success: false,
     error: process.env.NODE_ENV === 'production' 
@@ -997,35 +997,35 @@ setTimeout(() => {
     .then(result => {
       console.log('[DEBUG] WebSocket initialization promise resolved');
       if (result.success) {
-        logger.info('PianobarWebsocketService initialized successfully');
+        logger.logger.info('PianobarWebsocketService initialized successfully');
         console.log('[DEBUG] WebSocket initialization successful');
       } else {
-        logger.warn(`PianobarWebsocketService initialization warning: ${result.message}`);
+        logger.logger.warn(`PianobarWebsocketService initialization warning: ${result.message}`);
         console.log(`[DEBUG] WebSocket initialization warning: ${result.message}`);
       }
     })
     .catch(err => {
-      logger.error(`Error initializing PianobarWebsocketService: ${err.message}`);
+      logger.logger.error(`Error initializing PianobarWebsocketService: ${err.message}`);
       console.error(`[ERROR] WebSocket initialization failed: ${err.message}`);
     });
 }, 3000); // Delay by 3 seconds to allow server to start first
 
 // Log that we're starting with both command interface and WebSocket
-logger.info('Starting with PianobarCommandInterface and WebSocket support');
+logger.logger.info('Starting with PianobarCommandInterface and WebSocket support');
 
 // Graceful shutdown handler
 function gracefulShutdown(signal) {
-  logger.info(`Received ${signal}, starting graceful shutdown...`);
+  logger.logger.info(`Received ${signal}, starting graceful shutdown...`);
 
   // Set a timeout for forceful shutdown if graceful shutdown takes too long
   const forceShutdownTimeout = setTimeout(() => {
-    logger.error('Forceful shutdown triggered after timeout');
+    logger.logger.error('Forceful shutdown triggered after timeout');
     process.exit(1);
   }, 30000); // 30 seconds timeout
 
   // Try to close the server gracefully
   server.close(() => {
-    logger.info('HTTP server closed successfully');
+    logger.logger.info('HTTP server closed successfully');
     
     // Clear the force shutdown timeout
     clearTimeout(forceShutdownTimeout);
@@ -1033,7 +1033,7 @@ function gracefulShutdown(signal) {
     // Perform any additional cleanup here
     // e.g., close database connections, etc.
     
-    logger.info('Shutdown complete, exiting process');
+    logger.logger.info('Shutdown complete, exiting process');
     process.exit(0);
   });
 }
@@ -1044,19 +1044,19 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  logger.error(`Uncaught exception: ${err.message}`, { error: err.stack });
+  logger.logger.error(`Uncaught exception: ${err.message}`, { error: err.stack });
   gracefulShutdown('uncaughtException');
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error(`Unhandled promise rejection at: ${promise}, reason: ${reason}`);
+  logger.logger.error(`Unhandled promise rejection at: ${promise}, reason: ${reason}`);
   // Don't exit for unhandled rejections, just log them
 });
 
 // FIXED SERVER STARTUP - bind to all interfaces rather than just localhost
 console.log(`Attempting to start server on port ${PORT}...`);
-logger.info(`Attempting to start server on port ${PORT}...`);
+logger.logger.info(`Attempting to start server on port ${PORT}...`);
 
 // Create a simple ping route to check if server is running
 app.get('/ping', (req, res) => {
@@ -1080,11 +1080,11 @@ try {
   server.listen(PORT, '0.0.0.0', (err) => {
     console.log(`DEBUG: Inside server.listen callback, err=${err}`);
     if (err) {
-      logger.error(`Failed to start server: ${err.message}`);
+      logger.logger.error(`Failed to start server: ${err.message}`);
       console.error(`ERROR: ${err.message}`);
     } else {
-      logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
-      logger.info(`Server accessible at http://localhost:${PORT}`);
+      logger.logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+      logger.logger.info(`Server accessible at http://localhost:${PORT}`);
       console.log(`Server started on port ${PORT} and listening on all interfaces`);
       console.log(`API available at: http://localhost:${PORT}/api/health`);
       console.log(`Ping test available at: http://localhost:${PORT}/ping`);
@@ -1109,7 +1109,7 @@ try {
           }
         } catch (error) {
           console.error('[INIT] ❌ SchedulerService initialization failed:', error.message);
-          logger.error(`SchedulerService post-startup initialization failed: ${error.message}`);
+          logger.logger.error(`SchedulerService post-startup initialization failed: ${error.message}`);
         }
       }, 3000); // Wait 3 seconds after server starts
     }
@@ -1123,8 +1123,8 @@ try {
   }, 2000);
 } catch (error) {
   console.error(`ERROR starting server: ${error.message}`);
-  logger.error(`ERROR starting server: ${error.message}`);
-  logger.error(error.stack);
+  logger.logger.error(`ERROR starting server: ${error.message}`);
+  logger.logger.error(error.stack);
 }
 
 // Export the server for testing

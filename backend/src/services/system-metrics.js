@@ -3,7 +3,10 @@ const { exec } = require('child_process');
 const util = require('util');
 const fs = require('fs').promises;
 const serviceRegistry = require('../utils/ServiceRegistry');
-const logger = require('../utils/logger');
+const { logger: loggerModule } = require('../utils/logger');
+
+// Create module logger
+const logger = loggerModule.getModuleLogger('system-metrics');
 
 const execPromise = util.promisify(exec);
 

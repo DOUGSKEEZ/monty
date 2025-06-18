@@ -14,12 +14,18 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const IWeatherService = require('../interfaces/IWeatherService');
-const logger = require('../utils/logger').getModuleLogger('weather-service');
+const { logger: loggerModule } = require('../utils/enhancedLogger');
+const { LOG_ACTIONS, TRIGGER_TYPES, PERFORMANCE_THRESHOLDS } = require('../utils/loggingStandards');
 const prometheusMetrics = require('./PrometheusMetricsService');
 
 class WeatherService extends IWeatherService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, timezoneManager) {
     super();
+    // Use Enhanced Logger with module context
+    this.logger = loggerModule;
+    this.logger.setContext({ module: 'weather-service' });
+    
+    
     this.configManager = configManager;
     this.retryHelper = retryHelper;
     this.circuitBreaker = circuitBreaker;
@@ -71,8 +77,16 @@ class WeatherService extends IWeatherService {
 
     // Mark service as ready
     this.serviceRegistry.setStatus('WeatherService', 'ready');
-    logger.info('WeatherService v2.0 initialized with full integration');
-    logger.info(`API usage loaded: ${this.apiUsage.dailyCount}/${this.dailyLimit} calls for ${this.apiUsage.lastResetDate}`);
+    this.logger.info('WeatherService v2.0 initialized with full integration', {
+      action: LOG_ACTIONS.SYSTEM.STARTUP,
+      config: {
+        city: this.city,
+        units: this.units,
+        useOneCallAPI: this.useOneCallAPI,
+        cacheTimeout: this.cacheTimeout
+      }
+    });
+    this.logger.info(`API usage loaded: ${this.apiUsage.dailyCount}/${this.dailyLimit} calls for ${this.apiUsage.lastResetDate}`);
   }
 
   /**
@@ -91,14 +105,14 @@ class WeatherService extends IWeatherService {
       this.serviceRegistry.setStatus('WeatherService', 'ready');
       prometheusMetrics.setServiceHealth('WeatherService', 'ok');
       
-      logger.info('WeatherService initialized successfully');
+      this.logger.info('WeatherService initialized successfully');
       return { success: true, message: 'WeatherService initialized' };
     } catch (error) {
       this.lastError = error.message;
       this.serviceRegistry.setStatus('WeatherService', 'error');
       prometheusMetrics.setServiceHealth('WeatherService', 'error');
       
-      logger.error(`Failed to initialize WeatherService: ${error.message}`);
+      this.logger.error(`Failed to initialize WeatherService: ${error.message}`);
       throw error;
     }
   }
@@ -109,14 +123,27 @@ class WeatherService extends IWeatherService {
    * @returns {Promise<Object>} Current weather information
    */
   async getCurrentWeather(forceRefresh = false) {
+    const timer = this.logger.startTimer('weather-current');
+    const trigger = forceRefresh ? TRIGGER_TYPES.MANUAL : TRIGGER_TYPES.SCHEDULED;
+
     // Use One Call API if enabled
     if (this.useOneCallAPI) {
       try {
         // SINGLE API CALL - get all weather data at once
         await this.getOneCallData(forceRefresh);
+        const duration = timer.end({
+          action: LOG_ACTIONS.WEATHER.API_CALL,
+          trigger,
+          cache_status: 'hit',
+          cache_age: this.getCacheAge()
+        });
         return this.cache.current;
       } catch (error) {
-        logger.warn(`One Call API failed, falling back to legacy API: ${error.message}`);
+        this.logger.warn('One Call API failed, falling back to legacy API', {
+          action: LOG_ACTIONS.WEATHER.ERROR,
+          error: error.message,
+          trigger
+        });
         // Fall through to legacy API
       }
     }
@@ -126,12 +153,30 @@ class WeatherService extends IWeatherService {
         try {
           // Check cache first (unless forced refresh)
           if (!forceRefresh && this.isCacheValid() && this.cache.current) {
-            logger.debug('Returning cached current weather data');
+            const cacheAgeMinutes = Math.round(this.getCacheAge() / 60000);
+            
+            this.logger.info('Weather cache hit', {
+              action: LOG_ACTIONS.WEATHER.CACHE_HIT,
+              cache_age_minutes: cacheAgeMinutes,
+              data_type: 'current',
+              trigger,
+              cache_status: {
+                exists: true,
+                age_minutes: cacheAgeMinutes,
+                stale: false
+              },
+              correlation_id: this.logger.correlationId
+            });
             prometheusMetrics.recordOperation('weather-current-cache', true);
             return this.cache.current;
           }
 
-          logger.info(`Fetching current weather for ${this.city} (legacy API)`);
+          this.logger.info('Fetching current weather', {
+            action: LOG_ACTIONS.WEATHER.API_CALL,
+            trigger,
+            location: this.city,
+            api_type: 'legacy'
+          });
           
           const url = `https://api.openweathermap.org/data/2.5/weather?q=${this.city}&appid=${this.apiKey}&units=${this.units}`;
           const data = await this.makeHttpRequest(url);
@@ -143,15 +188,30 @@ class WeatherService extends IWeatherService {
           prometheusMetrics.recordOperation('weather-current-fetch', true);
           prometheusMetrics.setServiceHealth('WeatherService', 'ok');
           
-          logger.debug('Current weather data fetched and cached');
+          this.logger.debug('Current weather data fetched and cached', {
+            action: LOG_ACTIONS.WEATHER.API_CALL,
+            trigger,
+            quota_remaining: this.dailyLimit - this.apiUsage.dailyCount
+          });
           return this.cache.current;
         } catch (error) {
           prometheusMetrics.recordOperation('weather-current-fetch', false);
           this.lastError = error.message;
           
+          this.logger.error('Weather API call failed', {
+            action: LOG_ACTIONS.WEATHER.ERROR,
+            error: error.message,
+            trigger,
+            quota_remaining: this.dailyLimit - this.apiUsage.dailyCount
+          });
+          
           // Return cached data if available, even if stale
           if (this.cache.current) {
-            logger.warn('Returning stale cached weather data due to fetch error');
+            this.logger.warn('Returning stale cached weather data due to fetch error', {
+              action: LOG_ACTIONS.WEATHER.CACHE_HIT,
+              cache_age: this.getCacheAge(),
+              trigger
+            });
             prometheusMetrics.recordOperation('weather-current-stale', true);
             return this.cache.current;
           }
@@ -182,7 +242,7 @@ class WeatherService extends IWeatherService {
         await this.getOneCallData(forceRefresh);
         return this.cache.forecast;
       } catch (error) {
-        logger.warn(`One Call API failed, falling back to legacy API: ${error.message}`);
+        this.logger.warn(`One Call API failed, falling back to legacy API: ${error.message}`);
         // Fall through to legacy API
       }
     }
@@ -192,12 +252,12 @@ class WeatherService extends IWeatherService {
         try {
           // Check cache first (unless forced refresh)
           if (!forceRefresh && this.isCacheValid() && this.cache.forecast) {
-            logger.debug('Returning cached forecast data');
+            this.logger.debug('Returning cached forecast data');
             prometheusMetrics.recordOperation('weather-forecast-cache', true);
             return this.cache.forecast;
           }
 
-          logger.info(`Fetching weather forecast for ${this.city} (legacy API)`);
+          this.logger.info(`Fetching weather forecast for ${this.city} (legacy API)`);
           
           const url = `https://api.openweathermap.org/data/2.5/forecast?q=${this.city}&appid=${this.apiKey}&units=${this.units}`;
           const data = await this.makeHttpRequest(url);
@@ -209,7 +269,7 @@ class WeatherService extends IWeatherService {
           prometheusMetrics.recordOperation('weather-forecast-fetch', true);
           prometheusMetrics.setServiceHealth('WeatherService', 'ok');
           
-          logger.debug('Forecast data fetched and cached');
+          this.logger.debug('Forecast data fetched and cached');
           return this.cache.forecast;
         } catch (error) {
           prometheusMetrics.recordOperation('weather-forecast-fetch', false);
@@ -217,7 +277,7 @@ class WeatherService extends IWeatherService {
           
           // Return cached data if available, even if stale
           if (this.cache.forecast) {
-            logger.warn('Returning stale cached forecast data due to fetch error');
+            this.logger.warn('Returning stale cached forecast data due to fetch error');
             prometheusMetrics.recordOperation('weather-forecast-stale', true);
             return this.cache.forecast;
           }
@@ -241,15 +301,38 @@ class WeatherService extends IWeatherService {
    * @returns {Promise<Object>} Complete weather data from One Call API
    */
   async getOneCallData(forceRefresh = false) {
+    const timer = this.logger.startTimer('weather-onecall');
+    const trigger = forceRefresh ? TRIGGER_TYPES.MANUAL : TRIGGER_TYPES.SCHEDULED;
+    const correlationId = this.logger.correlationId;
+
     // CRITICAL: Prevent duplicate concurrent API calls
     if (this.ongoingRequest) {
-      logger.debug('One Call API request already in progress - waiting for result');
+      this.logger.debug('One Call API request already in progress - waiting for result', {
+        action: LOG_ACTIONS.WEATHER.API_CALL,
+        trigger,
+        correlation_id: correlationId,
+        concurrent_request: true
+      });
       return await this.ongoingRequest;
     }
 
     // Check cache first (unless forced refresh)
     if (!forceRefresh && this.isCacheValid() && this.cache.oneCallData) {
-      logger.debug('Returning cached One Call API data');
+      const cacheAgeMinutes = Math.round(this.getCacheAge() / 60000);
+      
+      this.logger.info('Weather cache hit', {
+        action: LOG_ACTIONS.WEATHER.CACHE_HIT,
+        cache_age_minutes: cacheAgeMinutes,
+        data_type: 'onecall',
+        trigger,
+        cache_status: {
+          exists: true,
+          age_minutes: cacheAgeMinutes,
+          stale: false
+        },
+        correlation_id: correlationId
+      });
+      
       prometheusMetrics.recordOperation('weather-onecall-cache', true);
       return this.cache.oneCallData;
     }
@@ -258,17 +341,54 @@ class WeatherService extends IWeatherService {
     this.ongoingRequest = this.retryHelper.retryOperation(
       async () => {
         try {
-          const requestType = forceRefresh ? 'MANUAL' : 'AUTOMATIC';
-          logger.info(`🌤️ Making OpenWeatherMap One Call API request - Type: ${requestType} - Location: ${this.city} (${this.latitude}, ${this.longitude})`);
+          const apiStartTime = Date.now();
+          const cacheAgeMinutes = this.cache.lastFetch ? Math.round((Date.now() - this.cache.lastFetch) / 60000) : null;
           
-          // One Call API 3.0 URL with all data types (including alerts for mountain weather safety)
+          this.logger.info('Weather API call initiated', {
+            action: LOG_ACTIONS.WEATHER.API_CALL,
+            trigger,
+            cache_status: {
+              exists: !!this.cache.oneCallData,
+              age_minutes: cacheAgeMinutes,
+              stale: cacheAgeMinutes > 5 // 5 minute cache timeout
+            },
+            quota: {
+              daily_used: this.apiUsage.dailyCount,
+              daily_limit: this.dailyLimit,
+              percent_used: Math.round((this.apiUsage.dailyCount / this.dailyLimit) * 100),
+              cost_per_call: 0.001,
+              daily_cost: Math.round(this.apiUsage.dailyCount * 0.001 * 100) / 100
+            },
+            location: {
+              city: this.city,
+              lat: this.latitude,
+              lon: this.longitude
+            },
+            correlation_id: correlationId
+          });
+          
+          // One Call API 3.0 URL with all data types
           const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${this.latitude}&lon=${this.longitude}&appid=${this.apiKey}&units=${this.units}&exclude=minutely`;
           const data = await this.makeHttpRequest(url);
           
           // Track API usage for cost management
           this.trackApiUsage(forceRefresh);
           
-          logger.info(`✅ OpenWeatherMap API request completed - Type: ${requestType} - Daily usage: ${this.apiUsage.dailyCount}/${this.dailyLimit}`);
+          const apiDuration = Date.now() - apiStartTime;
+          
+          this.logger.info('OpenWeatherMap API request completed', {
+            action: LOG_ACTIONS.WEATHER.API_CALL,
+            trigger,
+            duration_ms: apiDuration,
+            quota_usage: {
+              daily: this.apiUsage.dailyCount,
+              limit: this.dailyLimit,
+              remaining: this.dailyLimit - this.apiUsage.dailyCount,
+              cost_today: Math.round(this.apiUsage.dailyCount * 0.001 * 100) / 100
+            },
+            data_size_kb: Math.round(JSON.stringify(data).length / 1024),
+            correlation_id: correlationId
+          });
           
           this.cache.oneCallData = data;
           this.cache.lastFetch = Date.now();
@@ -281,15 +401,48 @@ class WeatherService extends IWeatherService {
           prometheusMetrics.recordOperation('weather-onecall-fetch', true);
           prometheusMetrics.setServiceHealth('WeatherService', 'ok');
           
-          logger.debug('One Call API data fetched and cached');
+          this.logger.debug('One Call API data fetched and cached', {
+            action: LOG_ACTIONS.WEATHER.API_CALL,
+            trigger,
+            cache_age: 0
+          });
           return data;
         } catch (error) {
           prometheusMetrics.recordOperation('weather-onecall-fetch', false);
           this.lastError = error.message;
           
+          this.logger.error('One Call API request failed', {
+            action: LOG_ACTIONS.WEATHER.ERROR,
+            error: {
+              message: error.message,
+              code: error.code || 'UNKNOWN',
+              stack: error.stack
+            },
+            trigger,
+            quota: {
+              daily_used: this.apiUsage.dailyCount,
+              daily_limit: this.dailyLimit,
+              remaining: this.dailyLimit - this.apiUsage.dailyCount
+            },
+            retry_context: {
+              attempt: this.retryHelper.currentAttempt || 1,
+              max_attempts: this.retryHelper.maxAttempts || 3
+            },
+            correlation_id: correlationId
+          });
+          
           // Return cached data if available, even if stale
           if (this.cache.oneCallData) {
-            logger.warn('Returning stale cached One Call API data due to fetch error');
+            const staleAgeMinutes = Math.round(this.getCacheAge() / 60000);
+            
+            this.logger.warn('Returning stale cached One Call API data due to fetch error', {
+              action: LOG_ACTIONS.WEATHER.CACHE_HIT,
+              cache_age_minutes: staleAgeMinutes,
+              data_type: 'onecall_stale',
+              trigger,
+              fallback_reason: 'api_error',
+              correlation_id: correlationId
+            });
             prometheusMetrics.recordOperation('weather-onecall-stale', true);
             return this.cache.oneCallData;
           }
@@ -308,6 +461,11 @@ class WeatherService extends IWeatherService {
 
     try {
       const result = await this.ongoingRequest;
+      const duration = timer.end({
+        action: LOG_ACTIONS.WEATHER.API_CALL,
+        trigger,
+        cache_status: forceRefresh ? 'forced' : 'miss'
+      });
       return result;
     } finally {
       // Clear the ongoing request flag
@@ -339,48 +497,96 @@ class WeatherService extends IWeatherService {
       oneCallData: null,
       lastFetch: null
     };
-    logger.debug('Weather cache cleared');
+    this.logger.debug('Weather cache cleared');
     prometheusMetrics.recordOperation('weather-cache-clear', true);
   }
 
   /**
-   * Track API usage for cost management
+   * Track API usage and persist to file
    * @param {boolean} isManual - Whether this was a manual refresh
    */
-  trackApiUsage(isManual = false) {
+  trackApiUsage(isManual) {
+    const now = Date.now();
     const todayInUserTz = this.timezoneManager.getCurrentUserTime().toDateString();
     
-    // Reset daily counter if new day in user timezone
+    // Reset counter if it's a new day
     if (this.apiUsage.lastResetDate !== todayInUserTz) {
-      this.apiUsage.dailyCount = 0;
-      this.apiUsage.lastResetDate = todayInUserTz;
-      logger.info(`New day detected. Resetting API usage counter from ${this.apiUsage.dailyCount || 0} to 0`);
+      this.logger.info('Resetting API usage counter for new day', {
+        action: LOG_ACTIONS.WEATHER.API_CALL,
+        previous_count: this.apiUsage.dailyCount,
+        new_count: 0
+      });
+      this.apiUsage = {
+        dailyCount: 0,
+        lastResetDate: todayInUserTz,
+        lastManualRefresh: 0,
+        totalCost: 0
+      };
     }
     
-    // Increment usage
+    // Update usage
     this.apiUsage.dailyCount++;
-    
-    // Track manual refresh timing
     if (isManual) {
-      this.apiUsage.lastManualRefresh = Date.now();
+      this.apiUsage.lastManualRefresh = now;
     }
     
-    // Calculate potential cost (free tier: 1000 calls, then $0.15 per 100)
-    const overageCount = Math.max(0, this.apiUsage.dailyCount - this.dailyLimit);
-    this.apiUsage.totalCost = (overageCount / 100) * 0.15;
+    // Calculate cost (assuming $0.001 per call)
+    this.apiUsage.totalCost += 0.001;
     
-    // Log usage warnings
+    // Check for quota warnings
     const usagePercent = (this.apiUsage.dailyCount / this.dailyLimit) * 100;
+    const remaining = this.dailyLimit - this.apiUsage.dailyCount;
+    
     if (usagePercent >= 90) {
-      logger.warn(`⚠️  Weather API usage: ${this.apiUsage.dailyCount}/${this.dailyLimit} (${usagePercent.toFixed(1)}%) - Approaching daily limit!`);
+      this.logger.warn('Weather API quota approaching limit', {
+        action: LOG_ACTIONS.WEATHER.QUOTA_EXCEEDED,
+        quota: {
+          daily_used: this.apiUsage.dailyCount,
+          daily_limit: this.dailyLimit,
+          percent_used: Math.round(usagePercent),
+          remaining: remaining,
+          cost_today: Math.round(this.apiUsage.totalCost * 100) / 100
+        },
+        trigger_type: isManual ? 'manual' : 'automatic',
+        correlation_id: this.logger.correlationId
+      });
     } else if (usagePercent >= 70) {
-      logger.warn(`Weather API usage: ${this.apiUsage.dailyCount}/${this.dailyLimit} (${usagePercent.toFixed(1)}%) - Monitor usage`);
+      this.logger.info('Weather API quota at 70% threshold', {
+        action: LOG_ACTIONS.WEATHER.API_CALL,
+        quota: {
+          daily_used: this.apiUsage.dailyCount,
+          daily_limit: this.dailyLimit,
+          percent_used: Math.round(usagePercent),
+          remaining: remaining,
+          cost_today: Math.round(this.apiUsage.totalCost * 100) / 100
+        },
+        trigger_type: isManual ? 'manual' : 'automatic',
+        correlation_id: this.logger.correlationId
+      });
+    } else {
+      this.logger.debug('API usage updated', {
+        action: LOG_ACTIONS.WEATHER.API_CALL,
+        quota: {
+          daily_used: this.apiUsage.dailyCount,
+          daily_limit: this.dailyLimit,
+          percent_used: Math.round(usagePercent),
+          remaining: remaining,
+          cost_today: Math.round(this.apiUsage.totalCost * 100) / 100
+        },
+        trigger_type: isManual ? 'manual' : 'automatic',
+        correlation_id: this.logger.correlationId
+      });
     }
     
-    // Save to persistent storage
-    this.saveApiUsage();
-    
-    logger.debug(`API call tracked: ${this.apiUsage.dailyCount}/${this.dailyLimit} (${usagePercent.toFixed(1)}%)`);
+    // Persist to file
+    try {
+      fs.writeFileSync(this.apiUsageFile, JSON.stringify(this.apiUsage, null, 2));
+    } catch (error) {
+      this.logger.error('Failed to persist API usage data', {
+        action: LOG_ACTIONS.WEATHER.ERROR,
+        error: error.message
+      });
+    }
   }
 
   /**
@@ -395,7 +601,7 @@ class WeatherService extends IWeatherService {
         
         // Reset if new day in user timezone
         if (data.lastResetDate !== todayInUserTz) {
-          logger.info(`New day detected. Resetting API usage counter from ${data.dailyCount} to 0`);
+          this.logger.info(`New day detected. Resetting API usage counter from ${data.dailyCount} to 0`);
           return {
             dailyCount: 0,
             lastResetDate: todayInUserTz,
@@ -404,11 +610,11 @@ class WeatherService extends IWeatherService {
           };
         }
         
-        logger.info(`API usage restored from file: ${data.dailyCount} calls for ${data.lastResetDate}`);
+        this.logger.info(`API usage restored from file: ${data.dailyCount} calls for ${data.lastResetDate}`);
         return data;
       }
     } catch (error) {
-      logger.warn(`Failed to load API usage file: ${error.message}`);
+      this.logger.warn(`Failed to load API usage file: ${error.message}`);
     }
     
     // Default values if file doesn't exist or can't be read
@@ -421,18 +627,12 @@ class WeatherService extends IWeatherService {
   }
 
   /**
-   * Save API usage data to persistent storage
+   * Get cache age in milliseconds
+   * @returns {number} Cache age in milliseconds
    */
-  saveApiUsage() {
-    try {
-      const dir = path.dirname(this.apiUsageFile);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(this.apiUsageFile, JSON.stringify(this.apiUsage, null, 2));
-    } catch (error) {
-      logger.error(`Failed to save API usage file: ${error.message}`);
-    }
+  getCacheAge() {
+    if (!this.cache.lastFetch) return null;
+    return Date.now() - this.cache.lastFetch;
   }
 
   /**
@@ -951,7 +1151,7 @@ class WeatherService extends IWeatherService {
     // Check cache first
     const cachedData = this.getSunTimesFromCache(formattedDate);
     if (cachedData) {
-      logger.debug(`Using cached sun times for ${formattedDate}`);
+      this.logger.debug(`Using cached sun times for ${formattedDate}`);
       return {
         success: true,
         data: cachedData
@@ -966,7 +1166,7 @@ class WeatherService extends IWeatherService {
           const lon = -106.07; // Silverthorne longitude
           
           const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${formattedDate}&formatted=0`;
-          logger.info(`Fetching sun times from sunrise-sunset.org for ${formattedDate}`);
+          this.logger.info(`Fetching sun times from sunrise-sunset.org for ${formattedDate}`);
           const data = await this.makeHttpRequest(url);
           
           if (data.status === 'OK') {
@@ -1034,7 +1234,7 @@ class WeatherService extends IWeatherService {
           if (now < expiresAt) {
             return dayData;
           } else {
-            logger.debug(`Sun times cache expired for ${dateKey}`);
+            this.logger.debug(`Sun times cache expired for ${dateKey}`);
             // Remove expired entry
             delete cache[dateKey];
             fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
@@ -1044,7 +1244,7 @@ class WeatherService extends IWeatherService {
       
       return null;
     } catch (error) {
-      logger.warn(`Error reading sun times cache: ${error.message}`);
+      this.logger.warn(`Error reading sun times cache: ${error.message}`);
       return null;
     }
   }
@@ -1070,7 +1270,7 @@ class WeatherService extends IWeatherService {
         try {
           cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
         } catch (parseError) {
-          logger.warn(`Failed to parse sun times cache, creating new: ${parseError.message}`);
+          this.logger.warn(`Failed to parse sun times cache, creating new: ${parseError.message}`);
           cache = {};
         }
       }
@@ -1096,10 +1296,10 @@ class WeatherService extends IWeatherService {
       
       // Write cache file
       fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
-      logger.info(`Sun times cached for ${dateKey}, expires in 24 hours`);
+      this.logger.info(`Sun times cached for ${dateKey}, expires in 24 hours`);
       
     } catch (error) {
-      logger.error(`Error caching sun times: ${error.message}`);
+      this.logger.error(`Error caching sun times: ${error.message}`);
     }
   }
 
@@ -1178,7 +1378,7 @@ class WeatherService extends IWeatherService {
    * Recovery procedure for the service
    */
   async recoveryProcedure(serviceName, attemptNumber) {
-    logger.info(`Recovery procedure called for WeatherService (attempt ${attemptNumber})`);
+    this.logger.info(`Recovery procedure called for WeatherService (attempt ${attemptNumber})`);
     try {
       // Clear cache to force fresh data
       this.clearCache();
@@ -1194,7 +1394,7 @@ class WeatherService extends IWeatherService {
         method: 'cache-clear-and-test' 
       };
     } catch (error) {
-      logger.error(`Recovery failed: ${error.message}`);
+      this.logger.error(`Recovery failed: ${error.message}`);
       return { 
         success: false, 
         error: error.message 
@@ -1230,6 +1430,7 @@ class WeatherService extends IWeatherService {
       lastUpdated: new Date().toISOString()
     };
   }
+
 }
 
 module.exports = WeatherService;
