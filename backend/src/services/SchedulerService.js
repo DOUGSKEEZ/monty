@@ -115,7 +115,7 @@ class SchedulerService {
       await this.calculateSceneTimes();
       
       // Schedule all scenes
-      this.scheduleAllScenes();
+      await this.scheduleAllScenes();
       
       // Start configuration file watcher
       this.startConfigWatcher();
@@ -152,8 +152,24 @@ class SchedulerService {
       times.good_afternoon_display = `${hour12}:${minuteStr} ${ampm}`;
       
       // Also store the date for scheduling purposes
-      times.good_afternoon = new Date();
-      times.good_afternoon.setHours(hours, minutes, 0, 0);
+      // Create Good Afternoon time for today (daily recurring job)  
+      // Create date string with proper timezone using Intl.DateTimeFormat
+      const today = new Date();
+      const todayDateStr = today.toISOString().split('T')[0]; // Get YYYY-MM-DD
+      
+      // Get current timezone offset for America/Denver (or whatever timezone is configured)
+      const timezone = this.timezoneManager.getCronTimezone() || 'America/Denver';
+      const testDate = new Date();
+      const formatter = new Intl.DateTimeFormat('en', {
+        timeZone: timezone,
+        timeZoneName: 'longOffset'
+      });
+      const parts = formatter.formatToParts(testDate);
+      const offsetPart = parts.find(part => part.type === 'timeZoneName');
+      const offset = offsetPart ? offsetPart.value.replace('GMT', '') : '-06:00';
+      
+      const afternoonDateStr = `${todayDateStr}T${afternoonTime}:00${offset}`;
+      times.good_afternoon = new Date(afternoonDateStr);
       
       // Get full sun times data (includes twilight)
       const sunTimesData = await this.getSunTimesData(date);
@@ -382,7 +398,7 @@ class SchedulerService {
   /**
    * Schedule all scenes using node-cron
    */
-  scheduleAllScenes() {
+  async scheduleAllScenes() {
     try {
       logger.info(`🔍 [CONFIG_DEBUG] scheduleAllScenes() called - current good_afternoon_time: "${this.schedulerConfig.scenes.good_afternoon_time}"`);
       
@@ -419,7 +435,7 @@ class SchedulerService {
       this.scheduleWakeUp();
       
       // Schedule today's dynamic scenes
-      this.scheduleSubsetBasedScenes();
+      await this.scheduleSubsetBasedScenes();
       
     } catch (error) {
       logger.error(`Failed to schedule scenes: ${error.message}`);
@@ -1262,12 +1278,23 @@ class SchedulerService {
       const times = this.nextSceneTimes;
       const wakeUpConfig = this.getWakeUpConfig();
       
-      // Build list of upcoming scenes
-      const sceneTimes = [
-        { name: 'Good Afternoon', time: times.good_afternoon },
-        { name: 'Good Evening', time: times.good_evening },
-        { name: 'Good Night', time: times.good_night }
-      ];
+      // Build list of upcoming scenes - only include if scheduled job exists
+      const sceneTimes = [];
+      
+      // Check Good Afternoon - daily recurring job with name 'good_afternoon'
+      if (times.good_afternoon && this.scheduledJobs.has('good_afternoon')) {
+        sceneTimes.push({ name: 'Good Afternoon', time: times.good_afternoon });
+      }
+      
+      // Check Good Evening - job name is 'good_evening_today' 
+      if (times.good_evening && this.scheduledJobs.has('good_evening_today')) {
+        sceneTimes.push({ name: 'Good Evening', time: times.good_evening });
+      }
+      
+      // Check Good Night - job name is 'good_night_today'
+      if (times.good_night && this.scheduledJobs.has('good_night_today')) {
+        sceneTimes.push({ name: 'Good Night', time: times.good_night });
+      }
       
       // Add wake up time if enabled
       if (wakeUpConfig.enabled && wakeUpConfig.time) {
@@ -1290,6 +1317,45 @@ class SchedulerService {
         sceneTimes.push({ name: 'Good Morning', time: goodMorningTime });
       }
       
+      // Check if Good Morning is still pending today (even if wake up was triggered and disabled)
+      if (!wakeUpConfig.enabled && wakeUpConfig.last_triggered && wakeUpConfig.time) {
+        const lastTriggered = new Date(wakeUpConfig.last_triggered);
+        
+        // Get user timezone times for comparison
+        const nowUserTime = this.timezoneManager.toUserTime(now);
+        const lastTriggeredUserTime = this.timezoneManager.toUserTime(lastTriggered);
+        
+        // Check if wake up was triggered today in user timezone
+        if (lastTriggeredUserTime.toDateString() === nowUserTime.toDateString()) {
+          const [hours, minutes] = wakeUpConfig.time.split(':').map(Number);
+          const delayMinutes = wakeUpConfig.good_morning_delay_minutes || 15;
+          
+          // Calculate Good Morning time for today in user timezone
+          const goodMorningTimeStr = `${(hours).toString().padStart(2, '0')}:${(minutes + delayMinutes).toString().padStart(2, '0')}`;
+          
+          // Use same timezone approach as Good Afternoon
+          const today = new Date();
+          const todayDateStr = today.toISOString().split('T')[0];
+          const timezone = this.timezoneManager.getCronTimezone() || 'America/Denver';
+          const testDate = new Date();
+          const formatter = new Intl.DateTimeFormat('en', {
+            timeZone: timezone,
+            timeZoneName: 'longOffset'
+          });
+          const parts = formatter.formatToParts(testDate);
+          const offsetPart = parts.find(part => part.type === 'timeZoneName');
+          const offset = offsetPart ? offsetPart.value.replace('GMT', '') : '-06:00';
+          
+          const goodMorningDateStr = `${todayDateStr}T${goodMorningTimeStr}:00${offset}`;
+          const goodMorningTime = new Date(goodMorningDateStr);
+          
+          // Only add if it hasn't happened yet
+          if (goodMorningTime > now) {
+            sceneTimes.push({ name: 'Good Morning', time: goodMorningTime });
+          }
+        }
+      }
+      
       // Filter and sort upcoming scenes
       const upcomingScenes = sceneTimes
         .filter(scene => scene.time && scene.time > now)
@@ -1297,9 +1363,17 @@ class SchedulerService {
       
       if (upcomingScenes.length > 0) {
         const next = upcomingScenes[0];
-        // For local times (wake up, good morning, good afternoon), format directly
+        // For Good Afternoon and Good Morning, convert to user timezone for display
+        // For wake up (system timezone times), format directly  
         // For sun-based times (evening, night), use timezone manager
-        if (next.name.includes('Wake Up') || next.name.includes('Good Morning') || next.name.includes('Good Afternoon')) {
+        if (next.name.includes('Good Afternoon') || next.name.includes('Good Morning')) {
+          const userTime = this.timezoneManager.toUserTime(next.time);
+          const [h, m] = [userTime.getHours(), userTime.getMinutes()];
+          const hour12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          const minuteStr = m.toString().padStart(2, '0');
+          return `${next.name} at ${hour12}:${minuteStr} ${ampm}`;
+        } else if (next.name.includes('Wake Up')) {
           const [h, m] = [next.time.getHours(), next.time.getMinutes()];
           const hour12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
           const ampm = h >= 12 ? 'PM' : 'AM';
@@ -1496,7 +1570,7 @@ class SchedulerService {
       }
       
       // Reschedule all jobs
-      this.scheduleAllScenes();
+      await this.scheduleAllScenes();
       
       logger.info('Configuration reloaded and jobs rescheduled successfully');
       return true;

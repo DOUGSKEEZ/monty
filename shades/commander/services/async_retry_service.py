@@ -31,31 +31,63 @@ class AsyncRetryService:
         self.active_shade_tasks: Dict[int, str] = {}  # shade_id -> task_id mapping for individual commands
         self.cancelled_tasks: Dict[str, float] = {}  # task_id -> cancelled_timestamp for monitoring
         self.task_counter = 0
+        
+        # ZOMBIE MONITORING: Enhanced tracking
+        self.zombie_warnings: Dict[str, float] = {}  # task_id -> first_warning_timestamp
+        self.zombie_metrics = {
+            "total_zombies_detected": 0,
+            "total_zombies_cleaned": 0,
+            "total_timeout_kills": 0,
+            "current_warnings": 0
+        }
 
         # Start periodic cleanup task
         asyncio.create_task(self._cleanup_old_tasks())
     
     async def _cleanup_old_tasks(self):
-        """Periodically clean up tasks older than 1 hour"""
+        """Periodically clean up tasks and detect zombies"""
         while True:
             try:
-                await asyncio.sleep(300)  # Check every 5 minutes
+                await asyncio.sleep(60)  # Check every 1 minute for better zombie detection
                 
                 current_time = time.time()
                 tasks_to_remove = []
+                zombie_warnings_to_remove = []
                 
                 for task_id, task in self.active_tasks.items():
                     # Parse timestamp from task_id
                     try:
                         task_timestamp = int(task_id.split('_')[-1]) / 1000
-                        if current_time - task_timestamp > 3600:  # 1 hour
-                            task.cancel()
-                            tasks_to_remove.append(task_id)
-                            logger.warning(f"Cancelling old task {task_id} (age: {(current_time - task_timestamp)/60:.1f} minutes)")
+                        task_age_minutes = (current_time - task_timestamp) / 60
+                        
+                        # ZOMBIE DETECTION: Tasks older than 5 minutes are suspicious
+                        if task_age_minutes > 5:
+                            if task_id not in self.zombie_warnings:
+                                # First time detecting this potential zombie
+                                self.zombie_warnings[task_id] = current_time
+                                self.zombie_metrics["total_zombies_detected"] += 1
+                                self.zombie_metrics["current_warnings"] += 1
+                                logger.warning(f"🧟 ZOMBIE DETECTED: Task {task_id} is {task_age_minutes:.1f} minutes old - monitoring for cleanup")
+                            
+                            # ZOMBIE CLEANUP: Tasks older than 1 hour get force-killed
+                            if task_age_minutes > 60:  # 1 hour
+                                task.cancel()
+                                tasks_to_remove.append(task_id)
+                                zombie_warnings_to_remove.append(task_id)
+                                self.zombie_metrics["total_zombies_cleaned"] += 1
+                                self.zombie_metrics["current_warnings"] -= 1
+                                logger.error(f"🧟 ZOMBIE CLEANUP: Force-cancelled task {task_id} (age: {task_age_minutes:.1f} minutes)")
+                        
+                        # Remove resolved warnings for tasks that completed normally
+                        elif task_id in self.zombie_warnings:
+                            zombie_warnings_to_remove.append(task_id)
+                            self.zombie_metrics["current_warnings"] -= 1
+                            logger.info(f"✅ ZOMBIE RESOLVED: Task {task_id} completed normally after warning")
+                            
                     except:
                         pass
                 
-                # Remove cancelled tasks
+                # Clean up removed tasks
                 for task_id in tasks_to_remove:
                     self.active_tasks.pop(task_id, None)
                     # Also remove from shade mapping if present
@@ -63,11 +95,16 @@ class AsyncRetryService:
                         if tid == task_id:
                             del self.active_shade_tasks[shade_id]
                 
-                if tasks_to_remove:
-                    logger.info(f"Cleaned up {len(tasks_to_remove)} old retry tasks")  
+                # Clean up resolved zombie warnings
+                for task_id in zombie_warnings_to_remove:
+                    self.zombie_warnings.pop(task_id, None)
+                
+                # Log summary if there are active zombies
+                if self.zombie_metrics["current_warnings"] > 0:
+                    logger.warning(f"🧟 ZOMBIE STATUS: {self.zombie_metrics['current_warnings']} active warnings, {self.zombie_metrics['total_zombies_detected']} total detected, {self.zombie_metrics['total_zombies_cleaned']} cleaned")
             
             except Exception as e:
-                logger.error(f"Error in cleanup task: {e}")
+                logger.error(f"Error in cleanup/zombie detection task: {e}")
     
     def _generate_task_id(self) -> str:
         """Generate unique task ID"""
@@ -82,6 +119,7 @@ class AsyncRetryService:
         - Executes first command immediately in background
         - Follows with 3 additional commands at optimized intervals
         - Silent failure strategy - no blocking on errors
+        - ZOMBIE PREVENTION: Overall timeout protection
         
         Args:
             retry_task: The retry task containing shade_id, action, and timing
@@ -89,11 +127,17 @@ class AsyncRetryService:
         try:
             logger.info(f"🚀 Starting fire-and-forget sequence for shade {retry_task.shade_id} action '{retry_task.action}' (task: {retry_task.task_id})")
             
+            # ZOMBIE PREVENTION: Add individual command timeout (10 seconds max per command)
+            command_timeout = 10.0
+            
             # Command 1: Execute immediately (this is the "first" command, now in background)
             cmd_start = time.time()
             try:
                 logger.info(f"🚀 Command 1/4 for shade {retry_task.shade_id} action '{retry_task.action}' (immediate)")
-                result = await send_shade_command_fast(retry_task.shade_id, retry_task.action)
+                result = await asyncio.wait_for(
+                    send_shade_command_fast(retry_task.shade_id, retry_task.action),
+                    timeout=command_timeout
+                )
                 cmd_time = int((time.time() - cmd_start) * 1000)
                 
                 if result["success"]:
@@ -101,6 +145,9 @@ class AsyncRetryService:
                 else:
                     logger.warning(f"⚠️ Command 1/4 failed for shade {retry_task.shade_id}: {result.get('message', 'Unknown error')} (took {cmd_time}ms)")
                     
+            except asyncio.TimeoutError:
+                cmd_time = int((time.time() - cmd_start) * 1000)
+                logger.error(f"⏰ Command 1/4 TIMEOUT for shade {retry_task.shade_id} after {command_timeout}s (took {cmd_time}ms) - ZOMBIE PREVENTION")
             except Exception as e:
                 cmd_time = int((time.time() - cmd_start) * 1000)
                 logger.error(f"❌ Command 1/4 error for shade {retry_task.shade_id}: {e} (took {cmd_time}ms)")
@@ -110,11 +157,14 @@ class AsyncRetryService:
                 # Wait for the specified delay
                 await asyncio.sleep(delay_ms / 1000.0)
                 
-                # Execute the command
+                # Execute the command with timeout protection
                 cmd_start = time.time()
                 try:
                     logger.info(f"🚀 Command {i+2}/4 for shade {retry_task.shade_id} action '{retry_task.action}' (after {delay_ms}ms)")
-                    result = await send_shade_command_fast(retry_task.shade_id, retry_task.action)
+                    result = await asyncio.wait_for(
+                        send_shade_command_fast(retry_task.shade_id, retry_task.action),
+                        timeout=command_timeout
+                    )
                     cmd_time = int((time.time() - cmd_start) * 1000)
                     
                     if result["success"]:
@@ -122,6 +172,9 @@ class AsyncRetryService:
                     else:
                         logger.warning(f"⚠️ Command {i+2}/4 failed for shade {retry_task.shade_id}: {result.get('message', 'Unknown error')} (took {cmd_time}ms)")
                         
+                except asyncio.TimeoutError:
+                    cmd_time = int((time.time() - cmd_start) * 1000)
+                    logger.error(f"⏰ Command {i+2}/4 TIMEOUT for shade {retry_task.shade_id} after {command_timeout}s (took {cmd_time}ms) - ZOMBIE PREVENTION")
                 except Exception as e:
                     cmd_time = int((time.time() - cmd_start) * 1000)
                     logger.error(f"❌ Command {i+2}/4 error for shade {retry_task.shade_id}: {e} (took {cmd_time}ms)")
@@ -210,8 +263,21 @@ class AsyncRetryService:
             started_at=time.time()
         )
         
-        # Start the fire-and-forget background task
-        task = asyncio.create_task(self._execute_fire_and_forget_sequence(retry_task))
+        # Start the fire-and-forget background task with overall timeout protection
+        # ZOMBIE PREVENTION: Maximum 60 seconds for entire sequence (includes all delays + commands)
+        async def timeout_protected_sequence():
+            try:
+                await asyncio.wait_for(
+                    self._execute_fire_and_forget_sequence(retry_task),
+                    timeout=60.0  # 60 second max for entire sequence
+                )
+            except asyncio.TimeoutError:
+                self.zombie_metrics["total_timeout_kills"] += 1
+                logger.error(f"🧟 ZOMBIE PREVENTION: Task {task_id} exceeded 60s timeout - forcing cleanup (total timeouts: {self.zombie_metrics['total_timeout_kills']})")
+                # The finally block in _execute_fire_and_forget_sequence will handle cleanup
+                raise
+        
+        task = asyncio.create_task(timeout_protected_sequence())
         self.active_tasks[task_id] = task
         
         # Track this task for the specific shade (for future cancellation)
@@ -316,14 +382,35 @@ class AsyncRetryService:
         return len(self.cancelled_tasks)
     
     def get_task_stats(self) -> Dict[str, Any]:
-        """Get comprehensive task statistics for monitoring"""
+        """Get comprehensive task statistics for monitoring (including zombie metrics)"""
+        current_time = time.time()
+        
+        # Calculate task ages for better monitoring
+        task_ages = {}
+        suspicious_tasks = []
+        for task_id in self.active_tasks.keys():
+            try:
+                task_timestamp = int(task_id.split('_')[-1]) / 1000
+                age_minutes = (current_time - task_timestamp) / 60
+                task_ages[task_id] = age_minutes
+                if age_minutes > 5:  # Tasks older than 5 minutes are suspicious
+                    suspicious_tasks.append({"task_id": task_id, "age_minutes": round(age_minutes, 1)})
+            except:
+                task_ages[task_id] = 0
+        
         return {
             "total_active_tasks": len(self.active_tasks),
             "active_shade_tasks": len(self.active_shade_tasks),
             "total_cancelled_tasks": len(self.cancelled_tasks),
             "active_task_ids": list(self.active_tasks.keys()),
             "shade_task_mapping": self.active_shade_tasks.copy(),
-            "recent_cancellations": len([t for t in self.cancelled_tasks.values() if time.time() - t < 300])  # Last 5 minutes
+            "recent_cancellations": len([t for t in self.cancelled_tasks.values() if time.time() - t < 300]),  # Last 5 minutes
+            # ZOMBIE MONITORING METRICS for dashboard
+            "zombie_metrics": self.zombie_metrics.copy(),
+            "zombie_warnings": len(self.zombie_warnings),
+            "suspicious_tasks": suspicious_tasks,
+            "task_ages": task_ages,
+            "oldest_task_age_minutes": max(task_ages.values()) if task_ages else 0
         }
     
     def cancel_task(self, task_id: str) -> bool:

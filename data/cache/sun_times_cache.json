@@ -1,19 +1,4 @@
 {
-  "2025-06-19": {
-    "date": "2025-06-19",
-    "sunrise": 1750332898000,
-    "sunset": 1750386995000,
-    "sunriseTime": "5:34 AM",
-    "sunsetTime": "8:36 PM",
-    "civilTwilightBegin": "2025-06-19T11:03:58+00:00",
-    "civilTwilightEnd": "2025-06-20T03:07:35+00:00",
-    "nauticalTwilightBegin": "2025-06-19T10:22:41+00:00",
-    "nauticalTwilightEnd": "2025-06-20T03:48:53+00:00",
-    "astronomicalTwilightBegin": "2025-06-19T09:34:43+00:00",
-    "astronomicalTwilightEnd": "2025-06-20T04:36:51+00:00",
-    "cached_at": 1750393979447,
-    "expires_at": 1750480379447
-  },
   "2025-06-21": {
     "date": "2025-06-21",
     "sunrise": 1750505723000,
@@ -73,5 +58,20 @@
     "astronomicalTwilightEnd": "2025-06-27T04:37:32+00:00",
     "cached_at": 1750917671465,
     "expires_at": 1751004071465
+  },
+  "2025-06-27": {
+    "date": "2025-06-27",
+    "sunrise": 1751024239000,
+    "sunset": 1751078260000,
+    "sunriseTime": "5:37 AM",
+    "sunsetTime": "8:37 PM",
+    "civilTwilightBegin": "2025-06-27T11:06:24+00:00",
+    "civilTwilightEnd": "2025-06-28T03:08:35+00:00",
+    "nauticalTwilightBegin": "2025-06-27T10:25:15+00:00",
+    "nauticalTwilightEnd": "2025-06-28T03:49:44+00:00",
+    "astronomicalTwilightBegin": "2025-06-27T09:37:34+00:00",
+    "astronomicalTwilightEnd": "2025-06-28T04:37:25+00:00",
+    "cached_at": 1751004063127,
+    "expires_at": 1751090463127
   }
 }

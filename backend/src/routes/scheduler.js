@@ -513,7 +513,7 @@ router.put('/scenes', async (req, res) => {
         try {
           if (good_afternoon_time || good_evening_offset_minutes !== undefined || good_night_offset_minutes !== undefined) {
             logger.info('Rescheduling all scenes due to configuration changes');
-            schedulerService.scheduleAllScenes();
+            await schedulerService.scheduleAllScenes();
           }
         } catch (scheduleError) {
           logger.warn('Scene rescheduling failed but configuration was saved:', scheduleError.message);
@@ -631,7 +631,7 @@ router.put('/wake-up', async (req, res) => {
  */
 router.put('/music', async (req, res) => {
   try {
-    const { enabled_for_morning, enabled_for_evening } = req.body;
+    const { enabled_for_morning, enabled_for_evening, enabled_for_afternoon, enabled_for_night } = req.body;
     
     const { createSchedulerService } = require('../utils/ServiceFactory');
     const schedulerService = createSchedulerService();
@@ -650,6 +650,12 @@ router.put('/music', async (req, res) => {
     if (enabled_for_evening !== undefined) {
       schedulerService.schedulerConfig.music.enabled_for_evening = Boolean(enabled_for_evening);
     }
+    if (enabled_for_afternoon !== undefined) {
+      schedulerService.schedulerConfig.music.enabled_for_afternoon = Boolean(enabled_for_afternoon);
+    }
+    if (enabled_for_night !== undefined) {
+      schedulerService.schedulerConfig.music.enabled_for_night = Boolean(enabled_for_night);
+    }
     
     // Save configuration
     schedulerService.saveSchedulerConfig();
@@ -661,7 +667,9 @@ router.put('/music', async (req, res) => {
       message: 'Music integration settings updated successfully',
       data: {
         enabled_for_morning: schedulerService.schedulerConfig.music.enabled_for_morning,
-        enabled_for_evening: schedulerService.schedulerConfig.music.enabled_for_evening
+        enabled_for_evening: schedulerService.schedulerConfig.music.enabled_for_evening,
+        enabled_for_afternoon: schedulerService.schedulerConfig.music.enabled_for_afternoon,
+        enabled_for_night: schedulerService.schedulerConfig.music.enabled_for_night
       }
     });
     
@@ -720,7 +728,7 @@ router.put('/timezone', async (req, res) => {
       
       // Reschedule all scenes with new timezone
       logger.info(`Timezone changed to ${timezone}, rescheduling all scenes`);
-      schedulerService.scheduleAllScenes();
+      await schedulerService.scheduleAllScenes();
       
       return {
         timezone: timezone,
