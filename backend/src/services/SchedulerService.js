@@ -15,6 +15,7 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const chokidar = require('chokidar');
 const logger = require('../utils/logger').getModuleLogger('scheduler-service');
 
 class SchedulerService {
@@ -38,6 +39,10 @@ class SchedulerService {
     this.lastError = null;
     this.lastExecutedScene = null;
     this.nextSceneTimes = {};
+    
+    // File watching
+    this.configWatcher = null;
+    this.reloadDebounceTimer = null;
 
     // Register with ServiceRegistry
     this.serviceRegistry.register('SchedulerService', {
@@ -111,6 +116,9 @@ class SchedulerService {
       
       // Schedule all scenes
       this.scheduleAllScenes();
+      
+      // Start configuration file watcher
+      this.startConfigWatcher();
       
       this.isInitialized = true;
       this.lastError = null;
@@ -1219,6 +1227,29 @@ class SchedulerService {
   }
 
   /**
+   * Cleanup method for service shutdown
+   */
+  cleanup() {
+    try {
+      logger.info('SchedulerService cleanup initiated');
+      
+      // Stop configuration file watcher
+      this.stopConfigWatcher();
+      
+      // Clear all scheduled jobs
+      this.clearAllSchedules();
+      
+      // Clear caches
+      this.sunsetCache.clear();
+      
+      this.isInitialized = false;
+      logger.info('SchedulerService cleanup completed');
+    } catch (error) {
+      logger.error(`SchedulerService cleanup failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Get next scheduled scene
    */
   getNextScheduledScene() {
@@ -1300,6 +1331,9 @@ class SchedulerService {
     try {
       logger.warn('SchedulerService recovery procedure initiated');
       
+      // Stop config watcher first
+      this.stopConfigWatcher();
+      
       // Clear all schedules and reinitialize
       this.clearAllSchedules();
       this.isInitialized = false;
@@ -1323,18 +1357,229 @@ class SchedulerService {
   }
 
   /**
-   * Reload configuration
+   * Start configuration file watcher
    */
-  async reloadConfig() {
+  startConfigWatcher() {
     try {
-      this.schedulerConfig = this.loadSchedulerConfig();
-      await this.initialize();
-      logger.info('SchedulerService configuration reloaded');
-      return true;
+      if (this.configWatcher) {
+        logger.debug('Config watcher already exists, stopping it first');
+        this.stopConfigWatcher();
+      }
+
+      logger.info(`Starting configuration file watcher for: ${this.schedulerConfigPath}`);
+      
+      this.configWatcher = chokidar.watch(this.schedulerConfigPath, {
+        persistent: true,
+        ignoreInitial: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 500,  // Wait 500ms for file writes to finish
+          pollInterval: 100
+        }
+      });
+
+      this.configWatcher.on('change', (filePath) => {
+        logger.info(`Configuration file changed: ${filePath}`);
+        this.debouncedReloadConfig();
+      });
+
+      this.configWatcher.on('error', (error) => {
+        logger.error(`Configuration file watcher error: ${error.message}`);
+      });
+
+      logger.info('Configuration file watcher started successfully');
     } catch (error) {
-      logger.error(`Failed to reload config: ${error.message}`);
+      logger.error(`Failed to start configuration file watcher: ${error.message}`);
+    }
+  }
+
+  /**
+   * Stop configuration file watcher
+   */
+  stopConfigWatcher() {
+    if (this.configWatcher) {
+      try {
+        this.configWatcher.close();
+        this.configWatcher = null;
+        logger.info('Configuration file watcher stopped');
+      } catch (error) {
+        logger.error(`Error stopping configuration file watcher: ${error.message}`);
+      }
+    }
+
+    // Clear any pending reload timer
+    if (this.reloadDebounceTimer) {
+      clearTimeout(this.reloadDebounceTimer);
+      this.reloadDebounceTimer = null;
+    }
+  }
+
+  /**
+   * Debounced configuration reload to avoid multiple rapid reloads
+   */
+  debouncedReloadConfig() {
+    // Clear any existing timer
+    if (this.reloadDebounceTimer) {
+      clearTimeout(this.reloadDebounceTimer);
+    }
+
+    // Set new timer for 1 second delay
+    this.reloadDebounceTimer = setTimeout(async () => {
+      try {
+        await this.reloadConfigurationAndReschedule();
+      } catch (error) {
+        logger.error(`Debounced config reload failed: ${error.message}`);
+      } finally {
+        this.reloadDebounceTimer = null;
+      }
+    }, 1000);
+
+    logger.debug('Configuration reload debounced for 1 second');
+  }
+
+  /**
+   * Reload configuration and reschedule jobs
+   */
+  async reloadConfigurationAndReschedule() {
+    try {
+      logger.info('Reloading scheduler configuration and rescheduling jobs...');
+      
+      const oldConfig = JSON.parse(JSON.stringify(this.schedulerConfig)); // Deep copy for comparison
+      
+      // Reload configuration from file
+      const newConfig = this.loadSchedulerConfig();
+      
+      // Validate the new configuration
+      if (!this.validateConfiguration(newConfig)) {
+        logger.error('New configuration is invalid, keeping existing configuration');
+        return false;
+      }
+      
+      // Compare configurations to see what changed
+      const changes = this.detectConfigChanges(oldConfig, newConfig);
+      
+      if (changes.length === 0) {
+        logger.info('No significant configuration changes detected');
+        return true;
+      }
+      
+      logger.info(`Configuration changes detected: ${changes.join(', ')}`);
+      
+      // Update configuration
+      this.schedulerConfig = newConfig;
+      
+      // Recalculate scene times if needed
+      if (changes.some(change => change.includes('scene') || change.includes('offset'))) {
+        await this.calculateSceneTimes();
+      }
+      
+      // Reschedule all jobs
+      this.scheduleAllScenes();
+      
+      logger.info('Configuration reloaded and jobs rescheduled successfully');
+      return true;
+      
+    } catch (error) {
+      logger.error(`Failed to reload configuration: ${error.message}`);
       return false;
     }
+  }
+
+  /**
+   * Validate configuration structure
+   */
+  validateConfiguration(config) {
+    try {
+      // Basic structure validation
+      if (!config || typeof config !== 'object') {
+        logger.error('Configuration is not a valid object');
+        return false;
+      }
+      
+      // Check required sections exist
+      if (!config.scenes || typeof config.scenes !== 'object') {
+        logger.error('Configuration missing scenes section');
+        return false;
+      }
+      
+      // Validate scene time format
+      if (config.scenes.good_afternoon_time && 
+          !/^\d{2}:\d{2}$/.test(config.scenes.good_afternoon_time)) {
+        logger.error('Invalid good_afternoon_time format, must be HH:MM');
+        return false;
+      }
+      
+      // Validate offsets are numbers
+      if (config.scenes.good_evening_offset_minutes !== undefined && 
+          typeof config.scenes.good_evening_offset_minutes !== 'number') {
+        logger.error('good_evening_offset_minutes must be a number');
+        return false;
+      }
+      
+      if (config.scenes.good_night_offset_minutes !== undefined && 
+          typeof config.scenes.good_night_offset_minutes !== 'number') {
+        logger.error('good_night_offset_minutes must be a number');
+        return false;
+      }
+      
+      logger.debug('Configuration validation passed');
+      return true;
+      
+    } catch (error) {
+      logger.error(`Configuration validation error: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Detect what changed between old and new configuration
+   */
+  detectConfigChanges(oldConfig, newConfig) {
+    const changes = [];
+    
+    try {
+      // Check scene changes
+      if (oldConfig.scenes?.good_afternoon_time !== newConfig.scenes?.good_afternoon_time) {
+        changes.push(`good_afternoon_time: ${oldConfig.scenes?.good_afternoon_time} → ${newConfig.scenes?.good_afternoon_time}`);
+      }
+      
+      if (oldConfig.scenes?.good_evening_offset_minutes !== newConfig.scenes?.good_evening_offset_minutes) {
+        changes.push(`good_evening_offset_minutes: ${oldConfig.scenes?.good_evening_offset_minutes} → ${newConfig.scenes?.good_evening_offset_minutes}`);
+      }
+      
+      if (oldConfig.scenes?.good_night_offset_minutes !== newConfig.scenes?.good_night_offset_minutes) {
+        changes.push(`good_night_offset_minutes: ${oldConfig.scenes?.good_night_offset_minutes} → ${newConfig.scenes?.good_night_offset_minutes}`);
+      }
+      
+      // Check wake up changes
+      if (oldConfig.wake_up?.enabled !== newConfig.wake_up?.enabled) {
+        changes.push(`wake_up.enabled: ${oldConfig.wake_up?.enabled} → ${newConfig.wake_up?.enabled}`);
+      }
+      
+      if (oldConfig.wake_up?.time !== newConfig.wake_up?.time) {
+        changes.push(`wake_up.time: ${oldConfig.wake_up?.time} → ${newConfig.wake_up?.time}`);
+      }
+      
+      // Check music changes
+      if (oldConfig.music?.enabled_for_morning !== newConfig.music?.enabled_for_morning) {
+        changes.push(`music.enabled_for_morning: ${oldConfig.music?.enabled_for_morning} → ${newConfig.music?.enabled_for_morning}`);
+      }
+      
+      if (oldConfig.music?.enabled_for_evening !== newConfig.music?.enabled_for_evening) {
+        changes.push(`music.enabled_for_evening: ${oldConfig.music?.enabled_for_evening} → ${newConfig.music?.enabled_for_evening}`);
+      }
+      
+    } catch (error) {
+      logger.error(`Error detecting configuration changes: ${error.message}`);
+    }
+    
+    return changes;
+  }
+
+  /**
+   * Reload configuration (existing method - enhanced)
+   */
+  async reloadConfig() {
+    return await this.reloadConfigurationAndReschedule();
   }
 }
 

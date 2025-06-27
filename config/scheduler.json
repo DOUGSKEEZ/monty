@@ -5,7 +5,7 @@
   },
   "scenes": {
     "good_afternoon_time": "14:30",
-    "good_evening_offset_minutes": -75,
+    "good_evening_offset_minutes": -56,
     "good_night_timing": "civil_twilight_end",
     "good_night_offset_minutes": -10
   },
