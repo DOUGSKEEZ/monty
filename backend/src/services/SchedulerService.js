@@ -143,12 +143,17 @@ class SchedulerService {
       // Good Afternoon - static time (user input is in user's timezone)
       const afternoonTime = this.schedulerConfig.scenes.good_afternoon_time || "14:30";
       
-      // For static daily times, just create a simple date object for display formatting
-      // No need for complex UTC conversion since it's a fixed daily time
+      // Create a date object representing the time in the user's timezone
+      // For display purposes, we'll format this as a user-timezone time
       const [hours, minutes] = afternoonTime.split(':').map(Number);
-      const goodAfternoonDate = new Date();
-      goodAfternoonDate.setHours(hours, minutes, 0, 0);
-      times.good_afternoon = goodAfternoonDate;
+      const hour12 = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const minuteStr = minutes.toString().padStart(2, '0');
+      times.good_afternoon_display = `${hour12}:${minuteStr} ${ampm}`;
+      
+      // Also store the date for scheduling purposes
+      times.good_afternoon = new Date();
+      times.good_afternoon.setHours(hours, minutes, 0, 0);
       
       // Get full sun times data (includes twilight)
       const sunTimesData = await this.getSunTimesData(date);
@@ -179,12 +184,7 @@ class SchedulerService {
       
       this.nextSceneTimes = times;
       
-      // Store formatted display time directly for good afternoon (no timezone conversion needed)
-      const [displayHours, displayMinutes] = afternoonTime.split(':').map(Number);
-      const hour12 = displayHours === 0 ? 12 : (displayHours > 12 ? displayHours - 12 : displayHours);
-      const ampm = displayHours >= 12 ? 'PM' : 'AM';
-      const minuteStr = displayMinutes.toString().padStart(2, '0');
-      times.good_afternoon_display = `${hour12}:${minuteStr} ${ampm}`;
+      // No need to store separate display format - let TimezoneManager handle formatting consistently
       
       logger.info(`Scene times calculated for ${dateStr}:`, {
         good_afternoon: times.good_afternoon_display,
@@ -1190,8 +1190,12 @@ class SchedulerService {
       return null;
     }
     
-    // Simply return the time string as configured - it represents Mountain Time
-    return wakeUpConfig.time + ':00';
+    // Format the user's configured time directly as a display string
+    const [hours, minutes] = wakeUpConfig.time.split(':').map(Number);
+    const hour12 = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const minuteStr = minutes.toString().padStart(2, '0');
+    return `${hour12}:${minuteStr} ${ampm}`;
   }
 
   /**
@@ -1271,10 +1275,19 @@ class SchedulerService {
         const wakeUpTime = new Date();
         wakeUpTime.setHours(hours, minutes, 0, 0);
         
-        // If wake up time hasn't passed today, add it
-        if (wakeUpTime > now) {
-          sceneTimes.push({ name: 'Wake Up (Rise\'n\'Shine)', time: wakeUpTime });
+        // If wake up time hasn't passed today, add it for tomorrow if needed
+        let targetWakeUpTime = wakeUpTime;
+        if (wakeUpTime <= now) {
+          targetWakeUpTime = new Date(wakeUpTime);
+          targetWakeUpTime.setDate(targetWakeUpTime.getDate() + 1);
         }
+        
+        sceneTimes.push({ name: 'Wake Up (Rise\'n\'Shine)', time: targetWakeUpTime });
+        
+        // Also add Good Morning time (Wake Up + delay)
+        const delayMinutes = wakeUpConfig.good_morning_delay_minutes || 15;
+        const goodMorningTime = new Date(targetWakeUpTime.getTime() + (delayMinutes * 60 * 1000));
+        sceneTimes.push({ name: 'Good Morning', time: goodMorningTime });
       }
       
       // Filter and sort upcoming scenes
@@ -1284,7 +1297,17 @@ class SchedulerService {
       
       if (upcomingScenes.length > 0) {
         const next = upcomingScenes[0];
-        return `${next.name} at ${this.timezoneManager.formatForDisplay(next.time)}`;
+        // For local times (wake up, good morning, good afternoon), format directly
+        // For sun-based times (evening, night), use timezone manager
+        if (next.name.includes('Wake Up') || next.name.includes('Good Morning') || next.name.includes('Good Afternoon')) {
+          const [h, m] = [next.time.getHours(), next.time.getMinutes()];
+          const hour12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          const minuteStr = m.toString().padStart(2, '0');
+          return `${next.name} at ${hour12}:${minuteStr} ${ampm}`;
+        } else {
+          return `${next.name} at ${this.timezoneManager.formatForDisplay(next.time)}`;
+        }
       }
       
       return 'Next scenes calculated at midnight';

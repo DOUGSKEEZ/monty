@@ -53,18 +53,36 @@ class TimezoneManager {
     // For times like "14:30" in user timezone, convert to UTC
     const [hours, minutes] = localTimeString.split(':').map(Number);
     
-    // Create date in user timezone
-    const userDate = new Date(referenceDate.toLocaleString('en-US', { timeZone: this.timezone }));
-    userDate.setHours(hours, minutes, 0, 0);
+    // Get the date in the user's timezone
+    const userDateStr = referenceDate.toLocaleDateString('en-CA', { timeZone: this.timezone });
     
-    // Calculate offset
-    const utcDate = new Date(referenceDate);
-    const offset = utcDate.getTime() - userDate.getTime();
+    // Create a date/time string that represents the time in the user's timezone
+    // Use a format that can be interpreted correctly
+    const year = parseInt(userDateStr.split('-')[0]);
+    const month = parseInt(userDateStr.split('-')[1]) - 1; // Month is 0-indexed
+    const day = parseInt(userDateStr.split('-')[2]);
     
-    // Create UTC equivalent
-    const result = new Date(userDate);
-    result.setTime(result.getTime() + offset);
-    return result;
+    // Create date object in the user's timezone using Intl.DateTimeFormat
+    const userDateTime = new Date();
+    userDateTime.setFullYear(year, month, day);
+    userDateTime.setHours(hours, minutes, 0, 0);
+    
+    // Convert to the user's timezone by calculating the offset
+    const offsetMs = this.getTimezoneOffsetMs(userDateTime);
+    
+    // Return UTC time by subtracting the timezone offset
+    return new Date(userDateTime.getTime() - offsetMs);
+  }
+
+  /**
+   * Get timezone offset in milliseconds for a given date
+   * @private
+   */
+  getTimezoneOffsetMs(date) {
+    // Get what this date/time would be in UTC vs user timezone
+    const utcMs = new Date(date.toISOString()).getTime();
+    const userMs = new Date(date.toLocaleString('en-US', { timeZone: this.timezone })).getTime();
+    return utcMs - userMs;
   }
 
   /**
