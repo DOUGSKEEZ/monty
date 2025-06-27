@@ -31,7 +31,44 @@ class AsyncRetryService:
         self.active_shade_tasks: Dict[int, str] = {}  # shade_id -> task_id mapping for individual commands
         self.cancelled_tasks: Dict[str, float] = {}  # task_id -> cancelled_timestamp for monitoring
         self.task_counter = 0
-        
+
+        # Start periodic cleanup task
+        asyncio.create_task(self._cleanup_old_tasks())
+    
+    async def _cleanup_old_tasks(self):
+        """Periodically clean up tasks older than 1 hour"""
+        while True:
+            try:
+                await asyncio.sleep(300)  # Check every 5 minutes
+                
+                current_time = time.time()
+                tasks_to_remove = []
+                
+                for task_id, task in self.active_tasks.items():
+                    # Parse timestamp from task_id
+                    try:
+                        task_timestamp = int(task_id.split('_')[-1]) / 1000
+                        if current_time - task_timestamp > 3600:  # 1 hour
+                            task.cancel()
+                            tasks_to_remove.append(task_id)
+                            logger.warning(f"Cancelling old task {task_id} (age: {(current_time - task_timestamp)/60:.1f} minutes)")
+                    except:
+                        pass
+                
+                # Remove cancelled tasks
+                for task_id in tasks_to_remove:
+                    self.active_tasks.pop(task_id, None)
+                    # Also remove from shade mapping if present
+                    for shade_id, tid in list(self.active_shade_tasks.items()):
+                        if tid == task_id:
+                            del self.active_shade_tasks[shade_id]
+                
+                if tasks_to_remove:
+                    logger.info(f"Cleaned up {len(tasks_to_remove)} old retry tasks")  
+            
+            except Exception as e:
+                logger.error(f"Error in cleanup task: {e}")
+    
     def _generate_task_id(self) -> str:
         """Generate unique task ID"""
         self.task_counter += 1
@@ -186,7 +223,7 @@ class AsyncRetryService:
     async def _execute_scene_retry_cycles(self, scene_name: str, scene_commands: List[Dict[str, Any]], 
                                         retry_count: int, delay_between_commands_ms: int = 750) -> None:
         """
-        Execute retry cycles for a complete scene.
+        Execute retry cycles for a complete scene WITH TIMEOUT PROTECTION.
         
         Args:
             scene_name: Name of the scene for logging
@@ -194,10 +231,18 @@ class AsyncRetryService:
             retry_count: Number of additional retry cycles (scene config)
             delay_between_commands_ms: Delay between commands in each cycle
         """
+        MAX_SCENE_DURATION = 300  # 5 minutes max for any scene
+        start_time = time.time()
+        
         try:
             logger.info(f"🎬 Starting {retry_count} background retry cycles for scene '{scene_name}'")
             
             for cycle in range(retry_count):
+                # Check if we've exceeded max duration
+                if time.time() - start_time > MAX_SCENE_DURATION:
+                    logger.warning(f"Scene '{scene_name}' exceeded max duration of {MAX_SCENE_DURATION}s, aborting retries")
+                    break
+                    
                 logger.info(f"🔄 Scene '{scene_name}' retry cycle {cycle + 1}/{retry_count}")
                 
                 for i, cmd in enumerate(scene_commands):

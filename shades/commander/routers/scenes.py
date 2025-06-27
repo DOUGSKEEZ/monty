@@ -457,6 +457,46 @@ async def execute_scene(
             }
         )
 
+@router.delete(
+    "/retries/all",
+    summary="Cancel all active retry tasks",
+    description="Emergency endpoint to clear all background retry tasks",
+    responses={
+        200: {"description": "Successfully cancelled all retry tasks"},
+        500: {"description": "Error cancelling retry tasks"}
+    }
+)
+async def cancel_all_retries():
+    """Cancel all active retry tasks - use with caution!"""
+    try:
+        # Import here to avoid circular imports
+        from commander.services.async_retry_service import async_retry_service
+        
+        # Get current stats before cancellation
+        initial_count = len(async_retry_service.active_tasks)
+        
+        # Cancel all tasks
+        async_retry_service.cancel_all_tasks()
+        
+        logger.info(f"Cancelled {initial_count} active retry tasks via API")
+        
+        return {
+            "success": True,
+            "message": f"Cancelled {initial_count} active retry tasks",
+            "tasks_cancelled": initial_count,
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        logger.error(f"Error cancelling retry tasks: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "error": "RetryCancellationError",
+                "message": str(e)
+            }
+        )
+        
 def _log_scene_execution(
     scene_name: str,
     total_commands: int,

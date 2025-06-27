@@ -1,10 +1,11 @@
 # /commander/main.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 # Import our routers
@@ -69,6 +70,26 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Timeout middleware
+@app.middleware("http")
+async def timeout_middleware(request: Request, call_next):
+    """Add global timeout to all requests"""
+    # Set a 30-second timeout for all requests
+    try:
+        response = await asyncio.wait_for(call_next(request), timeout=30.0)
+        return response
+    except asyncio.TimeoutError:
+        logger.error(f"Request timeout: {request.method} {request.url.path}")
+        return JSONResponse(
+            status_code=504,
+            content={
+                "success": False,
+                "error": "RequestTimeout", 
+                "message": "Request processing exceeded 30 second timeout",
+                "path": str(request.url.path)
+            }
+        )
 
 # Add CORS middleware for Node.js and frontend communication
 app.add_middleware(

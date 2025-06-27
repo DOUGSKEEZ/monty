@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monty Backend Architecture with Monitoring</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow-x: auto;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        svg {
+            width: 100%;
+            height: auto;
+        }
+        
+        /* Component styles */
+        .component-box {
+            fill: #2a2a2a;
+            stroke: #4CAF50;
+            stroke-width: 2;
+            opacity: .5;
+            rx: 8;
+        }
+        
+        .service-box {
+            fill: #1e3a5f;
+            stroke: #2196F3;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        .external-box {
+            fill: #3a1e5f;
+            stroke: #9C27B0;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        .shadecommander-box {
+            fill: #5f1e3a;
+            stroke: #E91E63;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        .monitoring-box {
+            fill: #3a2a1a;
+            stroke: #FF9800;
+            stroke-width: 2;
+            rx: 8;
+            stroke-dasharray: 5,5;
+        }
+        
+        .prometheus-box {
+            fill: #3a2a1a;
+            stroke: #FF6F00;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        .newrelic-box {
+            fill: #1a3a2a;
+            stroke: #00AC69;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        .splunk-box {
+            fill: #2a1a3a;
+            stroke: #FF5F5F;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        .elk-box {
+            fill: #3a3a1a;
+            stroke: #FEC514;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        .datadog-box {
+            fill: #3a1a2a;
+            stroke: #774AA4;
+            stroke-width: 2;
+            rx: 8;
+        }
+        
+        text {
+            fill: #e0e0e0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .small-text {
+            font-size: 12px;
+            fill: #aaa;
+        }
+        
+        .title-text {
+            font-size: 16px;
+            font-weight: 600;
+            fill: #fff;
+        }
+        .utility-box {
+	    fill: #3a3a3a;
+	    stroke: #666;
+	    stroke-width: 1.5;
+	    rx: 8;
+	}
+        
+        /* Connection lines */
+        .connection {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+        
+        .python-connection {
+            stroke: #FF5722;
+            stroke-width: 2.5;
+            stroke-dasharray: 8,4;
+        }
+        
+        .websocket-connection {
+            stroke: #2196F3;
+        }
+        
+	.monitoring-connection {
+	    stroke: #FF9800;
+	    stroke-width: 1.5;
+	    opacity: 0.7;
+	    stroke-dasharray: 3,3;
+	    filter: none !important;
+	    -webkit-filter: none !important;
+	    
+	}
+        
+        /* Legend */
+        .legend {
+            margin-top: 30px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        
+        .legend-item {
+            display: inline-block;
+            margin: 10px 20px;
+        }
+        
+        .legend-box {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+            border-radius: 4px;
+        }
+        
+        /* Hover effects */
+        rect:hover {
+            opacity: 0.8;
+            cursor: pointer;
+        }
+        
+        .monitoring-section {
+            opacity: 0.9;
+            transition: opacity 0.3s;
+        }
+        
+        .monitoring-section:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 Monty Backend Architecture</h1>
+        <p class="subtitle">Home Automation System with Comprehensive Monitoring</p>
+        
+        <svg viewBox="0 0 1200 1050" xmlns="http://www.w3.org/2000/svg">
+            <!-- Define arrow markers -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                </marker>
+                <marker id="arrow-green" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#4CAF50" />
+                </marker>
+                <marker id="arrow-blue" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#2196F3" />
+                </marker>
+                <marker id="arrow-python" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#FF5722" />
+                </marker>
+            </defs>
+            
+            
+                   <!-- Monitoring connections (drawn first so they appear behind boxes) -->
+
+		<g id="monitoring-connections">
+		    <!-- MultiVendorMetricsService to monitoring platforms -->
+		    <!-- Using curved paths to avoid overlaps and maintain readability -->
+		    
+			<!-- To Prometheus (from left side of Metrics Middleware) -->
+			<path d="M 320 350 L 180 350 Q 170 350 170 360 L 170 540" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      marker-end="url(#arrowhead)"/>
+		    
+			<!-- MultiVendorMetricsService to New Relic and DataDog (following Python APM path) -->
+			<path d="M 530 385 L 735 385 Q 745 385 745 395 L 745 485 Q 745 495 735 495 L 345 495 Q 335 495 335 505 L 335 540" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      marker-end="url(#arrowhead)"/>
+
+			<!-- Branch from metrics line to DataDog -->
+			<path d="M 565 495 L 565 540" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      marker-end="url(#arrowhead)"/>
+		    
+			<!-- Enhanced Logger to ELK Stack -->
+			<path d="M 530 420 L 810 420 Q 820 420 820 430 L 820 540" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      style="stroke: #FF5F5F; stroke-dasharray: 5,3;" 
+			      marker-end="url(#arrowhead)"/>
+
+			<!-- Enhanced Logger to Splunk Cloud -->
+			<path d="M 530 420 L 1040 420 Q 1050 420 1050 430 L 1050 540" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      style="stroke: #FF5F5F; stroke-dasharray: 5,3;" 
+			      marker-end="url(#arrowhead)"/>
+		    
+		    <!-- System Resources monitoring -->
+		    <!-- From ServiceRegistry to System Resources -->
+		    <path d="M 480 320 L 480 340 Q 480 350 490 350 L 590 350 Q 600 350 600 360 L 600 790" 
+			  class="monitoring-connection" 
+			  fill="none"
+			  style="stroke: #666; stroke-dasharray: 2,2; filter: none; -webkit-filter: none;" 
+			  marker-end="url(#arrowhead)"/>
+			  		    
+		    <!-- From System Resources to monitoring platforms -->
+		    <!-- To Prometheus -->
+		    <path d="M 250 820 L 130 820 Q 120 820 120 810 L 120 760" 
+			  class="monitoring-connection" marker-end="url(#arrowhead)"
+			  fill="none"
+			  style="filter: none; -webkit-filter: none;"/>
+		    
+		    <!-- To New Relic -->
+		    <path d="M 300 820 L 280 820 Q 270 820 270 810 L 270 770 Q 270 760 280 760 L 340 760 Q 350 760 350 750 L 350 660" 
+			  class="monitoring-connection" marker-end="url(#arrowhead)"
+			  fill="none"
+			  style="filter: none; -webkit-filter: none;"/>
+		    
+		    <!-- To DataDog -->
+		    <path d="M 350 820 L 330 820 Q 320 820 320 810 L 320 780 Q 320 770 330 770 L 570 770 Q 580 770 580 760 L 580 660" 
+			  class="monitoring-connection" marker-end="url(#arrowhead)"
+			  fill="none"
+			  style="filter: none; -webkit-filter: none;"/>
+		    
+		    <!-- ShadeCommander monitoring -->
+		    <!-- ShadeCommander to New Relic (Python APM) -->
+			<path d="M 730 260 L 730 490 Q 730 500 720 500 L 360 500 Q 350 500 350 510 L 350 540" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      style="stroke: #00AC69; stroke-width: 2;" 
+			      marker-end="url(#arrowhead)"/>
+			<!-- Branch from Python APM line to DataDog -->
+			<path d="M 580 500 L 580 540" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      style="stroke: #00AC69; stroke-width: 2;" 
+			      marker-end="url(#arrowhead)"/>
+			      
+		    <!-- System Resources to ELK Stack (infrastructure monitoring) -->
+			<!-- Raspberry Pi infrastructure to ELK Stack -->
+			<path d="M 810 790 L 810 660" 
+			      class="monitoring-connection" 
+			      fill="none"
+			      style="stroke: #666; stroke-dasharray: 2,2;" 
+			      marker-end="url(#arrowhead)"/>
+		    
+		    <!-- Labels for monitoring data types - positioned to avoid line overlaps -->
+		    <text x="630" y="475" class="small-text" style="fill: #FF9800; filter: none;">metrics + events</text>
+		    <text x="663" y="487" class="small-text" style="fill: #FF9800; filter: none;">logs</text>
+		    <text x="840" y="410" class="small-text" style="fill: #FF5F5F; filter: none;">structured logs</text>
+		    <text x="735" y="330" class="small-text" style="fill: #00AC69; filter: none;">Python APM</text>
+		</g>
+            
+            <!-- Frontend Layer -->
+            <g id="frontend-layer">
+                <rect x="20" y="20" width="200" height="80" class="component-box"/>
+                <text x="120" y="50" text-anchor="middle" class="title-text">React Frontend</text>
+                <text x="120" y="70" text-anchor="middle" class="small-text">:3000</text>
+                <text x="120" y="85" text-anchor="middle" class="small-text">Dashboard UI</text>
+            </g>
+            
+            <!-- Main Backend -->
+            <g id="backend-core">
+                <rect x="300" y="20" width="250" height="430" class="component-box"/>
+                <text x="425" y="45" text-anchor="middle" class="title-text">Node.js Backend</text>
+                <text x="425" y="65" text-anchor="middle" class="small-text">Express Server :3001</text>
+                
+                <!-- Core Services -->
+                <rect x="320" y="85" width="100" height="40" class="service-box"/>
+                <text x="370" y="105" text-anchor="middle">Weather</text>
+                <text x="370" y="118" text-anchor="middle" class="small-text">Service</text>
+                
+                <rect x="430" y="85" width="100" height="40" class="service-box"/>
+                <text x="480" y="105" text-anchor="middle">Scheduler</text>
+                <text x="480" y="118" text-anchor="middle" class="small-text">Service</text>
+                
+                <rect x="320" y="135" width="100" height="40" class="service-box"/>
+                <text x="370" y="155" text-anchor="middle">Pianobar</text>
+                <text x="370" y="168" text-anchor="middle" class="small-text">Service</text>
+                
+                <rect x="430" y="135" width="100" height="40" class="service-box"/>
+                <text x="480" y="155" text-anchor="middle">Bluetooth</text>
+                <text x="480" y="168" text-anchor="middle" class="small-text">Service</text>
+                
+		<!-- Utils Layer 1 -->
+		<rect x="320" y="185" width="100" height="40" class="utility-box"/>
+		<text x="370" y="205" text-anchor="middle" class="small-text">RetryHelper</text>
+
+		<rect x="430" y="185" width="100" height="40" class="utility-box"/>
+		<text x="480" y="205" text-anchor="middle" class="small-text">CircuitBreaker</text>
+
+		<!-- Utils Layer 2 -->
+		<rect x="320" y="235" width="100" height="40" class="utility-box"/>
+		<text x="370" y="255" text-anchor="middle" class="small-text">Service Watchdog</text>
+
+		<rect x="430" y="235" width="100" height="40" class="utility-box"/>
+		<text x="480" y="255" text-anchor="middle" class="small-text">Config</text>
+
+		<!-- Utils Layer 3 -->
+		<rect x="320" y="285" width="100" height="40" class="utility-box"/>
+		<text x="370" y="305" text-anchor="middle" class="small-text">Timezone Manager</text>
+
+		<rect x="430" y="285" width="100" height="40" class="utility-box"/>
+		<text x="480" y="305" text-anchor="middle" class="small-text">Service Registry</text>
+                
+                <!-- Middleware -->
+                <rect x="320" y="335" width="210" height="30" class="service-box"/>
+                <text x="425" y="353" text-anchor="middle" class="small-text">Metrics Middleware</text>
+                
+                <rect x="320" y="370" width="210" height="30" class="service-box"/>
+                <text x="425" y="388" text-anchor="middle" class="small-text">MultiVendorMetricsService</text>
+                
+                <!-- Enhanced Logger -->
+                <rect x="320" y="405" width="210" height="30" class="service-box"/>
+                <text x="425" y="423" text-anchor="middle" class="small-text">Enhanced Logger (Winston)</text>
+            </g>
+            
+     
+            
+            <!-- External Services -->
+            <g id="external-services">
+                <!-- Weather API -->
+                <rect x="630" y="20" width="200" height="60" class="external-box"/>
+                <text x="730" y="45" text-anchor="middle">OpenWeatherMap</text>
+                <text x="730" y="65" text-anchor="middle" class="small-text">One Call API 3.0</text>
+                
+                <!-- Sunrise-Sunset API -->
+                <rect x="630" y="100" width="200" height="60" class="external-box"/>
+                <text x="730" y="125" text-anchor="middle">Sunrise-Sunset.org</text>
+                <text x="730" y="145" text-anchor="middle" class="small-text">Solar Times API</text>
+                
+                <!-- ShadeCommander -->
+                <rect x="630" y="180" width="200" height="80" class="shadecommander-box"/>
+                <text x="730" y="200" text-anchor="middle" class="title-text">ShadeCommander</text>
+                <text x="730" y="220" text-anchor="middle" class="title-text">Python FastAPI</text>
+                <text x="730" y="235" text-anchor="middle" class="small-text">:8000</text>
+                <text x="730" y="250" text-anchor="middle" class="small-text">SQLite DB</text>
+                
+                <!-- Arduino -->
+                <rect x="900" y="180" width="150" height="80" class="shadecommander-box"/>
+                <text x="975" y="210" text-anchor="middle" class="title-text">Arduino</text>
+                <text x="975" y="230" text-anchor="middle" class="small-text">RF Transmitter</text>
+                <text x="975" y="245" text-anchor="middle" class="small-text">433MHz</text>
+                
+                <!-- RF Shades -->
+                <rect x="900" y="20" width="150" height="80" class="shadecommander-box"/>
+                <text x="975" y="50" text-anchor="middle" class="title-text">RF Shades</text>
+                <text x="975" y="70" text-anchor="middle" class="small-text">A-OK AM25-1</text>
+                <text x="975" y="85" text-anchor="middle" class="small-text">A-OK AM35-1</text>
+            </g>
+            
+            <!-- Monitoring Section -->
+            <g id="monitoring-layer" class="monitoring-section">
+                <!-- Category Labels -->
+                <text x="120" y="535" text-anchor="middle" class="small-text" style="fill: #FF9800;">Basic Metrics</text>
+                
+                <text x="465" y="535" text-anchor="middle" class="small-text" style="fill: #FF9800;">APM & Infra Metrics</text>
+                
+                <text x="925" y="535" text-anchor="middle" class="small-text" style="fill: #FF9800;">Rich Logs</text>
+                
+                <!-- Prometheus + Grafana -->
+                <rect x="20" y="540" width="200" height="120" class="prometheus-box"/>
+                <text x="120" y="565" text-anchor="middle" class="title-text">Prometheus</text>
+                <text x="120" y="585" text-anchor="middle" class="small-text">Time-series DB</text>
+                <text x="120" y="600" text-anchor="middle" class="small-text">• HTTP metrics</text>
+                <text x="120" y="615" text-anchor="middle" class="small-text">• Service health</text>
+                <text x="120" y="630" text-anchor="middle" class="small-text">• Custom metrics</text>
+                <text x="120" y="645" text-anchor="middle" class="small-text">:8080</text>
+                
+                <rect x="20" y="680" width="200" height="80" class="prometheus-box"/>
+                <text x="120" y="705" text-anchor="middle" class="title-text">Grafana</text>
+                <text x="120" y="725" text-anchor="middle" class="small-text">Dashboards</text>
+                <text x="120" y="740" text-anchor="middle" class="small-text">:3030</text>
+                
+                <!-- New Relic -->
+                <rect x="250" y="540" width="200" height="120" class="newrelic-box"/>
+                <text x="350" y="565" text-anchor="middle" class="title-text">New Relic</text>
+                <text x="350" y="585" text-anchor="middle" class="small-text">APM & Infrastructure</text>
+                <text x="350" y="605" text-anchor="middle" class="small-text">• Distributed tracing</text>
+                <text x="350" y="620" text-anchor="middle" class="small-text">• APM + Logs</text>
+                <text x="350" y="640" text-anchor="middle" class="small-text">• Error tracking</text>
+                
+                <!-- DataDog -->
+                <rect x="480" y="540" width="200" height="120" class="datadog-box"/>
+                <text x="580" y="565" text-anchor="middle" class="title-text">DataDog</text>
+                <text x="580" y="585" text-anchor="middle" class="small-text">APM & Infrastructure</text>
+                <text x="580" y="605" text-anchor="middle" class="small-text">• StatsD metrics</text>
+                <text x="580" y="620" text-anchor="middle" class="small-text">• APM + Logs</text>
+                <text x="580" y="640" text-anchor="middle" class="small-text">• ML anomalies</text>
+                
+                <!-- ELK Stack -->
+                <rect x="710" y="540" width="200" height="120" class="elk-box"/>
+                <text x="810" y="565" text-anchor="middle" class="title-text">ELK Stack</text>
+                <text x="810" y="585" text-anchor="middle" class="small-text">Elasticsearch + Kibana</text>
+                <text x="810" y="605" text-anchor="middle" class="small-text">• Full-text search Log Analysis</text>
+                <text x="810" y="620" text-anchor="middle" class="small-text">• Self-hosted</text>
+                <text x="810" y="640" text-anchor="middle" class="small-text">(Enterprise model but on Raspi lol)</text>
+                
+                <!-- Splunk -->
+                <rect x="940" y="540" width="200" height="120" class="splunk-box"/>
+                <text x="1040" y="565" text-anchor="middle" class="title-text">Splunk Cloud</text>
+                <text x="1040" y="585" text-anchor="middle" class="small-text">Log Aggregation</text>
+                <text x="1040" y="605" text-anchor="middle" class="small-text">• HEC ingestion</text>
+                <text x="1040" y="620" text-anchor="middle" class="small-text">• Flattened Json logs</text>
+                <text x="1040" y="640" text-anchor="middle" class="small-text">• Custom fields & Dashboards</text>
+            </g>
+            
+            <!-- System Resources -->
+            <g id="system-layer">
+                <rect x="250" y="790" width="700" height="60" class="component-box"/>
+                <text x="600" y="815" text-anchor="middle" class="title-text">System Resources</text>
+                <text x="450" y="835" text-anchor="middle" class="small-text">CPU • Memory • Disk • Network • Temp</text>
+                <text x="800" y="835" text-anchor="middle" class="small-text">Raspberry Pi + Infrastructure Agent</text>
+            </g>
+            
+            <!-- Other Connections (drawn after boxes) -->
+            <g id="primary-connections">
+                <!-- Frontend to Backend -->
+                <path d="M 220 60 L 300 60" class="connection http-connection" marker-end="url(#arrow-green)"/>
+                
+                <!-- Backend to Weather API -->
+                <path d="M 550 50 L 630 50" class="connection http-connection" marker-end="url(#arrow-green)"/>
+                
+                <!-- Backend to Sunrise-Sunset API -->
+                <path d="M 550 130 L 630 130" class="connection http-connection" marker-end="url(#arrow-green)"/>
+                
+                <!-- Backend to ShadeCommander -->
+                <path d="M 550 220 L 630 220" class="connection python-connection" marker-end="url(#arrow-python)"/>
+                
+                <!-- ShadeCommander to Arduino -->
+                <path d="M 830 220 L 900 220" class="connection" marker-end="url(#arrowhead)"/>
+                
+                <!-- WebSocket connection -->
+                <path d="M 220 80 L 280 80 Q 290 80 290 90 L 290 155 Q 290 165 300 165 L 320 165" 
+                      class="connection websocket-connection" marker-end="url(#arrow-blue)"/>
+                <text class="small-text" transform="rotate(-90 255 120)" y="150" x="220">WebSocket</text>
+                
+                <!-- Prometheus to Grafana -->
+                <path d="M 120 660 L 120 680" class="connection" marker-end="url(#arrowhead)"/>
+                
+                <!-- Arduino to RF Shades -->
+                <path d="M 975 180 L 975 100" class="connection" marker-end="url(#arrowhead)"/>
+                
+                <!-- Labels -->
+                <text x="230" y="50" class="small-text">HTTP/REST</text>
+                <text x="570" y="40" class="small-text">HTTPS</text>
+                <text x="570" y="120" class="small-text">HTTPS</text>
+                <text x="560" y="210" class="small-text">HTTP/REST</text>
+                <text x="855" y="210" class="small-text">Serial</text>
+                <text x="990" y="140" class="small-text">Hacked/Decoded</text>
+                <text x="990" y="155" class="small-text">PWM Pulse</text>
+            </g>
+        </svg>
+        
+		<!-- Legend -->
+		<div class="legend">
+		    <h3 style="margin-top: 0; color: #4CAF50;">Legend</h3>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #2a2a2a; border: 2px solid #4CAF50; opacity: 0.5;"></span>
+			Core Components
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #1e3a5f; border: 2px solid #2196F3;"></span>
+			Internal Services
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #3a3a3a; border: 2px solid #666;"></span>
+			Utility Services
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #3a1e5f; border: 2px solid #9C27B0;"></span>
+			External APIs
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #5f1e3a; border: 2px solid #E91E63;"></span>
+			ShadeCommander System
+		    </div>
+		    <br>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #3a2a1a; border: 2px solid #FF6F00;"></span>
+			Prometheus/Grafana
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #1a3a2a; border: 2px solid #00AC69;"></span>
+			New Relic
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #3a1a2a; border: 2px solid #774AA4;"></span>
+			DataDog
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #3a3a1a; border: 2px solid #FEC514;"></span>
+			ELK Stack
+		    </div>
+		    <div class="legend-item">
+			<span class="legend-box" style="background: #2a1a3a; border: 2px solid #FF5F5F;"></span>
+			Splunk Cloud
+		    </div>
+		    <br>
+		    <div class="legend-item">
+			<span style="color: #4CAF50;">━━━</span> HTTP/REST
+		    </div>
+		    <div class="legend-item">
+			<span style="color: #2196F3;">━━━</span> WebSocket
+		    </div>
+		    <div class="legend-item">
+			<span style="color: #FF5722;">━ ━ ━</span> Python Service
+		    </div>
+		    <div class="legend-item">
+			<span style="color: #FF9800;">┅ ┅ ┅</span> Monitoring Data
+		    </div>
+		    <div class="legend-item">
+			<span style="color: #00AC69;">━━━</span> Python APM
+		    </div>
+		    <div class="legend-item">
+			<span style="color: #FF5F5F;">┅ ┅ ┅</span> Structured Logs
+		    </div>
+		    <div class="legend-item">
+			<span style="color: #666;">┅ ┅ ┅</span> Infrastructure
+		    </div>
+		</div>
+        
+        <!-- Key Features -->
+        <div style="margin-top: 30px; padding: 20px; background: #2a2a2a; border-radius: 8px;">
+            <h3 style="color: #4CAF50;">Monitoring Coverage</h3>
+            <ul style="columns: 2; column-gap: 40px;">
+                <li><strong>Prometheus + Grafana:</strong> Local metrics, custom dashboards, long-term storage</li>
+                <li><strong>New Relic:</strong> APM, distributed tracing, error tracking, infrastructure monitoring</li>
+                <li><strong>Splunk Cloud:</strong> Centralized logging, weather API tracking, custom field extraction</li>
+                <li><strong>ELK Stack:</strong> Full-text search, log aggregation, custom visualizations</li>
+                <li><strong>DataDog:</strong> Unified metrics/logs/APM, ML-based anomaly detection</li>
+                <li><strong>MultiVendorMetricsService:</strong> Single API for all platforms</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

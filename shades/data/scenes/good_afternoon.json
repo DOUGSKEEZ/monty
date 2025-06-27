@@ -2,8 +2,8 @@
   "name": "Good Afternoon",
   "description": "Lower all solar shades for afternoon sunshine",
   "commands": [
-    {"shade_id": 28, "action": "s", "delay_ms": 750},
-    {"shade_id": 36, "action": "s", "delay_ms": 750}
+    {"shade_id": 28, "action": "d", "delay_ms": 750},
+    {"shade_id": 36, "action": "d", "delay_ms": 750}
   ],
   "retry_count": 2,
   "timeout_seconds": 10
