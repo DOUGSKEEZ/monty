@@ -11,9 +11,9 @@
   },
   "wake_up": {
     "enabled": false,
-    "time": "08:46",
-    "last_triggered": "2025-06-28T14:46:00.026Z",
-    "good_morning_delay_minutes": 30
+    "time": "12:06",
+    "last_triggered": "2025-06-28T18:06:00.028Z",
+    "good_morning_delay_minutes": 20
   },
   "music": {
     "enabled_for_morning": true,

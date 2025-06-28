@@ -1102,8 +1102,15 @@ class SchedulerService {
       
       logger.info(`Scheduling Good Morning scene in ${delayMinutes} minutes...`);
       
-      setTimeout(async () => {
+      // Schedule Good Morning as a one-time cron job instead of setTimeout for better reliability
+      const goodMorningTime = new Date(Date.now() + delayMs);
+      const goodMorningUserTime = this.timezoneManager.toUserTime(goodMorningTime);
+      const goodMorningCron = `${goodMorningUserTime.getMinutes()} ${goodMorningUserTime.getHours()} ${goodMorningUserTime.getDate()} ${goodMorningUserTime.getMonth() + 1} *`;
+      
+      const goodMorningJob = cron.schedule(goodMorningCron, async () => {
         try {
+          logger.info('Good Morning scene triggered by cron job');
+          
           // Check home/away status again before Good Morning
           if (!this.isHomeStatusActive()) {
             logger.info('Good Morning scene skipped - status is away');
@@ -1119,10 +1126,21 @@ class SchedulerService {
           }
           
           logger.info('Wake up sequence completed');
+          
+          // Clean up the one-time job
+          if (this.scheduledJobs.has('good_morning_wakeup')) {
+            this.scheduledJobs.get('good_morning_wakeup').stop();
+            this.scheduledJobs.delete('good_morning_wakeup');
+          }
         } catch (error) {
           logger.error(`Error during Good Morning execution: ${error.message}`);
         }
-      }, delayMs);
+      }, {
+        scheduled: true,
+        timezone: this.timezoneManager.getCronTimezone()
+      });
+      
+      this.scheduledJobs.set('good_morning_wakeup', goodMorningJob);
       
       // 3. Mark alarm as triggered and disable
       this.markWakeUpTriggered();
@@ -1158,6 +1176,95 @@ class SchedulerService {
   }
 
   /**
+   * Handle dynamic Good Morning rescheduling when delay changes
+   */
+  async handleGoodMorningDelayChange(oldConfig, newConfig) {
+    try {
+      const wakeUpConfig = this.getWakeUpConfig();
+      
+      // Only reschedule if wake-up was triggered today and there's an active Good Morning job
+      if (!wakeUpConfig.last_triggered) {
+        logger.debug('No wake-up triggered recently, skipping Good Morning rescheduling');
+        return;
+      }
+      
+      const lastTriggered = new Date(wakeUpConfig.last_triggered);
+      const now = new Date();
+      const wasTriggeredToday = lastTriggered.toDateString() === now.toDateString();
+      
+      if (!wasTriggeredToday) {
+        logger.debug('Wake-up was not triggered today, skipping Good Morning rescheduling');
+        return;
+      }
+      
+      // Check if there's currently a Good Morning job scheduled
+      if (!this.scheduledJobs.has('good_morning_wakeup')) {
+        logger.debug('No active Good Morning job found, skipping rescheduling');
+        return;
+      }
+      
+      const oldDelay = oldConfig.wake_up?.good_morning_delay_minutes || 15;
+      const newDelay = newConfig.wake_up?.good_morning_delay_minutes || 15;
+      
+      logger.info(`Rescheduling Good Morning: delay changed from ${oldDelay} to ${newDelay} minutes`);
+      
+      // Cancel the existing Good Morning job
+      const existingJob = this.scheduledJobs.get('good_morning_wakeup');
+      existingJob.stop();
+      this.scheduledJobs.delete('good_morning_wakeup');
+      
+      // Calculate new Good Morning time based on actual trigger time + new delay
+      const newGoodMorningTime = new Date(lastTriggered.getTime() + (newDelay * 60 * 1000));
+      
+      // Only reschedule if the new time is still in the future
+      if (newGoodMorningTime > now) {
+        const goodMorningUserTime = this.timezoneManager.toUserTime(newGoodMorningTime);
+        const goodMorningCron = `${goodMorningUserTime.getMinutes()} ${goodMorningUserTime.getHours()} ${goodMorningUserTime.getDate()} ${goodMorningUserTime.getMonth() + 1} *`;
+        
+        const newGoodMorningJob = cron.schedule(goodMorningCron, async () => {
+          try {
+            logger.info('Good Morning scene triggered by rescheduled cron job');
+            
+            if (!this.isHomeStatusActive()) {
+              logger.info('Good Morning scene skipped - status is away');
+              return;
+            }
+            
+            const morningResult = await this.executeScene('good_morning');
+            
+            if (morningResult.success) {
+              logger.info('Good Morning scene executed successfully');
+            } else {
+              logger.error(`Good Morning scene failed: ${morningResult.message}`);
+            }
+            
+            logger.info('Wake up sequence completed');
+            
+            // Clean up the job
+            if (this.scheduledJobs.has('good_morning_wakeup')) {
+              this.scheduledJobs.get('good_morning_wakeup').stop();
+              this.scheduledJobs.delete('good_morning_wakeup');
+            }
+          } catch (error) {
+            logger.error(`Error during rescheduled Good Morning execution: ${error.message}`);
+          }
+        }, {
+          scheduled: true,
+          timezone: this.timezoneManager.getCronTimezone()
+        });
+        
+        this.scheduledJobs.set('good_morning_wakeup', newGoodMorningJob);
+        logger.info(`Good Morning rescheduled for ${this.timezoneManager.formatForDisplay(newGoodMorningTime, 'datetime')}`);
+      } else {
+        logger.info(`New Good Morning time ${this.timezoneManager.formatForDisplay(newGoodMorningTime, 'datetime')} has already passed, not rescheduling`);
+      }
+      
+    } catch (error) {
+      logger.error(`Failed to handle Good Morning delay change: ${error.message}`);
+    }
+  }
+
+  /**
    * Get wake up configuration
    */
   getWakeUpConfig() {
@@ -1173,7 +1280,7 @@ class SchedulerService {
    * Clear wake up scheduled jobs
    */
   clearWakeUpSchedules() {
-    const wakeUpJobs = ['rise_n_shine'];
+    const wakeUpJobs = ['rise_n_shine', 'good_morning_wakeup'];
     
     for (const jobName of wakeUpJobs) {
       if (this.scheduledJobs.has(jobName)) {
@@ -1547,6 +1654,11 @@ class SchedulerService {
       // Update configuration
       this.schedulerConfig = newConfig;
       
+      // Handle dynamic Good Morning rescheduling if delay changed
+      if (changes.some(change => change.includes('good_morning_delay_minutes'))) {
+        await this.handleGoodMorningDelayChange(oldConfig, newConfig);
+      }
+      
       // Recalculate scene times if needed
       if (changes.some(change => change.includes('scene') || change.includes('offset'))) {
         await this.calculateSceneTimes();
@@ -1637,6 +1749,10 @@ class SchedulerService {
       
       if (oldConfig.wake_up?.time !== newConfig.wake_up?.time) {
         changes.push(`wake_up.time: ${oldConfig.wake_up?.time} → ${newConfig.wake_up?.time}`);
+      }
+      
+      if (oldConfig.wake_up?.good_morning_delay_minutes !== newConfig.wake_up?.good_morning_delay_minutes) {
+        changes.push(`wake_up.good_morning_delay_minutes: ${oldConfig.wake_up?.good_morning_delay_minutes} → ${newConfig.wake_up?.good_morning_delay_minutes}`);
       }
       
       // Check music changes

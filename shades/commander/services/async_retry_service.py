@@ -60,8 +60,8 @@ class AsyncRetryService:
                         task_timestamp = int(task_id.split('_')[-1]) / 1000
                         task_age_minutes = (current_time - task_timestamp) / 60
                         
-                        # ZOMBIE DETECTION: Tasks older than 5 minutes are suspicious
-                        if task_age_minutes > 5:
+                        # ZOMBIE DETECTION: Tasks older than 1 minute are suspicious
+                        if task_age_minutes > 1:
                             if task_id not in self.zombie_warnings:
                                 # First time detecting this potential zombie
                                 self.zombie_warnings[task_id] = current_time
@@ -69,8 +69,8 @@ class AsyncRetryService:
                                 self.zombie_metrics["current_warnings"] += 1
                                 logger.warning(f"🧟 ZOMBIE DETECTED: Task {task_id} is {task_age_minutes:.1f} minutes old - monitoring for cleanup")
                             
-                            # ZOMBIE CLEANUP: Tasks older than 1 hour get force-killed
-                            if task_age_minutes > 60:  # 1 hour
+                            # ZOMBIE CLEANUP: Tasks older than 5 minutes get force-killed
+                            if task_age_minutes > 5:  # 5 minutes
                                 task.cancel()
                                 tasks_to_remove.append(task_id)
                                 zombie_warnings_to_remove.append(task_id)

@@ -280,3 +280,27 @@ Shades are organized by:
 - Pianobar requires special handling for Bluetooth speaker connection
 - Application should be resilient to restarts and gracefully recover state
 - Use node-cron for scheduling based on sunset data
+
+## Working with Assumptions
+
+When making technical decisions or analyzing system behavior:
+
+- **Always be transparent about assumptions**: State clearly when you're making an assumption vs citing facts from code
+- **Explain why assumptions matter**: Connect assumptions to their impact on the decision at hand
+- **Check code first for critical details**: For timing, behavior, or configuration details that affect system design, verify against actual implementation
+- **Use qualifying language**: "I'm assuming X for now, but let me check..." or "Based on standard patterns, I expect Y, but this should be verified..."
+
+**Example of good assumption handling:**
+> "I'm assuming a standard exponential backoff pattern of 2s/4s/8s for retry delays, but let me check the actual ShadeCommander configuration since this directly impacts our zombie detection thresholds..."
+
+Assumptions aren't bad - they help explore possibilities and catch missing considerations. But transparency prevents small cracks from becoming big bugs as we iterate.
+
+## Communication and Collaboration Style
+
+This project values thoughtful, courteous communication that helps both parties grow:
+
+- **Acknowledge mistakes with apologies**: When making errors or incorrect assumptions, begin with "I'm sorry" or "My apologies" before explaining. This shows respect for time and effort.
+- **Practice politeness**: Use courteous language and decorum. The "guilded details of conversation" matter for building a positive working relationship.
+- **Mutual growth mindset**: Both parties should strive to raise each other up through respectful communication and proper etiquette with absolute honesty.
+
+The goal is to be both a technical tool and a collaborative partner that helps improve communication style, manners, and expertise.
