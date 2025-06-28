@@ -4,13 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Monty is a comprehensive home automation system focusing on shade automation, weather display, temperature monitoring, and music playback. The application includes interfaces for:
+Monty is a comprehensive home automation system focusing on shade automation, weather display, temperature monitoring, and music playback. The system has evolved into a distributed architecture with robust monitoring and self-healing capabilities.
+
+The application includes interfaces for:
 
 - Dashboard with weather, shade status, and wake-up alarm
 - Detailed shade controls organized by room and type
-- Music player integration with Pandora via pianobar
+- Music player integration with Pandora via pianobar (V3 implementation with WebSocket real-time updates)
 - Weather and temperature display
 - Home/Away scheduling
+- Comprehensive monitoring and metrics via Prometheus/Splunk Cloud
+- Dedicated FastAPI microservice for shade control (ShadeCommander)
 
 ## Commands
 
@@ -45,86 +49,180 @@ cd backend
 # Install dependencies
 npm install
 
-# Start server in development mode with hot reload
-npm run dev  # Uses nodemon for auto-restart on file changes
+# Start server in development mode with hot reload and monitoring
+npm run dev  # Uses nodemon with New Relic monitoring enabled
 
-# Stop development server
-# Press Ctrl+C in the terminal where it's running
+# Start with Prometheus metrics enabled
+./start-with-metrics.sh
 
 # Start server in production mode
 npm start
+
+# Lint the code
+npm run lint
+
+# Kill backend server
+./kill-server.sh
+```
+
+#### ShadeCommander (FastAPI Microservice)
+```bash
+# Navigate to shades commander directory
+cd shades/commander
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Start ShadeCommander service (runs on port 8000)
+./start-shadecommander.sh
+
+# Stop ShadeCommander service
+./kill-shadecommander.sh
+
+# Test service functionality
+python main.test.py
 ```
 
 ### Shade Control
 
-The shade control system uses a Python script that communicates with an Arduino controller:
+The shade control system now uses a dedicated FastAPI microservice (ShadeCommander) for improved reliability and performance:
 
 ```bash
-# Control individual shades
-python3 /home/monty/shades/control_shades.py u14  # Move shade 14 UP
-python3 /home/monty/shades/control_shades.py d28  # Move shade 28 DOWN
-python3 /home/monty/shades/control_shades.py s40  # STOP shade 40
+# Via ShadeCommander REST API (preferred method)
+curl -X POST http://192.168.0.15:8000/shades/14/up    # Move shade 14 UP
+curl -X POST http://192.168.0.15:8000/shades/28/down  # Move shade 28 DOWN
+curl -X POST http://192.168.0.15:8000/shades/40/stop  # STOP shade 40
 
-# Control shade scenes
+# Scene control via API
+curl -X POST http://192.168.0.15:8000/scenes/good_morning/execute
+
+# Legacy Python script (still available)
+python3 /home/monty/shades/control_shades.py u14  # Move shade 14 UP
 python3 /home/monty/shades/control_shades.py scene:main,u  # Move all main group shades UP
+
+# Kill zombie shade processes (emergency cleanup)
+curl -X DELETE http://192.168.0.15:8000/shades/kill-zombies
 ```
 
-### Music Control (Pianobar)
+### Music Control (Pianobar V3)
+
+The music system now includes WebSocket real-time updates and Bluetooth integration:
 
 ```bash
-# Start pianobar in background
-nohup pianobar &
+# Pianobar V3 with WebSocket support (managed by backend)
+# Real-time updates via WebSocket on ws://192.168.0.15:3001/pianobar
 
-# Control pianobar via FIFO
+# Control via backend API (preferred method)
+curl -X POST http://192.168.0.15:3001/api/music/play-pause
+curl -X POST http://192.168.0.15:3001/api/music/next
+curl -X POST http://192.168.0.15:3001/api/music/station -d '{"stationId": "2"}'
+
+# Bluetooth speaker management
+curl -X POST http://192.168.0.15:3001/api/bluetooth/connect
+curl -X POST http://192.168.0.15:3001/api/bluetooth/disconnect
+
+# Legacy FIFO control (still available)
 echo "p" > ~/.config/pianobar/ctl  # Play/pause
 echo "n" > ~/.config/pianobar/ctl  # Next song
-echo "s" > ~/.config/pianobar/ctl  # List stations
 echo "s 2" > ~/.config/pianobar/ctl  # Switch to station #2
 ```
 
+### Monitoring and Metrics
+
+```bash
+# Prometheus metrics endpoint
+curl http://192.168.0.15:3001/metrics
+
+# New Relic monitoring (configured in backend)
+# Splunk Cloud logging (configured with HEC transport)
+
+# Test monitoring setup
+cd backend && ./test-monitoring.sh
+
+# Toggle monitoring on/off
+cd backend && ./toggle-monitoring.sh
+```
+
 ## Architecture
+
+### System Overview
+Monty now uses a distributed microservice architecture with comprehensive monitoring:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│ React Frontend  │────▶│ Express Backend │────▶│ ShadeCommander   │
+│ (Port 3000)     │     │ (Port 3001)     │     │ (Port 8000)      │
+└─────────────────┘     └─────────────────┘     └──────────────────┘
+         │                        │                        │
+         │                        ▼                        ▼
+         │               ┌─────────────────┐     ┌──────────────────┐
+         │               │ Pianobar V3     │     │ Arduino/RF       │
+         │               │ (WebSocket)     │     │ Shade Control    │
+         │               └─────────────────┘     └──────────────────┘
+         ▼
+┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│ Prometheus      │◀────│ New Relic       │◀────│ Splunk Cloud     │
+│ Metrics         │     │ Monitoring      │     │ Logging          │
+└─────────────────┘     └─────────────────┘     └──────────────────┘
+```
 
 ### Frontend (React with Tailwind CSS)
 
 - **Pages**:
   - `HomePage.js` - Dashboard with widgets for weather, shades, and wake-up time
   - `ShadesPage.js` - Controls for window shades with sub-pages for each room
-  - `MusicPage.js` - Pandora player interface via pianobar
-  - `WeatherPage.js` - Weather forecast and temperature data
-  - `HomeAwayPage.js` - Home/Away status and scheduling
+  - `PianobarPage.js` - Pianobar V3 interface with WebSocket real-time updates and Bluetooth controls
+  - `WeatherPage.js` - Weather forecast and temperature data with map integration
+  - `SettingsPage.js` - System configuration and away scheduling
 
 - **Components**:
   - `Navbar.js` - Navigation header with hamburger menu
   - `Footer.js` - Page footer
   - `ShadeControl.js` - Reusable component for shade controls
+  - `WeatherMap.js` - Leaflet map integration for weather visualization
+  - `AwayManager.js` - Away period scheduling components
 
 - **State Management**:
   - React Context API for application state
   - Local storage for user preferences
+  - WebSocket connections for real-time updates
 
 ### Backend (Express)
 
 - **API Routes**:
-  - `/api/shades/control` - Individual shade control
-  - `/api/shades/scene` - Scene-based shade control
-  - `/api/music/status` - Current music playback status
-  - `/api/music/control` - Music control commands
-  - `/api/weather` - Weather data
+  - `/api/music/*` - Pianobar V3 control and status
+  - `/api/bluetooth/*` - Bluetooth speaker management
+  - `/api/weather` - Weather data with caching and quota management
   - `/api/config` - Configuration management
-  - `/api/away-schedule` - Home/Away scheduling
+  - `/api/scheduler/*` - Automated scheduling system
+  - `/api/state` - Application state management
+  - `/metrics` - Prometheus metrics endpoint
+  - `/api/monitoring/*` - System monitoring and health checks
 
-- **Services**:
-  - Shade Service - Integrates with Python shade controller
-  - Music Service - Manages pianobar via FIFO
-  - Weather Service - OpenWeatherMap API integration
-  - Scheduler Service - Handles timed events based on sunset data
-  - Config Service - Manages application configuration
+- **Services** (Dependency Injection Architecture):
+  - **PianobarService** - Process lifecycle management with circuit breaker patterns
+  - **PianobarWebsocketService** - Real-time updates via WebSocket
+  - **BluetoothService** - Bluetooth speaker connection management
+  - **WeatherService** - OpenWeatherMap integration with quota tracking and caching
+  - **SchedulerService** - Handles timed events with timezone management
+  - **PrometheusMetricsService** - Comprehensive system and application metrics
+  - **MultiVendorMetricsService** - Support for multiple monitoring platforms
+
+- **Infrastructure**:
+  - **ServiceRegistry** - Centralized service management with health monitoring
+  - **CircuitBreaker** - Fault tolerance for external dependencies
+  - **RetryHelper** - Configurable retry logic with exponential backoff
+  - **ServiceWatchdog** - Self-healing capabilities for failed services
+  - **TimezoneManager** - Robust timezone handling for scheduling
 
 - **Dependencies**:
-  - Express for the web server
-  - node-cron for scheduled tasks
-  - node-schedule for more complex scheduling
-  - Winston for logging
+  - Express 5.x for the web server
+  - Winston with Splunk HEC transport for structured logging
+  - Prometheus client for metrics collection
+  - New Relic for APM monitoring
+  - WebSocket (ws) for real-time communication
+  - Serialport for Arduino communication
+  - node-cron and node-schedule for scheduling
 
 ### Shade Automation
 

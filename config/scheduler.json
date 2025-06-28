@@ -10,9 +10,9 @@
     "good_night_offset_minutes": -10
   },
   "wake_up": {
-    "enabled": true,
-    "time": "08:00",
-    "last_triggered": null,
+    "enabled": false,
+    "time": "08:46",
+    "last_triggered": "2025-06-28T14:46:00.026Z",
     "good_morning_delay_minutes": 30
   },
   "music": {
@@ -20,7 +20,7 @@
     "enabled_for_evening": true,
     "bluetooth_retry_attempts": 3,
     "bluetooth_retry_delay_seconds": 30,
-    "enabled_for_afternoon": true,
+    "enabled_for_afternoon": false,
     "enabled_for_night": false
   }
 }

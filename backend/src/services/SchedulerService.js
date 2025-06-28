@@ -1327,27 +1327,10 @@ class SchedulerService {
         
         // Check if wake up was triggered today in user timezone
         if (lastTriggeredUserTime.toDateString() === nowUserTime.toDateString()) {
-          const [hours, minutes] = wakeUpConfig.time.split(':').map(Number);
           const delayMinutes = wakeUpConfig.good_morning_delay_minutes || 15;
           
-          // Calculate Good Morning time for today in user timezone
-          const goodMorningTimeStr = `${(hours).toString().padStart(2, '0')}:${(minutes + delayMinutes).toString().padStart(2, '0')}`;
-          
-          // Use same timezone approach as Good Afternoon
-          const today = new Date();
-          const todayDateStr = today.toISOString().split('T')[0];
-          const timezone = this.timezoneManager.getCronTimezone() || 'America/Denver';
-          const testDate = new Date();
-          const formatter = new Intl.DateTimeFormat('en', {
-            timeZone: timezone,
-            timeZoneName: 'longOffset'
-          });
-          const parts = formatter.formatToParts(testDate);
-          const offsetPart = parts.find(part => part.type === 'timeZoneName');
-          const offset = offsetPart ? offsetPart.value.replace('GMT', '') : '-06:00';
-          
-          const goodMorningDateStr = `${todayDateStr}T${goodMorningTimeStr}:00${offset}`;
-          const goodMorningTime = new Date(goodMorningDateStr);
+          // Calculate Good Morning time based on actual trigger time
+          const goodMorningTime = new Date(lastTriggered.getTime() + (delayMinutes * 60 * 1000));
           
           // Only add if it hasn't happened yet
           if (goodMorningTime > now) {
