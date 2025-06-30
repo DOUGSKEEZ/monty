@@ -553,6 +553,11 @@ class SchedulerService {
       
       if (result.success) {
         logger.info(`Scene '${sceneName}' executed successfully: ${result.message}`);
+        
+        // Recalculate scene times after execution to update "Next Scene" display
+        this.calculateSceneTimes().catch(() => {
+          logger.warn(`Failed to recalculate scene times after ${sceneName} execution`);
+        });
       } else {
         logger.error(`Scene '${sceneName}' failed: ${result.message}`);
       }

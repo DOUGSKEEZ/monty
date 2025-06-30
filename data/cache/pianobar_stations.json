@@ -1,6 +1,7 @@
 {
   "stations": [
     "90s Alternative Radio",
+    "Alanis Morissette Radio",
     "Alice In Chains Radio",
     "Appalachian Spring: Doppio movimento Radio",
     "Blues Guitar Legends Radio",
@@ -27,8 +28,8 @@
     "Kid Rock Radio",
     "Lofi Chill Radio",
     "Lofi House Radio",
-    "Lowrider Oldies Radio",
     "Memphis Soul Radio",
+    "Modest Mouse Radio",
     "Morning Classic Rock Radio",
     "Morning Hits Radio",
     "QuickMix",
@@ -39,9 +40,8 @@
     "Strobe Radio",
     "Surf Rock Radio",
     "Symphonic Radio",
-    "What Kind Of Woman Is This? Radio",
     "Yacht Rock Radio"
   ],
-  "fetchTime": 1751134283362,
-  "lastUpdated": "2025-06-28T18:11:23.362Z"
+  "fetchTime": 1751238414441,
+  "lastUpdated": "2025-06-29T23:06:54.441Z"
 }

@@ -8,10 +8,7 @@
 - **config/**: Configuration files
 - **logs/**: Application logs
 
-## Important Documents
-1. Start by reading `docs/Read 1st - Monty Summary.md` for project overview
-2. Then read `docs/Read 2nd - Addressing Claude's comments.md` for technical decisions
-3. Finally, review `docs/Read 3rd - Post initial Setup - Next steps.md` for development roadmap
+CLAUDE.md is the primary guidance document
 
 ## Current Status
 Basic project structure is set up with:

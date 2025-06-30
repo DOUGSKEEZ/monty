@@ -641,22 +641,7 @@ serviceRegistry.register('config', {
 // SystemMetrics service is automatically registered when the module is imported
 require('./services/system-metrics');
 
-serviceRegistry.register('weather-service', {
-  isCore: false,
-  status: 'initializing',
-  checkHealth: async () => {
-    try {
-      // Simple check to see if weather service is operational
-      const weatherService = require('./services/WeatherService');
-      return { 
-        status: weatherService.isInitialized ? 'ok' : 'initializing',
-        message: weatherService.isInitialized ? 'Weather service initialized' : 'Weather service initializing'
-      };
-    } catch (error) {
-      return { status: 'error', message: error.message };
-    }
-  }
-});
+// Legacy weather-service removed - WeatherService is now managed by ServiceFactory
 
 // Weather API Usage Tracking (One Call API 3.0 cost monitoring)
 serviceRegistry.register('weather-api-usage', {
@@ -763,22 +748,7 @@ serviceRegistry.register('scheduler-service', {
 
 // Note: Legacy MusicService removed - PianobarService handles music functionality
 
-serviceRegistry.register('shade-service', {
-  isCore: false,
-  status: 'initializing',
-  checkHealth: async () => {
-    try {
-      // Simple check to see if shade service is operational
-      const shadeService = require('./services/shadeService');
-      return { 
-        status: shadeService.isInitialized ? 'ok' : 'initializing',
-        message: shadeService.isInitialized ? 'Shade service initialized' : 'Shade service initializing'
-      };
-    } catch (error) {
-      return { status: 'error', message: error.message };
-    }
-  }
-});
+// Legacy shade-service removed - ShadeCommander (FastAPI) handles shade functionality
 
 // ShadeCommander external service (FastAPI on port 8000)
 serviceRegistry.register('shade-commander', {

@@ -295,6 +295,32 @@ When making technical decisions or analyzing system behavior:
 
 Assumptions aren't bad - they help explore possibilities and catch missing considerations. But transparency prevents small cracks from becoming big bugs as we iterate.
 
+## SchedulerService Development Guidelines
+
+The SchedulerService (`backend/src/services/SchedulerService.js`) has grown into a large, complex file with mixed concerns. When working with this service:
+
+### Principles for Changes
+- **Minimal, targeted fixes**: Prefer simple, one-line solutions over comprehensive defensive programming
+- **Avoid code bloat**: The file is already massive (~1700+ lines) with redundant patterns and mixed concerns
+- **Question complexity**: If a solution seems complex, step back and find a simpler approach
+- **Understand before adding**: Study existing patterns before introducing new ones
+
+### Known Issues
+- **Mixed responsibilities**: Scheduling, scene execution, music control, Bluetooth management, timezone handling, validation
+- **Redundant code patterns**: Multiple ways of doing similar operations
+- **Defensive programming overflow**: Too much validation and error handling that obscures core logic
+- **Complex timezone handling**: Scattered throughout with inconsistent approaches
+
+### Future Refactoring Opportunities
+The service could benefit from being split into focused services:
+- SceneExecutor - Handle scene execution and music integration
+- TimeCalculator - Manage scene time calculations and timezone logic
+- ScheduleManager - Handle cron job scheduling and management
+- ValidationService - Centralized validation logic
+
+### Example of Good Practice
+Recent fix for "Next Scene" display issue: Added single line `this.calculateSceneTimes().catch(() => {});` after successful scene execution instead of complex defensive programming and validation layers.
+
 ## Communication and Collaboration Style
 
 This project values thoughtful, courteous communication that helps both parties grow:
