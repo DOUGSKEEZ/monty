@@ -1,0 +1,8 @@
+{
+  "stations": [
+    "Example Station 1",
+    "Example Station 2",
+    "Example Station 3"
+  ],
+  "fetchTime": 1700000000000
+}

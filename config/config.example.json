@@ -1,7 +1,7 @@
 {
   "location": {
-    "zipCode": "80498",
-    "city": "Silverthorne",
+    "zipCode": "12345",
+    "city": "ExampleCity",
     "state": "CO"
   },
   "homeStatus": {
@@ -9,14 +9,14 @@
     "awayPeriods": []
   },
   "music": {
-    "defaultStation": "128737420597291214",
+    "defaultStation": "123456789012345678",
     "wakeUpWithMusic": false,
     "wakeUpVolume": 50
   },
   "weather": {
-    "city": "Silverthorne",
-    "latitude": 39.66339791188263,
-    "longitude": -106.06779952152995,
+    "city": "ExampleCity",
+    "latitude": 40.0,
+    "longitude": -105.0,
     "units": "imperial",
     "cacheTimeout": 300000,
     "requestTimeout": 10000,

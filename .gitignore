@@ -64,3 +64,7 @@ wheels/
 Thumbs.db
 backend/.env.monitoring
 shades/commander/newrelic.ini
+
+# Configuration files with sensitive data
+config/config.json
+config/config.json.backup
