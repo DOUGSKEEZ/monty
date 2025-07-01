@@ -108,27 +108,9 @@ async function initializePianobarWebsocket(server, options = {}) {
       // Store the instance for later retrieval
       websocketServiceInstance = websocketService;
       
-      // Connect PianobarService to WebSocket service for central state management
-      try {
-        // Get the actual PianobarService instance from the service registry
-        const pianobarService = serviceRegistry.getAllServices().find(s => s.name === 'PianobarService');
-        if (pianobarService && pianobarService.instance) {
-          websocketService.setPianobarService(pianobarService.instance);
-          console.log('[DEBUG] Connected actual PianobarService instance to WebSocket');
-        } else {
-          // Fallback: try to create it
-          try {
-            const { createActualPianobarService } = require('../utils/ServiceFactory');
-            const service = createActualPianobarService();
-            websocketService.setPianobarService(service);
-            console.log('[DEBUG] Created and connected PianobarService to WebSocket');
-          } catch (err) {
-            console.error('[ERROR] Failed to connect PianobarService:', err.message);
-          }
-        }
-      } catch (error) {
-        console.warn(`[WARN] Failed to connect PianobarService to WebSocket: ${error.message}`);
-      }
+      // V3: PianobarWebsocketService uses file-based communication instead of direct service coupling
+      // Services communicate via pianobar_status.json and event files - no setPianobarService needed
+      console.log('[DEBUG] V3 WebSocket service initialized - using file-based communication');
       
       // Create the event command script with retry
       const eventScriptPath = path.join(process.env.HOME || '/home/monty', '.config/pianobar/eventcmd.sh');

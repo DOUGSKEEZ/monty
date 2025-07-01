@@ -95,16 +95,30 @@ function PianobarPage() {
   // Sync functions for cross-device state
   const loadSharedState = async () => {
     try {
+      console.log('🔍 [SYNC-STATE] Calling /api/pianobar/sync-state...');
       const response = await fetch('/api/pianobar/sync-state');
+      console.log('🔍 [SYNC-STATE] Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 [SYNC-STATE] Received data:', data);
+        
         if (data.success) {
+          console.log('🔍 [SYNC-STATE] Track data:', data.state.track);
+          console.log('🔍 [SYNC-STATE] Setting trackInfo with songPlayed:', data.state.track.songPlayed);
+          
           setSharedState(data.state.shared);
           setTrackInfo(data.state.track);
+          
+          console.log('✅ [SYNC-STATE] State updated successfully');
+        } else {
+          console.warn('❌ [SYNC-STATE] API returned success: false');
         }
+      } else {
+        console.warn('❌ [SYNC-STATE] HTTP error:', response.status);
       }
     } catch (error) {
-      console.warn('Failed to load shared state:', error);
+      console.warn('❌ [SYNC-STATE] Failed to load shared state:', error);
     }
   };
   
@@ -830,11 +844,11 @@ function PianobarPage() {
     try {
       console.log('🔄 Loading latest track info and progress from backend...');
       
-      // 1. Refresh pianobar status first
-      await actions.refreshPianobar();
-      
-      // 2. Load latest shared state (gets current track and progress from backend)
+      // 1. Load latest shared state first (gets current track and progress from backend)
       await loadSharedState();
+      
+      // 2. Refresh pianobar status second (basic status only, won't override track progress)
+      await actions.refreshPianobar();
       
       // REMOVED: No longer sync client data to backend - backend is source of truth
       
@@ -1081,19 +1095,33 @@ function PianobarPage() {
                 
                 {/* Song Progress Bar */}
                 {trackInfo.songDuration > 0 && (
-                  <div className="mt-4">
-                    <div className="flex justify-between text-sm text-gray-500 mb-1">
-                      <span>{formatTime(trackInfo.songPlayed || 0)}</span>
-                      <span>{formatTime(trackInfo.songDuration)}</span>
+                  <div className="mt-4 flex items-center space-x-3">
+                    <div className="flex-1">
+                      <div className="flex justify-between text-sm text-gray-500 mb-1">
+                        <span>{formatTime(trackInfo.songPlayed || 0)}</span>
+                        <span>{formatTime(trackInfo.songDuration)}</span>
+                      </div>
+                      <div className="w-full bg-gray-300 rounded-full h-2">
+                        <div 
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+                          style={{ 
+                            width: `${Math.min(100, (trackInfo.songPlayed / trackInfo.songDuration) * 100)}%` 
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-300 rounded-full h-2">
-                      <div 
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
-                        style={{ 
-                          width: `${Math.min(100, (trackInfo.songPlayed / trackInfo.songDuration) * 100)}%` 
-                        }}
-                      />
-                    </div>
+                    <button 
+                      onClick={handleRefreshAll}
+                      className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-all duration-200 transform hover:scale-105 shadow-md"
+                      title="🔄 Force Sync Latest Track & Progress"
+                    >
+                      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                        <path d="M21 3v5h-5"></path>
+                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                        <path d="M3 21v-5h5"></path>
+                      </svg>
+                    </button>
                   </div>
                 )}
                 
@@ -1188,18 +1216,6 @@ function PianobarPage() {
                   <option key={index} value={index}>{station}</option>
                 ))}
               </select>
-              <button 
-                onClick={handleRefreshAll}
-                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-all duration-200 transform hover:scale-105 shadow-md"
-                title="🔄 Force Sync Latest Track & Progress"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                  <path d="M21 3v5h-5"></path>
-                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                  <path d="M3 21v-5h5"></path>
-                </svg>
-              </button>
               <button
                 onClick={handleChangeStation}
                 className={`px-4 py-2 rounded ${

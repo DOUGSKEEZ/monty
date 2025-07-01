@@ -1228,15 +1228,25 @@ let sharedState = {
     coverArt: '',
     detailUrl: ''
   },
-  lastUpdated: Date.now()
+  lastUpdated: Date.now(),
+  songStartTime: null // Track when current song started playing
 };
 
 // GET shared state for cross-device sync
 router.get('/sync-state', (req, res) => {
   try {
+    // Calculate real-time song progress if playing
+    let currentState = { ...sharedState };
+    if (currentState.shared.isPlaying && currentState.songStartTime && currentState.track.songDuration > 0) {
+      const now = Date.now();
+      const elapsedSeconds = Math.floor((now - currentState.songStartTime) / 1000);
+      // Cap at song duration to prevent overflow
+      currentState.track.songPlayed = Math.min(elapsedSeconds, currentState.track.songDuration);
+    }
+    
     res.json({
       success: true,
-      state: sharedState,
+      state: currentState,
       timestamp: Date.now()
     });
   } catch (error) {
@@ -1251,13 +1261,32 @@ router.post('/sync-state', (req, res) => {
     const { shared, track } = req.body;
     
     if (shared) {
+      // Detect when playback resumes (was not playing, now is playing)
+      const wasPlaying = sharedState.shared.isPlaying;
+      const nowPlaying = shared.isPlaying;
+      
       sharedState.shared = { ...sharedState.shared, ...shared };
       logger.debug('Updated shared state:', shared);
+      
+      // If playback just resumed and we don't have a start time, set it now
+      if (!wasPlaying && nowPlaying && !sharedState.songStartTime && sharedState.track.title) {
+        sharedState.songStartTime = Date.now();
+        logger.debug('Playback resumed - setting song start time');
+      }
     }
     
     if (track) {
+      // Detect new song by comparing titles
+      const isNewSong = track.title && track.title !== sharedState.track.title;
+      
       sharedState.track = { ...sharedState.track, ...track };
       logger.debug('Updated track info:', track.title || 'no title');
+      
+      // Set song start time when a new song begins
+      if (isNewSong) {
+        sharedState.songStartTime = Date.now();
+        logger.debug(`New song detected: "${track.title}" - setting start time`);
+      }
     }
     
     sharedState.lastUpdated = Date.now();
