@@ -997,6 +997,10 @@ Current Queue Size: ${result.queue_size || 0}`;
                 {testResult.success ? '✅' : '❌'} {testResult.message}
               </div>
             )}
+            
+            <p className="text-blue-600 text-xs mt-3 italic">
+              * When music is enabled, shades wait for Bluetooth & Pianobar to connect first
+            </p>
           </div>
         </div>
       </div>

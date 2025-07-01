@@ -49,8 +49,9 @@ cd backend
 # Install dependencies
 npm install
 
-# Start server in development mode with hot reload and monitoring
-npm run dev  # Uses nodemon with New Relic monitoring enabled
+# Start backend server in development mode with hot reload and monitoring
+#npm run dev  # original startup method
+New startup method for starting server: use the script `/backend/dev.sh` - that is the new way to start the development server to properly start with New Relic. 
 
 # Start with Prometheus metrics enabled
 ./start-with-metrics.sh
@@ -87,6 +88,9 @@ python main.test.py
 
 The shade control system now uses a dedicated FastAPI microservice (ShadeCommander) for improved reliability and performance:
 
+**ShadeCommander API documentation can be found here:**
+`http://192.168.0.15:8000/docs`
+
 ```bash
 # Via ShadeCommander REST API (preferred method)
 curl -X POST http://192.168.0.15:8000/shades/14/up    # Move shade 14 UP
@@ -101,7 +105,7 @@ python3 /home/monty/shades/control_shades.py u14  # Move shade 14 UP
 python3 /home/monty/shades/control_shades.py scene:main,u  # Move all main group shades UP
 
 # Kill zombie shade processes (emergency cleanup)
-curl -X DELETE http://192.168.0.15:8000/shades/kill-zombies
+curl -X DELETE http://192.168.0.15:8000/retries/all
 ```
 
 ### Music Control (Pianobar V3)

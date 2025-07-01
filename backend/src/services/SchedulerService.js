@@ -435,7 +435,7 @@ class SchedulerService {
       this.scheduleWakeUp();
       
       // Schedule today's dynamic scenes
-      await this.scheduleSubsetBasedScenes();
+      await this.scheduleSunsetBasedScenes();
       
     } catch (error) {
       logger.error(`Failed to schedule scenes: ${error.message}`);
@@ -446,7 +446,7 @@ class SchedulerService {
   /**
    * Schedule sunset-based scenes for today
    */
-  async scheduleSubsetBasedScenes() {
+  async scheduleSunsetBasedScenes() {
     try {
       const times = await this.calculateSceneTimes();
       const now = new Date();
@@ -515,7 +515,7 @@ class SchedulerService {
       this.clearWakeUpSchedules();
       
       // Schedule new dynamic scenes
-      await this.scheduleSubsetBasedScenes();
+      await this.scheduleSunsetBasedScenes();
       
       // Schedule wake up alarm for new day
       this.scheduleWakeUp();
@@ -557,6 +557,11 @@ class SchedulerService {
         // Recalculate scene times after execution to update "Next Scene" display
         this.calculateSceneTimes().catch(() => {
           logger.warn(`Failed to recalculate scene times after ${sceneName} execution`);
+        });
+        
+        // Also reschedule sun-based scenes to ensure they run later today
+        this.scheduleSunsetBasedScenes().catch(() => {
+          logger.warn(`Failed to schedule sun-based scenes after ${sceneName} execution`);
         });
       } else {
         logger.error(`Scene '${sceneName}' failed: ${result.message}`);

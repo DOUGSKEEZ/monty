@@ -11,9 +11,9 @@
   },
   "wake_up": {
     "enabled": true,
-    "time": "07:47",
+    "time": "07:25",
     "last_triggered": null,
-    "good_morning_delay_minutes": 20
+    "good_morning_delay_minutes": 10
   },
   "music": {
     "enabled_for_morning": true,
@@ -21,6 +21,6 @@
     "bluetooth_retry_attempts": 3,
     "bluetooth_retry_delay_seconds": 30,
     "enabled_for_afternoon": false,
-    "enabled_for_night": false
+    "enabled_for_night": true
   }
 }

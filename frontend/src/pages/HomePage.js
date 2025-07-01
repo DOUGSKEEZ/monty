@@ -630,7 +630,7 @@ function HomePage() {
               <li>Raise bedroom blackout shades</li>
               <li>
                 Monty's Prospect will open to the world 
-                <strong> 15 minutes</strong> after this wake up call!
+                <strong> {scheduler.config?.wake_up?.good_morning_delay_minutes || 15} minutes</strong> after this wake up call!
               </li>
             </ul>
           </div>
