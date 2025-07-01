@@ -22,7 +22,15 @@ function Footer() {
             <span className="mr-4">🌡️ {currentTemp}°F</span>
           )}
         </div>
-        <p>Monty Home Automation &copy; {new Date().getFullYear()}</p>
+        <div className="flex items-center space-x-3">
+          <p>Monty Home Automation &copy; {new Date().getFullYear()}</p>
+          <img 
+            src="/Monty.png" 
+            alt="Monty" 
+            className="w-8 h-8 opacity-75 hover:opacity-100 transition-opacity duration-300"
+            title="Monty, your home automation butler"
+          />
+        </div>
       </div>
     </footer>
   );

@@ -6,12 +6,7 @@
   },
   "homeStatus": {
     "status": "home",
-    "awayPeriods": [
-      {
-        "start": "2025-06-13",
-        "end": "2025-06-24"
-      }
-    ]
+    "awayPeriods": []
   },
   "music": {
     "defaultStation": "128737420597291214",

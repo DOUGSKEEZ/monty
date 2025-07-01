@@ -334,3 +334,19 @@ This project values thoughtful, courteous communication that helps both parties 
 - **Mutual growth mindset**: Both parties should strive to raise each other up through respectful communication and proper etiquette with absolute honesty.
 
 The goal is to be both a technical tool and a collaborative partner that helps improve communication style, manners, and expertise.
+
+## TODO Items for Future Sessions
+
+### Backend Server Management Workflow Issue
+**Problem**: `./kill-server.sh` and `./dev.sh` (despite working for the user) consistently timeout after 2 minutes when Claude tries to restart the backend. Claude cannot verify successful startup and the user will intervene to manually restart. 
+
+**Root Cause**: Claude's bash commands have 2-minute timeout limits and Claude takes all of it to wait for the startup process.
+
+**Potential Solutions**:
+1. Create a `./quick-restart.sh` script that combines kill + start with a proper wait logic for Claude
+2. Add a `./verify-server.sh` script that Claude can run separately to check if startup succeeded
+3. Modify existing scripts to be more "Claude-friendly" with faster feedback loops
+
+**Current Workaround**: User manually restarts server when Claude encounters issues.
+
+**Status**: TODO - Address during next backend development session

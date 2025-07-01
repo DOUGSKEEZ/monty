@@ -873,7 +873,15 @@ function PianobarPage() {
         </span>
       </div>
       
-      <h1 className="text-3xl font-bold mb-6">Monty's Pianobar</h1>
+      <div className="flex items-center space-x-3 mb-6">
+        <img 
+          src="/Monty_Headphones.png" 
+          alt="Monty with headphones" 
+          className="w-28 h-28 transform scale-x-[-1]"
+          title="Monty's ready to rock your music!"
+        />
+        <h1 className="text-3xl font-bold">Monty's Pianobar</h1>
+      </div>
       
       {/* Error Display */}
       {pianobar.error && (
@@ -1021,15 +1029,15 @@ function PianobarPage() {
           </div>
         )}
         
-        {/* Now Playing Section (Hidden when player is off) */}
-        <div className={isPlayerOn() ? '' : 'opacity-50'}>
+        {/* Now Playing Section */}
+        <div>
           <div className="mb-6">
-            <p className="text-lg font-semibold mb-4">Now Playing</p>
+            <p className={`text-lg font-semibold mb-4 ${isPlayerOn() ? '' : 'opacity-50'}`}>Now Playing</p>
             
             {/* Album Art + Song Details Layout */}
             <div className="flex items-start space-x-4">
               {/* Album Art */}
-              <div className="flex-shrink-0">
+              <div className={`flex-shrink-0 ${isPlayerOn() ? '' : 'opacity-50'}`}>
                 {trackInfo.coverArt ? (
                   <img 
                     src={trackInfo.coverArt} 
@@ -1049,27 +1057,27 @@ function PianobarPage() {
               {/* Song Details */}
               <div className="flex-grow min-w-0">
                 {/* Title */}
-                <h3 className="text-xl font-bold truncate" data-testid="song-title">
+                <h3 className={`text-xl font-bold truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-title">
                   {trackInfo.title || song || 'No song playing'}
                 </h3>
                 
                 {/* Artist */}
                 {(trackInfo.artist || artist) && (
-                  <p className="text-lg text-gray-700 truncate" data-testid="song-artist">
+                  <p className={`text-lg text-gray-700 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-artist">
                     {trackInfo.artist || artist}
                   </p>
                 )}
                 
                 {/* Album */}
                 {(trackInfo.album || album) && (
-                  <p className="text-sm text-gray-600 truncate" data-testid="song-album">
+                  <p className={`text-sm text-gray-600 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-album">
                     {trackInfo.album || album}
                   </p>
                 )}
                 
                 {/* Station */}
                 {(trackInfo.stationName || station) && (
-                  <p className="text-sm text-blue-600 font-medium truncate flex items-center space-x-1" data-testid="song-station">
+                  <p className={`text-sm text-blue-600 font-medium truncate flex items-center space-x-1 ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-station">
                     <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <rect x="2" y="10" width="2" height="4" fill="currentColor"/>
                       <rect x="5" y="8" width="2" height="8" fill="currentColor"/>
@@ -1085,7 +1093,7 @@ function PianobarPage() {
                 
                 {/* Loved Indicator */}
                 {trackInfo.rating > 0 && (
-                  <div className="flex items-center mt-2">
+                  <div className={`flex items-center mt-2 ${isPlayerOn() ? '' : 'opacity-50'}`}>
                     <span className="text-sm text-red-500 flex items-center">
                       <span className="mr-1">Loved</span> 
                       <span className="text-red-500 animate-pulse">❤️</span>
@@ -1093,10 +1101,10 @@ function PianobarPage() {
                   </div>
                 )}
                 
-                {/* Song Progress Bar */}
-                {trackInfo.songDuration > 0 && (
-                  <div className="mt-4 flex items-center space-x-3">
-                    <div className="flex-1">
+                {/* Song Progress Bar and Force Sync Button */}
+                <div className="mt-4 flex items-center space-x-3">
+                  {trackInfo.songDuration > 0 && (
+                    <div className={`flex-1 ${isPlayerOn() ? '' : 'opacity-50'}`}>
                       <div className="flex justify-between text-sm text-gray-500 mb-1">
                         <span>{formatTime(trackInfo.songPlayed || 0)}</span>
                         <span>{formatTime(trackInfo.songDuration)}</span>
@@ -1110,20 +1118,20 @@ function PianobarPage() {
                         />
                       </div>
                     </div>
-                    <button 
-                      onClick={handleRefreshAll}
-                      className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-all duration-200 transform hover:scale-105 shadow-md"
-                      title="🔄 Force Sync Latest Track & Progress"
-                    >
-                      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                        <path d="M21 3v5h-5"></path>
-                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                        <path d="M3 21v-5h5"></path>
-                      </svg>
-                    </button>
-                  </div>
-                )}
+                  )}
+                  <button 
+                    onClick={handleRefreshAll}
+                    className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-all duration-200 transform hover:scale-105 shadow-md"
+                    title="🔄 Force Sync Latest Track & Progress"
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                      <path d="M21 3v5h-5"></path>
+                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                      <path d="M3 21v-5h5"></path>
+                    </svg>
+                  </button>
+                </div>
                 
                 {/* Pandora Link */}
                 {trackInfo.detailUrl && (
@@ -1131,7 +1139,7 @@ function PianobarPage() {
                     href={trackInfo.detailUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-400 hover:text-blue-300 mt-3 inline-block transition-colors"
+                    className={`text-sm text-blue-400 hover:text-blue-300 mt-3 inline-block transition-colors ${isPlayerOn() ? '' : 'opacity-50'}`}
                   >
                     View on Pandora →
                   </a>
@@ -1141,7 +1149,7 @@ function PianobarPage() {
           </div>
           
           {/* Playback Controls */}
-          <div className="flex justify-center space-x-6 my-6">
+          <div className={`flex justify-center space-x-6 my-6 ${isPlayerOn() ? '' : 'opacity-50'}`}>
             <button 
               onClick={handleLove}
               className={`p-4 rounded-full transition-all duration-300 ${
@@ -1195,7 +1203,7 @@ function PianobarPage() {
           </div>
           
           {/* Station Selector */}
-          <div className="mt-6">
+          <div className={`mt-6 ${isPlayerOn() ? '' : 'opacity-50'}`}>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium">Select Station</label>
               {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
