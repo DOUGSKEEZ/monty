@@ -916,27 +916,27 @@ class SchedulerService {
       const now = new Date();
       logger.debug(`🔍 [WAKE_UP_DEBUG] Current UTC time: ${now.toISOString()}`);
       
-      // Get current time in Mountain Time for comparison
-      const nowMT = this.timezoneManager.toUserTime(now);
-      const currentMTHour = nowMT.getHours();
-      const currentMTMinute = nowMT.getMinutes();
-      logger.debug(`🔍 [WAKE_UP_DEBUG] Current MT time: ${currentMTHour}:${currentMTMinute.toString().padStart(2, '0')}`);
+      // Use system local time for wake-up comparisons (not Mountain Time)
+      // This ensures alarms work correctly regardless of server timezone
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      logger.debug(`🔍 [WAKE_UP_DEBUG] Current system time: ${currentHour}:${currentMinute.toString().padStart(2, '0')}`);
       
-      // Both times need to be compared in the same timezone (Mountain Time)
-      // Config time (hours:minutes) is already in Mountain Time
-      // Current time (currentMTHour:currentMTMinute) is also in Mountain Time
+      // Compare both times in system local timezone
+      // Config time (hours:minutes) is treated as local time
+      // Current time is already in local time
       const wakeUpMinutesFromMidnight = hours * 60 + minutes;
-      const currentMinutesFromMidnight = currentMTHour * 60 + currentMTMinute;
-      logger.debug(`🔍 [WAKE_UP_DEBUG] Wake up minutes from midnight (MT): ${wakeUpMinutesFromMidnight} (${hours}:${minutes.toString().padStart(2, '0')})`);
-      logger.debug(`🔍 [WAKE_UP_DEBUG] Current minutes from midnight (MT): ${currentMinutesFromMidnight} (${currentMTHour}:${currentMTMinute.toString().padStart(2, '0')})`);
+      const currentMinutesFromMidnight = currentHour * 60 + currentMinute;
+      logger.debug(`🔍 [WAKE_UP_DEBUG] Wake up minutes from midnight: ${wakeUpMinutesFromMidnight} (${hours}:${minutes.toString().padStart(2, '0')})`);
+      logger.debug(`🔍 [WAKE_UP_DEBUG] Current minutes from midnight: ${currentMinutesFromMidnight} (${currentHour}:${currentMinute.toString().padStart(2, '0')})`);
       
       if (wakeUpMinutesFromMidnight > currentMinutesFromMidnight) {
         // Wake up time is later today - schedule for today
-        logger.info(`✅ [WAKE_UP_DEBUG] Scheduling wake up for today at ${wakeUpConfig.time} MT`);
+        logger.info(`✅ [WAKE_UP_DEBUG] Scheduling wake up for today at ${wakeUpConfig.time}`);
       } else {
         // Wake up time has passed today - check if it was recently missed
         const minutesSinceMissed = currentMinutesFromMidnight - wakeUpMinutesFromMidnight;
-        logger.info(`⏰ [WAKE_UP_DEBUG] Wake up time ${wakeUpConfig.time} MT has passed today by ${minutesSinceMissed} minutes`);
+        logger.info(`⏰ [WAKE_UP_DEBUG] Wake up time ${wakeUpConfig.time} has passed today by ${minutesSinceMissed} minutes`);
         
         // Check if this was a recently missed alarm (within 60 minutes) and wasn't already triggered
         const wasRecentlyMissed = minutesSinceMissed <= 60;
@@ -946,12 +946,12 @@ class SchedulerService {
         if (wasRecentlyMissed && !wasAlreadyTriggered) {
           logger.warn(`🚨 [WAKE_UP_DEBUG] MISSED ALARM DETECTED! Wake up was ${minutesSinceMissed} minutes ago, triggering recovery`);
           
-          // Create UTC Date objects for both times to avoid timezone mixing
-          // Convert the wake-up time (MT) to UTC for consistent comparison
-          const wakeUpTimeUTC = this.timezoneManager.toUTC(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`, now);
+          // Create wake-up time for today in local timezone
+          const wakeUpTime = new Date(now);
+          wakeUpTime.setHours(hours, minutes, 0, 0);
           
-          // Trigger missed alarm recovery with both times in UTC
-          this.handleMissedAlarm(wakeUpTimeUTC, now);
+          // Trigger missed alarm recovery
+          this.handleMissedAlarm(wakeUpTime, now);
           return; // Don't schedule for tomorrow since we're handling the missed alarm
         } else {
           if (wasAlreadyTriggered) {

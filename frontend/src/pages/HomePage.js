@@ -430,15 +430,6 @@ function HomePage() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex items-center space-x-3 mb-6">
-        <img 
-          src="/Monty.png" 
-          alt="Monty" 
-          className="w-28 h-28 transform scale-x-[-1]"
-          title="Monty, your home automation butler"
-        />
-        <h1 className="text-3xl font-bold">Welcome to Monty</h1>
-      </div>
       
       {/* Error alerts */}
       {weather.error && (

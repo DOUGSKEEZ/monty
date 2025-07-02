@@ -862,26 +862,7 @@ function PianobarPage() {
 
   return (
     <div className="container mx-auto p-4 relative">
-      {/* WebSocket connection indicator */}
-      <div className="absolute top-4 right-4 flex items-center">
-        <div 
-          className={`w-3 h-3 rounded-full mr-2 ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`} 
-          title={wsConnected ? 'WebSocket connected' : 'WebSocket disconnected'} 
-        />
-        <span className="text-xs text-gray-500">
-          {wsConnected ? 'Live updates' : 'Polling updates'}
-        </span>
-      </div>
       
-      <div className="flex items-center space-x-3 mb-6">
-        <img 
-          src="/Monty_Headphones.png" 
-          alt="Monty with headphones" 
-          className="w-28 h-28 transform scale-x-[-1]"
-          title="Monty's ready to rock your music!"
-        />
-        <h1 className="text-3xl font-bold">Monty's Pianobar</h1>
-      </div>
       
       {/* Error Display */}
       {pianobar.error && (
@@ -907,10 +888,22 @@ function PianobarPage() {
       
       {/* Music Player Controls */}
       <div className="bg-white p-6 rounded shadow">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">
-            Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
-          </h2>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold">
+              Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
+            </h2>
+            {/* WebSocket connection indicator */}
+            <div className="flex items-center mt-1">
+              <div 
+                className={`w-2 h-2 rounded-full mr-2 ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`} 
+                title={wsConnected ? 'WebSocket connected' : 'WebSocket disconnected'} 
+              />
+              <span className="text-xs text-gray-400">
+                {wsConnected ? 'Live updates' : 'Polling updates'}
+              </span>
+            </div>
+          </div>
           <div className="flex items-center space-x-3">
             {/* Bluetooth Button */}
             {bluetooth.disconnecting ? (

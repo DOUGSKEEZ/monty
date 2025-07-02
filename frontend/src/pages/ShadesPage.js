@@ -267,7 +267,7 @@ function ShadesPage() {
         {rooms.map(room => (
           <button
             key={room}
-            className={`py-2 px-4 mr-2 font-medium border-b-2 whitespace-nowrap ${
+            className={`py-4 px-3 mr-3 text-[22px] font-semibold tracking-tight border-b-2 whitespace-nowrap ${
               activeRoom === room
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent hover:border-gray-300'
@@ -287,7 +287,7 @@ function ShadesPage() {
             {/* Privacy Type ALL Control - LEFT SIDE (White Box) */}
             {(activeRoom === 'Main Level' || activeRoom === 'Bedroom' || activeRoom === 'Office') && privacyShades.some(s => s.location === 'All') && (
               <div className="p-3 border rounded flex flex-col items-center bg-white shadow-sm w-36">
-                <span className="font-medium mb-2 text-gray-800">ALL Privacy</span>
+                <span className="font-medium mb-2 text-gray-800">ALL Privacy ⚪</span>
                 <div className="flex flex-col items-center space-y-4">
                   <button 
                     onClick={() => {
@@ -335,7 +335,7 @@ function ShadesPage() {
             {/* Solar Type ALL Control - RIGHT SIDE (Dark Box) */}
             {(activeRoom === 'Main Level' || activeRoom === 'Office') && solarShades.some(s => s.location === 'All') && (
               <div className="p-3 border rounded flex flex-col items-center bg-gray-800 text-white shadow-sm w-36">
-                <span className="font-medium mb-2">ALL Solar</span>
+                <span className="font-medium mb-2">ALL Solar ⚫</span>
                 <div className="flex flex-col items-center space-y-4">
                   <button 
                     onClick={() => {
@@ -386,7 +386,7 @@ function ShadesPage() {
             {/* Blackout Type ALL Control - RIGHT SIDE (Dark Box) */}
             {(activeRoom === 'Bedroom') && blackoutShades.some(s => s.location === 'All') && (
               <div className="p-3 border rounded flex flex-col items-center bg-gray-800 text-white shadow-sm w-36">
-                <span className="font-medium mb-2">ALL Blackout</span>
+                <span className="text-base font-normal mb-2">ALL Blackout⚫</span>
                 <div className="flex flex-col items-center space-y-4">
                   <button 
                     onClick={() => handleShadeCommand(40, 'u')}
@@ -425,7 +425,7 @@ function ShadesPage() {
             {/* If no specific type controls, show a single ALL control */}
             {activeRoom === 'Loft' && (
               <div className="p-3 border rounded flex flex-col items-center bg-white shadow-sm w-36">
-                <span className="font-medium mb-2 text-gray-800">ALL Loft</span>
+                <span className="font-medium mb-2 text-gray-800">ALL Loft ⚪⚫</span>
                 <div className="flex flex-col items-center space-y-4">
                   <button 
                     onClick={() => handleShadeCommand(48, 'u')}
@@ -464,7 +464,7 @@ function ShadesPage() {
         <div className="mt-6">
           {/* Main Level Location Groups */}
           {activeRoom === 'Main Level' && (
-            <div className="space-y-0">
+            <div className="space-y-4">
               {/* Kitchen Section */}
               <div className="bg-gray-50 p-3 rounded shadow mb-4">
                 <h3 className="text-md font-semibold mb-2">Kitchen</h3>
@@ -795,9 +795,13 @@ function ShadesPage() {
               </div>
               
               {/* Dining & Laundry Section */}
+              
               <div className="bg-gray-50 p-3 rounded shadow mb-4">
-                <h3 className="text-md font-semibold mb-2">Dining & Laundry</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-1">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1 mb-2">
+                  <h3 className="text-md font-semibold col-span-2">Dining & Laundry</h3>
+                  <h3 className="text-md font-semibold col-span-2">Projector</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1">
                   
                   {/* Dining Table */}
                   <div className="border rounded p-1">
@@ -938,6 +942,7 @@ function ShadesPage() {
                       </div>
                     </div>
                   </div>
+
                 </div>
               </div>
             </div>
@@ -1491,12 +1496,7 @@ function ShadesPage() {
             </div>
           )}
           
-          {/* Empty State */}
-          {locations.length === 0 && (
-            <div className="col-span-3 text-center py-6 text-gray-500">
-              No individual shades configured for this room.
-            </div>
-          )}
+
         </div>
       </div>
     </div>

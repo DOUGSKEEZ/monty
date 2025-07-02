@@ -10,11 +10,60 @@ function Navbar() {
     return location.pathname === path;
   };
 
+  // Dynamic page info based on current route
+  const getPageInfo = () => {
+    switch (location.pathname) {
+      case '/':
+        return {
+          icon: '/images/Monty.png',
+          title: 'Welcome to Monty',
+          alt: 'Monty'
+        };
+      case '/shades':
+        return {
+          icon: '/images/Monty_Sunglasses.png',
+          title: 'Shade Control',
+          alt: 'Monty with sunglasses'
+        };
+      case '/pianobar':
+        return {
+          icon: '/images/Monty_Headphones.png',
+          title: "Monty's Pianobar",
+          alt: 'Monty with headphones'
+        };
+      case '/weather':
+        return {
+          icon: '/images/Monty_Weather.png',
+          title: 'Weather & Temperature',
+          alt: 'Monty with weather elements'
+        };
+      case '/settings':
+        return {
+          icon: '/images/Monty_Settings.png',
+          title: 'Settings',
+          alt: 'Monty with settings gear'
+        };
+      default:
+        return {
+          icon: '/images/Monty.png',
+          title: 'Monty',
+          alt: 'Monty'
+        };
+    }
+  };
+
+  const pageInfo = getPageInfo();
+
   return (
     <nav className="bg-blue-600 text-white p-4 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
         <Link to="/" className="flex items-center space-x-3">
-          <span className="text-2xl font-semibold">Monty</span>
+          <img 
+            src={pageInfo.icon}
+            alt={pageInfo.alt}
+            className="w-16 h-16 transform scale-x-[-1]"
+          />
+          <span className="text-3xl font-semibold">{pageInfo.title}</span>
         </Link>
         
         {/* Hamburger menu button */}

@@ -1,9 +1,17 @@
 {
   "2025-01-01": {
-    "latitude": 40.0,
-    "longitude": -105.0,
-    "sunrise": "2025-01-01T14:23:00.000Z",
-    "sunset": "2025-01-02T00:47:00.000Z",
-    "noon": "2025-01-01T19:35:00.000Z"
+    "date": "2025-01-01",
+    "sunrise": 1735730400000,
+    "sunset": 1735764300000,
+    "sunriseTime": "7:20 AM",
+    "sunsetTime": "4:45 PM",
+    "civilTwilightBegin": "2025-01-01T13:50:00+00:00",
+    "civilTwilightEnd": "2025-01-02T00:15:00+00:00",
+    "nauticalTwilightBegin": "2025-01-01T13:15:00+00:00",
+    "nauticalTwilightEnd": "2025-01-02T00:50:00+00:00",
+    "astronomicalTwilightBegin": "2025-01-01T12:40:00+00:00",
+    "astronomicalTwilightEnd": "2025-01-02T01:25:00+00:00",
+    "cached_at": 1735700000000,
+    "expires_at": 1735786400000
   }
 }

@@ -78,10 +78,8 @@ class PianobarWebsocketService {
       this.clients.add(ws);
       
       // Send current status immediately to the new client
-      this.sendToClient(ws, {
-        type: 'status',
-        data: this.currentStatus
-      });
+      // But first verify it's accurate by reading fresh status from file
+      this.sendFreshStatusToClient(ws);
       
       // Simple ping/pong handling
       ws.on('message', (message) => {
@@ -136,12 +134,31 @@ class PianobarWebsocketService {
         }
       });
       
-      statusWatcher.on('change', (filePath) => {
+      statusWatcher.on('change', async (filePath) => {
         try {
-          const statusData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          let statusData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          
+          // Verify actual process state before broadcasting
+          const actuallyRunning = await this.verifyPianobarProcess();
+          
+          // If cached status says running but process isn't running, correct it
+          if (statusData.isPianobarRunning && !actuallyRunning) {
+            logger.warn('Status file watcher detected stale data - correcting before broadcast');
+            statusData = {
+              status: 'stopped',
+              isPianobarRunning: false,
+              isPlaying: false,
+              updateTime: Date.now(),
+              corrected: true
+            };
+            
+            // Update the file with corrected status
+            fs.writeFileSync(filePath, JSON.stringify(statusData, null, 2));
+          }
+          
           this.currentStatus = statusData;
           
-          // Simple status broadcast
+          // Broadcast verified status
           this.broadcast({
             type: 'status',
             data: statusData
@@ -248,6 +265,78 @@ class PianobarWebsocketService {
         // Remove bad clients
         this.clients.delete(client);
       }
+    }
+  }
+
+  /**
+   * Send fresh status to a specific client (verifies actual process state)
+   * @param {WebSocket} client - The client to send data to
+   */
+  async sendFreshStatusToClient(client) {
+    try {
+      // Read fresh status from file
+      let statusData = { status: 'stopped', isPianobarRunning: false, isPlaying: false };
+      
+      if (fs.existsSync(this.statusFile)) {
+        try {
+          statusData = JSON.parse(fs.readFileSync(this.statusFile, 'utf8'));
+        } catch (error) {
+          logger.warn(`Error reading status file: ${error.message}`);
+        }
+      }
+
+      // Verify actual process state to prevent stale data
+      const actuallyRunning = await this.verifyPianobarProcess();
+      
+      // If cached status says running but process isn't running, correct it
+      if (statusData.isPianobarRunning && !actuallyRunning) {
+        logger.warn('WebSocket detected stale cache - correcting status');
+        statusData = {
+          status: 'stopped',
+          isPianobarRunning: false,
+          isPlaying: false,
+          updateTime: Date.now(),
+          corrected: true
+        };
+        
+        // Update the file with corrected status
+        fs.writeFileSync(this.statusFile, JSON.stringify(statusData, null, 2));
+      }
+
+      // Update our cached status
+      this.currentStatus = statusData;
+      
+      // Send to client
+      this.sendToClient(client, {
+        type: 'status',
+        data: statusData
+      });
+    } catch (error) {
+      logger.error(`Error sending fresh status: ${error.message}`);
+      // Send default safe status on error
+      this.sendToClient(client, {
+        type: 'status',
+        data: { status: 'stopped', isPianobarRunning: false, isPlaying: false }
+      });
+    }
+  }
+
+  /**
+   * Verify if pianobar process is actually running
+   * @returns {Promise<boolean>} True if pianobar is running
+   */
+  async verifyPianobarProcess() {
+    try {
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+      
+      const { stdout } = await execAsync('pgrep pianobar || echo ""', { timeout: 3000 });
+      const pids = stdout.trim().split('\n').filter(Boolean);
+      return pids.length > 0 && pids.length < 3; // Avoid orphaned processes
+    } catch (error) {
+      logger.debug(`Error checking pianobar process: ${error.message}`);
+      return false; // Assume not running on error
     }
   }
   

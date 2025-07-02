@@ -68,3 +68,8 @@ shades/commander/newrelic.ini
 # Configuration files with sensitive data
 config/config.json
 config/config.json.backup
+
+# Cache files
+**/cache/api_usage.json
+**/cache/pianobar_stations.json
+**/cache/sun_times_cache.json

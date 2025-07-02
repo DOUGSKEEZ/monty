@@ -147,9 +147,9 @@ function WeatherPage() {
   const renderCurrentWeather = () => {
     return (
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-4 flex flex-col md:flex-row justify-between">
+        <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Location and current conditions */}
-          <div className="mb-4 md:mb-0">
+          <div className="mb-4 md:mb-0 lg:col-span-3">
             <h2 className="text-2xl font-bold">
               {currentWeather.location?.name || 'Silverthorne'}, 
               {currentWeather.location?.country || 'US'}
@@ -180,10 +180,72 @@ function WeatherPage() {
             </div>
           </div>
           
+          {/* Daily Forecast - Middle Column */}
+          <div className="flex flex-col h-full lg:col-span-5">
+            <h3 className="text-lg font-semibold mb-3">Daily Forecast</h3>
+            <div className="overflow-x-auto flex-1">
+              <div className="inline-flex space-x-3 pb-2 h-full">
+                {(() => {
+                  if (!weather.forecast || !weather.forecast.days || weather.forecast.days.length === 0) {
+                    return <p className="text-sm text-gray-500">Daily forecast not available</p>;
+                  }
+                  
+                  const displayDays = generateEstimatedDays(weather.forecast.days, 8);
+                  
+                  return displayDays.map((day, index) => (
+                    <div 
+                      key={index}
+                      className={`flex flex-col min-w-[95px] p-3 rounded-lg relative lg:h-full ${
+                        index === 0 ? 'bg-blue-50' : 
+                        day.isEstimated ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
+                      }`}
+                    >
+                      {day.isEstimated && (
+                        <div className="absolute top-1 right-1">
+                          <span className="text-xs text-yellow-600 font-semibold" title="Estimated based on seasonal averages">
+                            ~
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex flex-col items-center justify-between h-full">
+                        <div className="flex flex-col items-center">
+                          <p className="text-xs font-semibold text-center">{index === 0 ? 'Today' : day.dayOfWeek}</p>
+                          <p className="text-xs text-gray-600">{formatDate(day.date, 'short')}</p>
+                        </div>
+                        <div className="flex flex-col items-center flex-1">
+                          <div className="flex justify-center items-center lg:h-16">
+                            {day.icon && (
+                              <img 
+                                src={getWeatherIconUrl(day.icon)} 
+                                alt={day.weatherMain} 
+                                className={`w-16 h-16 ${day.isEstimated ? 'opacity-70' : ''}`}
+                              />
+                            )}
+                          </div>
+                          <div className="flex justify-center items-center lg:h-12 px-1">
+                            <p className={`text-xs capitalize text-center leading-tight ${
+                              day.isEstimated ? 'text-yellow-700' : 'text-gray-600'
+                            }`}>
+                              {day.weatherMain}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-end text-xs w-full">
+                          <span className="font-semibold">{formatTemp(day.max)}°</span>
+                          <span className="text-gray-500">{formatTemp(day.min)}°</span>
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
+          
           {/* Details */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-gray-50 rounded-lg p-4 lg:col-span-4">
             <h3 className="text-lg font-semibold mb-2">Details</h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <div>
                 <span className="text-gray-600">Humidity:</span>
                 <span className="ml-2 font-medium">{currentWeather.humidity || '--'}%</span>
@@ -219,6 +281,47 @@ function WeatherPage() {
                     ? formatTime(currentWeather.sunset)
                     : weather.sunTimes?.sunsetTime || '--:--'}
                 </span>
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <div className="text-xs text-gray-600 mb-3">
+                🌤️ Weather data via OpenWeatherMap One Call API 3.0
+              </div>
+              
+              {/* Refresh Controls */}
+              <div className="flex items-center justify-between gap-3">
+                <button 
+                  onClick={handleRefresh}
+                  className={`inline-flex items-center text-sm font-medium transition-colors self-start ${
+                    refreshSuccess === 'success' ? 'text-green-600' :
+                    refreshSuccess === 'error' ? 'text-red-600' :
+                    refreshSuccess === 'cooldown' ? 'text-yellow-600' :
+                    isRefreshing ? 'text-gray-500' :
+                    'text-blue-600 hover:text-blue-800'
+                  }`}
+                  disabled={isRefreshing || refreshSuccess === 'cooldown'}
+                >
+                  <svg className={`w-3 h-3 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  {isRefreshing ? 'Refreshing...' :
+                   refreshSuccess === 'success' ? '✅ Updated!' :
+                   refreshSuccess === 'error' ? '❌ Failed' :
+                   refreshSuccess === 'cooldown' ? '⏳ Cooldown' :
+                   'Refresh Data'}
+                </button>
+                
+                <div className="text-xs text-gray-500 text-right">
+                  <div>
+                    API Requests:
+                    {usageStats && (
+                      <span className="ml-1">({usageStats.dailyCount}/{usageStats.dailyLimit})</span>
+                    )}
+                  </div>
+                  {usageStats?.cacheAgeSeconds && (
+                    <div>📱 Updated: {Math.round(usageStats.cacheAgeSeconds / 60)}m ago</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -511,49 +614,6 @@ function WeatherPage() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Weather & Temperature</h1>
-          <div className="mt-2 text-sm text-gray-600">
-            🌤️ Weather data via OpenWeatherMap One Call API 3.0
-          </div>
-        </div>
-        
-        <div className="flex flex-col items-end space-y-2">
-          <button 
-            onClick={handleRefresh}
-            className={`py-2 px-4 rounded flex items-center font-medium transition-colors ${
-              refreshSuccess === 'success' ? 'bg-green-500 text-white' :
-              refreshSuccess === 'error' ? 'bg-red-500 text-white' :
-              refreshSuccess === 'cooldown' ? 'bg-yellow-500 text-white' :
-              isRefreshing ? 'bg-gray-400 text-white' :
-              'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
-            disabled={isRefreshing || refreshSuccess === 'cooldown'}
-          >
-            <svg className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
-            {isRefreshing ? 'Refreshing...' :
-             refreshSuccess === 'success' ? '✅ Success!' :
-             refreshSuccess === 'error' ? '❌ Failed' :
-             refreshSuccess === 'cooldown' ? '⏳ Cooldown' :
-             'Refresh Data'}
-          </button>
-          
-          <div className="text-xs text-gray-500 text-right max-w-48">
-            <div>
-              💰 Requests to this service aren't free
-              {usageStats && (
-                <span className="ml-2">({usageStats.dailyCount}/{usageStats.dailyLimit})</span>
-              )}
-            </div>
-            {usageStats?.cacheAgeSeconds && (
-              <div>📱 Last updated: {Math.round(usageStats.cacheAgeSeconds / 60)}m ago</div>
-            )}
-          </div>
-        </div>
-      </div>
       
       {/* Error display */}
       {weather.error && (
@@ -576,7 +636,7 @@ function WeatherPage() {
           {renderHourlyForecast()}
           
           {/* Daily Forecast */}
-          {renderDailyForecast()}
+          {/*renderDailyForecast()*/}
           
           {/* Precipitation Map */}
           {renderPrecipitationMap()}
