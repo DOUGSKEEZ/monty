@@ -241,7 +241,18 @@ class SmartArduinoConnection:
             }
         
         try:
-            with self.connection_lock:
+            # Try to acquire lock with timeout to prevent indefinite blocking
+            lock_acquired = self.connection_lock.acquire(timeout=1.0)  # 1 second timeout
+            if not lock_acquired:
+                logger.warning(f"⚠️ Failed to acquire connection lock for command: {command}")
+                return {
+                    "success": False,
+                    "error": "Connection lock timeout - possible serial deadlock",
+                    "port": self.current_port,
+                    "command": command
+                }
+            
+            try:
                 # Send command immediately
                 self.serial_connection.write((command + '\n').encode())
                 # Remove the blocking sleep - let Arduino process in parallel
@@ -264,6 +275,8 @@ class SmartArduinoConnection:
                     "port": self.current_port,
                     "command": command
                 }
+            finally:
+                self.connection_lock.release()
                 
         except Exception as e:
             # Silent failure - just log debug and continue
