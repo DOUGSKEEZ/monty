@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../utils/AppContext';
 import { triggerShadeCommanderScene, checkShadeCommanderHealth } from '../utils/api';
+import AnimatedWeatherIcon from '../components/AnimatedWeatherIcon';
 
 function HomePage() {
   const { weather, scheduler, actions } = useAppContext();
@@ -407,26 +408,15 @@ function HomePage() {
     }
   };
 
-  // Get weather description and icon
-  const getWeatherInfo = () => {
+  // Get weather description
+  const getWeatherDescription = () => {
     if (weather.loading || !weather.current) {
-      return { description: 'Loading...', icon: null };
+      return 'Loading...';
     }
-    
-    const weatherData = weather.current;
-    let iconUrl = null;
-    
-    if (weatherData.weather?.icon) {
-      iconUrl = `https://openweathermap.org/img/wn/${weatherData.weather.icon}@2x.png`;
-    }
-    
-    return { 
-      description: weatherData.weather?.description || 'Unknown',
-      icon: iconUrl
-    };
+    return weather.current.weather?.description || 'Unknown';
   };
 
-  const { description, icon } = getWeatherInfo();
+  const description = getWeatherDescription();
 
   return (
     <div className="container mx-auto p-4">
@@ -468,10 +458,14 @@ function HomePage() {
           </p>
           
           <div className="flex items-center">
-            <span className="text-4xl font-bold">
+            <span className="px-1 text-5xl font-bold">
               {formatTemp(weather.current?.temperature?.current)}°F
             </span>
-            {icon && <img src={icon} alt={description} className="h-16 w-16" />}
+            <AnimatedWeatherIcon 
+              iconCode={weather.current?.weather?.icon} 
+              alt={description}
+              className="h-20 w-20 ml-7"
+            />
           </div>
           
           <p className="capitalize">{description}</p>

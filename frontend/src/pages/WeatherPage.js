@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../utils/AppContext';
 import WeatherMap from '../components/WeatherMap';
+import AnimatedWeatherIcon from '../components/AnimatedWeatherIcon';
 
 function WeatherPage() {
   const { weather, actions } = useAppContext();
@@ -71,17 +72,21 @@ function WeatherPage() {
     }
   };
   
-  // Get the background color based on temperature
+  // Get the background color based on temperature - optimized for Silverthorne mountain climate
   const getTemperatureColor = (temp) => {
     if (!temp) return 'bg-gray-200';
     
+    if (temp < 5) return 'bg-purple-100 text-purple-800'; // Arctic 🥶
+    if (temp < 15) return 'bg-indigo-100 text-indigo-800'; // Bitter cold
+    if (temp < 25) return 'bg-blue-200 text-blue-900'; // Very cold
     if (temp < 32) return 'bg-blue-100 text-blue-800'; // Freezing
     if (temp < 45) return 'bg-blue-50 text-blue-600'; // Cold
-    if (temp < 60) return 'bg-green-50 text-green-600'; // Cool
-    if (temp < 75) return 'bg-green-100 text-green-800'; // Mild
-    if (temp < 85) return 'bg-yellow-100 text-yellow-800'; // Warm
-    if (temp < 95) return 'bg-orange-100 text-orange-800'; // Hot
-    return 'bg-red-100 text-red-800'; // Very hot
+    if (temp < 55) return 'bg-cyan-50 text-cyan-700'; // Chilly
+    if (temp < 65) return 'bg-green-50 text-green-600'; // Cool
+    if (temp < 75) return 'bg-green-100 text-green-800'; // Pleasant
+    if (temp < 80) return 'bg-yellow-100 text-yellow-800'; // Warm
+    if (temp < 85) return 'bg-orange-100 text-orange-800'; // Hot for mountains
+    return 'bg-red-100 text-red-800'; // Extreme heat (rare!)
   };
   
   // Format temperature display
@@ -122,15 +127,41 @@ function WeatherPage() {
     const date = new Date(dateStr);
     return new Intl.DateTimeFormat('en-US', { 
       hour: 'numeric',
-      minute: '2-digit',
       hour12: true
     }).format(date);
   };
   
-  // Get weather icon URL
+  // Convert wind degrees to compass direction
+  const getWindDirectionData = (degrees) => {
+    if (degrees === null || degrees === undefined) return { compass: '', arrow: '' };
+    const directions = [
+      { compass: 'N', arrow: '↑' },
+      { compass: 'NE', arrow: '↗' },
+      { compass: 'E', arrow: '→' },
+      { compass: 'SE', arrow: '↘' },
+      { compass: 'S', arrow: '↓' },
+      { compass: 'SW', arrow: '↙' },
+      { compass: 'W', arrow: '←' },
+      { compass: 'NW', arrow: '↖' }
+    ];
+    const index = Math.round(degrees / 45) % 8;
+    return directions[index];
+  };
+  
+  // Get weather description
+  const getWeatherDescription = () => {
+    if (weather.loading || !weather.current) {
+      return 'Loading...';
+    }
+    return weather.current.weather?.description || 'Unknown';
+  };
+
+  const description = getWeatherDescription();
+  
+  // Get weather icon URL - using meteocons for forecasts
   const getWeatherIconUrl = (iconCode) => {
     if (!iconCode) return null;
-    return `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+    return `/images/meteocons/${iconCode}.svg`;
   };
   
   // Get current weather data
@@ -166,10 +197,10 @@ function WeatherPage() {
                 {formatTemp(currentWeather.temperature?.current)}°F
               </span>
               {currentWeather.weather?.icon && (
-                <img 
-                  src={getWeatherIconUrl(currentWeather.weather.icon)} 
-                  alt={currentWeather.weather.description || 'Weather icon'} 
-                  className="w-20 h-20"
+                <AnimatedWeatherIcon 
+                  iconCode={currentWeather.weather.icon} 
+                  alt={description}
+                  className="h-28 w-28 ml-4"
                 />
               )}
             </div>
@@ -394,47 +425,99 @@ function WeatherPage() {
       );
     }
     
+    // Group hours by day for better organization
+    const hoursByDay = [];
+    let currentDay = null;
+    let currentDayHours = [];
+    
+    displayEntries.forEach((hour, index) => {
+      const hourTime = new Date(hour.timestamp);
+      const mountainTime = new Date(hourTime.toLocaleString("en-US", {timeZone: "America/Denver"}));
+      const dayKey = mountainTime.toDateString();
+      
+      if (dayKey !== currentDay) {
+        if (currentDayHours.length > 0) {
+          hoursByDay.push({
+            dayLabel: currentDayHours[0].dayLabel,
+            hours: currentDayHours
+          });
+        }
+        currentDay = dayKey;
+        currentDayHours = [hour];
+      } else {
+        currentDayHours.push(hour);
+      }
+    });
+    
+    // Don't forget the last day
+    if (currentDayHours.length > 0) {
+      hoursByDay.push({
+        dayLabel: currentDayHours[0].dayLabel,
+        hours: currentDayHours
+      });
+    }
+
     return (
       <div className="bg-white rounded-lg shadow-md p-4 mt-6">
         <h3 className="text-xl font-semibold mb-4">48-Hour Forecast</h3>
         <div className="overflow-x-auto">
-          <div className="inline-flex space-x-4 pb-4 min-w-full">
-            {displayEntries.map((hour, index) => {
-              const hourTime = new Date(hour.timestamp);
-              // Use Mountain Time for day comparison
-              const mountainTime = new Date(hourTime.toLocaleString("en-US", {timeZone: "America/Denver"}));
-              const prevMountainTime = index === 0 ? null : 
-                new Date(new Date(displayEntries[index - 1].timestamp).toLocaleString("en-US", {timeZone: "America/Denver"}));
-              const isNewDay = index === 0 || 
-                (prevMountainTime && prevMountainTime.toDateString() !== mountainTime.toDateString());
-              
-              return (
+          <div>
+            {/* Day labels row */}
+            <div className="inline-flex pb-2 min-w-full">
+              {displayEntries.map((hour, index) => {
+                const hourTime = new Date(hour.timestamp);
+                const mountainTime = new Date(hourTime.toLocaleString("en-US", {timeZone: "America/Denver"}));
+                const prevMountainTime = index === 0 ? null : 
+                  new Date(new Date(displayEntries[index - 1].timestamp).toLocaleString("en-US", {timeZone: "America/Denver"}));
+                const isNewDay = index === 0 || 
+                  (prevMountainTime && prevMountainTime.toDateString() !== mountainTime.toDateString());
+                
+                return (
+                  <div key={index} className={`min-w-[100px] text-center ${index > 0 ? 'ml-4' : ''}`}>
+                    {isNewDay ? (
+                      <span className="text-sm font-semibold text-blue-600">
+                        {hour.dayLabel}
+                      </span>
+                    ) : (
+                      <span>&nbsp;</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Hourly entries row */}
+            <div className="inline-flex space-x-4 pb-4 min-w-full">
+              {displayEntries.map((hour, index) => (
                 <div key={index} className="flex flex-col items-center min-w-[100px]">
-                  {isNewDay && (
-                    <p className="text-xs font-semibold text-blue-600 mb-1">
-                      {hour.dayLabel}
-                    </p>
-                  )}
                   <p className="text-sm font-medium">{formatTime(hour.timestamp)}</p>
                   {hour.weather.icon && (
                     <img 
                       src={getWeatherIconUrl(hour.weather.icon)} 
                       alt={hour.weather.description} 
-                      className="w-12 h-12 my-1"
+                      className="w-16 h-16 my-0.5"
                     />
                   )}
                   <p className={`text-lg font-bold rounded-full px-2 ${getTemperatureColor(hour.temperature)}`}>
                     {formatTemp(hour.temperature)}°F
                   </p>
-                  <p className="text-xs text-gray-500 capitalize text-center">{hour.weather.description}</p>
-                  {hour.precipitationProbability > 20 && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      {hour.precipitationProbability}%
-                    </p>
-                  )}
+                  <p className="py-1.5 text-xs text-gray-500 capitalize text-center">{hour.weather.description}</p>
+                  <p className="text-xs text-gray-600 mt-0">
+                    {hour.windSpeed !== undefined ? (
+                      <>
+                        {Math.round(hour.windSpeed)} {getWindDirectionData(hour.windDirection).compass}{' '}
+                        <span className="text-lg" style={{ fontFamily: 'monospace' }}>
+                          {getWindDirectionData(hour.windDirection).arrow}
+                        </span>
+                      </>
+                    ) : '\u00A0'}
+                  </p>
+                  <p className="py-1.5 text-xs font-medium text-blue-600">
+                    {hour.precipitationProbability > 0 ? `${hour.precipitationProbability}%` : '\u00A0'}
+                  </p>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -479,69 +562,6 @@ function WeatherPage() {
     return extendedDays;
   };
 
-  // Render the daily forecast section
-  const renderDailyForecast = () => {
-    if (!weather.forecast || !weather.forecast.days || weather.forecast.days.length === 0) {
-      return (
-        <div className="text-center py-10">
-          <p>Daily forecast data not available</p>
-        </div>
-      );
-    }
-    
-    const displayDays = generateEstimatedDays(weather.forecast.days, 8);
-    
-    return (
-      <div className="bg-white rounded-lg shadow-md p-4 mt-6">
-        <h3 className="text-xl font-semibold mb-4">8-Day Forecast</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-4">
-          {displayDays.map((day, index) => (
-            <div 
-              key={index}
-              className={`text-center p-3 rounded-lg relative ${
-                index === 0 ? 'bg-blue-50' : 
-                day.isEstimated ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
-              }`}
-            >
-              {day.isEstimated && (
-                <div className="absolute top-1 right-1">
-                  <span className="text-xs text-yellow-600 font-semibold" title="Estimated based on seasonal averages">
-                    ~
-                  </span>
-                </div>
-              )}
-              <p className="font-semibold">{index === 0 ? 'Today' : day.dayOfWeek}</p>
-              <p className="text-xs text-gray-600">{formatDate(day.date)}</p>
-              {day.icon && (
-                <img 
-                  src={getWeatherIconUrl(day.icon)} 
-                  alt={day.weatherMain} 
-                  className={`w-12 h-12 mx-auto my-2 ${day.isEstimated ? 'opacity-70' : ''}`}
-                />
-              )}
-              <p className={`text-xs capitalize mb-1 ${
-                day.isEstimated ? 'text-yellow-700' : 'text-gray-600'
-              }`}>
-                {day.weatherMain}
-              </p>
-              <div className="flex justify-around text-sm">
-                <span className="font-semibold">{formatTemp(day.max)}°</span>
-                <span className="text-gray-500">{formatTemp(day.min)}°</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {displayDays.some(day => day.isEstimated) && (
-          <div className="mt-4 text-center">
-            <p className="text-xs text-yellow-600">
-              <span className="font-semibold">~</span> Days marked with ~ are estimated based on seasonal averages
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   // Render precipitation map - now using our integrated WeatherMap component!
   const renderPrecipitationMap = () => {
@@ -634,9 +654,6 @@ function WeatherPage() {
           
           {/* Hourly Forecast */}
           {renderHourlyForecast()}
-          
-          {/* Daily Forecast */}
-          {/*renderDailyForecast()*/}
           
           {/* Precipitation Map */}
           {renderPrecipitationMap()}

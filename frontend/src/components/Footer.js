@@ -1,8 +1,10 @@
 import React from 'react';
 import { useAppContext } from '../utils/AppContext';
+import { useLocation } from 'react-router-dom';
 
 function Footer() {
   const { weather } = useAppContext();
+  const location = useLocation();
   
   // Get the current temperature
   const getCurrentTemp = () => {
@@ -13,6 +15,7 @@ function Footer() {
   };
   
   const currentTemp = getCurrentTemp();
+  const isWeatherPage = location.pathname === '/weather';
 
   return (
     <footer className="bg-gray-800 text-white p-4 shadow-inner">
@@ -20,6 +23,11 @@ function Footer() {
         <div className="mb-2 md:mb-0">
           {currentTemp !== null && (
             <span className="mr-4">🌡️ {currentTemp}°F</span>
+          )}
+          {isWeatherPage && (
+            <span className="text-xs text-gray-400">
+              ✨ Weather icons by Meteocons (MIT License) • Animated icons by Freepik-Flaticon
+            </span>
           )}
         </div>
         <div className="flex items-center space-x-3">

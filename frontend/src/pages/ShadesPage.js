@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../utils/AppContext';
-import ShadeControl, { ShadeGroupControl, RoomControl } from '../components/ShadeControl';
+import '../components/ShadeControl';
 import { controlShadeCommander, checkShadeCommanderHealth, triggerShadeCommanderScene } from '../utils/api';
 
 function ShadesPage() {
@@ -96,26 +96,6 @@ function ShadesPage() {
     return { solarShades, privacyShades, blackoutShades };
   };
   
-  // Group shades by location for a given type
-  const getShadesByLocationAndType = (shades, type) => {
-    // Filter for the specified type
-    const typedShades = shades.filter(shade => shade.type === type);
-    
-    // Group by location
-    const locationGroups = {};
-    
-    typedShades.forEach(shade => {
-      const location = shade.location || 'Unknown';
-      if (location === 'All') return; // Skip "All" shades
-      
-      if (!locationGroups[location]) {
-        locationGroups[location] = [];
-      }
-      locationGroups[location].push(shade);
-    });
-    
-    return locationGroups;
-  };
   
   // Get the room list from shade config
   const getRooms = () => {
@@ -184,7 +164,6 @@ function ShadesPage() {
   
   const rooms = getRooms();
   const { solarShades, privacyShades, blackoutShades } = getRoomShades();
-  const locations = getLocations(activeRoom);
 
   return (
     <div className="container mx-auto p-4">
