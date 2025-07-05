@@ -36,8 +36,8 @@ class WeatherService extends IWeatherService {
     // Configuration - Load API key securely from environment
     this.apiKey = process.env.OPENWEATHERMAP_API_KEY || this.configManager.get('weather.apiKey');
     this.city = this.configManager.get('weather.city', 'Silverthorne');
-    this.latitude = this.configManager.get('weather.latitude', 39.66339791188263);
-    this.longitude = this.configManager.get('weather.longitude', -106.06779952152995);
+    this.latitude = this.configManager.get('weather.latitude', 39.66336894676102);
+    this.longitude = this.configManager.get('weather.longitude', -106.06774195949477);
     this.units = this.configManager.get('weather.units', 'imperial');
     this.cacheTimeout = this.configManager.get('weather.cacheTimeout', 300000); // 5 minutes
     this.requestTimeout = this.configManager.get('weather.requestTimeout', 10000);
@@ -123,22 +123,15 @@ class WeatherService extends IWeatherService {
    * @returns {Promise<Object>} Current weather information
    */
   async getCurrentWeather(forceRefresh = false) {
-    const timer = this.logger.startTimer('weather-current');
-    const trigger = forceRefresh ? TRIGGER_TYPES.MANUAL : TRIGGER_TYPES.SCHEDULED;
-
     // Use One Call API if enabled
     if (this.useOneCallAPI) {
       try {
         // SINGLE API CALL - get all weather data at once
+        // getOneCallData handles all timing, logging, and cache tracking
         await this.getOneCallData(forceRefresh);
-        const duration = timer.end({
-          action: LOG_ACTIONS.WEATHER.API_CALL,
-          trigger,
-          cache_status: 'hit',
-          cache_age: this.getCacheAge()
-        });
         return this.cache.current;
       } catch (error) {
+        const trigger = forceRefresh ? TRIGGER_TYPES.MANUAL : TRIGGER_TYPES.SCHEDULED;
         this.logger.warn('One Call API failed, falling back to legacy API', {
           action: LOG_ACTIONS.WEATHER.ERROR,
           error: error.message,
@@ -369,7 +362,33 @@ class WeatherService extends IWeatherService {
           
           // One Call API 3.0 URL with all data types
           const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${this.latitude}&lon=${this.longitude}&appid=${this.apiKey}&units=${this.units}&exclude=minutely`;
+          const maskedUrl = url.replace(this.apiKey, '***API_KEY***');
+          console.log('🌐 Making API request to:', maskedUrl);
           const data = await this.makeHttpRequest(url);
+          
+          // Enhanced API response logging
+          const current = data.current || {};
+          const alerts = data.alerts || [];
+          console.log('📡 ONE CALL API RESPONSE:', {
+            location: { lat: data.lat, lon: data.lon, timezone: data.timezone },
+            current_conditions: {
+              temp: current.temp,
+              feels_like: current.feels_like,
+              humidity: current.humidity,
+              pressure: current.pressure,
+              uv_index: current.uvi,
+              visibility: current.visibility,
+              clouds: current.clouds,
+              weather: current.weather?.[0]?.description,
+              wind: { speed: current.wind_speed, direction: current.wind_deg }
+            },
+            forecasts: {
+              hourly_count: data.hourly?.length || 0,
+              daily_count: data.daily?.length || 0
+            },
+            alerts_count: alerts.length,
+            data_size_kb: Math.round(JSON.stringify(data).length / 1024)
+          });
           
           // Track API usage for cost management
           this.trackApiUsage(forceRefresh);
@@ -461,7 +480,7 @@ class WeatherService extends IWeatherService {
 
     try {
       const result = await this.ongoingRequest;
-      const duration = timer.end({
+      timer.end({
         action: LOG_ACTIONS.WEATHER.API_CALL,
         trigger,
         cache_status: forceRefresh ? 'forced' : 'miss'
@@ -762,8 +781,6 @@ class WeatherService extends IWeatherService {
       },
       cloudiness: data.clouds.all,
       visibility: data.visibility,
-      sunrise: new Date(data.sys.sunrise * 1000).toISOString(),
-      sunset: new Date(data.sys.sunset * 1000).toISOString(),
       lastUpdated: new Date().toISOString()
     };
   }
@@ -778,7 +795,9 @@ class WeatherService extends IWeatherService {
     const dayGroups = {};
     
     data.list.forEach(item => {
-      const date = new Date(item.dt * 1000);
+      // Apply timezone offset to convert UTC to local time
+      const localTimestamp = (item.dt + data.timezone) * 1000;
+      const date = new Date(localTimestamp);
       const dayKey = date.toDateString(); // Groups by day (e.g., "Wed May 29 2025")
       
       if (!dayGroups[dayKey]) {
@@ -795,7 +814,7 @@ class WeatherService extends IWeatherService {
       
       // Add hourly entry
       dayGroups[dayKey].hourly.push({
-        timestamp: new Date(item.dt * 1000).toISOString(),
+        timestamp: date.toISOString(),
         time: date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
         temperature: Math.round(item.main.temp),
         feelsLike: Math.round(item.main.feels_like),
@@ -857,7 +876,7 @@ class WeatherService extends IWeatherService {
       days,
       // Keep the original flat forecasts for backward compatibility and scheduler use
       forecasts: data.list.map(item => ({
-        datetime: new Date(item.dt * 1000).toISOString(),
+        datetime: new Date((item.dt + data.timezone) * 1000).toISOString(),
         temperature: Math.round(item.main.temp),
         feelsLike: Math.round(item.main.feels_like),
         humidity: item.main.humidity,
@@ -883,6 +902,23 @@ class WeatherService extends IWeatherService {
    */
   formatCurrentWeatherFromOneCall(data) {
     const current = data.current;
+    
+    // DEBUG: Log raw temperature values from API
+    console.log('🌡️ RAW API TEMPERATURE DATA:', {
+      raw_temp: current.temp,
+      raw_feels_like: current.feels_like,
+      rounded_temp: Math.round(current.temp),
+      rounded_feels_like: Math.round(current.feels_like),
+      api_timestamp: current.dt,
+      timezone_offset: data.timezone_offset
+    });
+    
+    // Apply timezone offset to convert UTC to local time
+    const localCurrentTimestamp = (current.dt + data.timezone_offset) * 1000;
+    const localCurrentTime = new Date(localCurrentTimestamp);
+    // Use current local time for lastUpdated
+    const localNow = new Date(Date.now() + (data.timezone_offset * 1000));
+    
     return {
       location: {
         name: this.city,
@@ -907,9 +943,8 @@ class WeatherService extends IWeatherService {
       visibility: current.visibility,
       uvIndex: current.uvi,
       dewPoint: current.dew_point,
-      sunrise: new Date(current.sunrise * 1000).toISOString(),
-      sunset: new Date(current.sunset * 1000).toISOString(),
-      lastUpdated: new Date().toISOString()
+      currentTime: localCurrentTime.toISOString().replace('Z', ''),
+      lastUpdated: localNow.toISOString().replace('Z', '')
     };
   }
 
@@ -921,10 +956,12 @@ class WeatherService extends IWeatherService {
   formatForecastFromOneCall(data) {
     // Convert all hourly data (48 hours) to a flat array
     const allHourlyData = data.hourly.map((hour, index) => {
-      const date = new Date(hour.dt * 1000);
+      // Apply timezone offset to convert UTC to local time for display
+      const localTimestamp = (hour.dt + data.timezone_offset) * 1000;
+      const localDate = new Date(localTimestamp);
       return {
-        timestamp: date.toISOString(),
-        time: date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
+        timestamp: localDate.toISOString().replace('Z', ''), // Local time without Z suffix
+        time: localDate.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true, timeZone: 'UTC' }),
         temperature: Math.round(hour.temp),
         feelsLike: Math.round(hour.feels_like),
         humidity: hour.humidity,
@@ -980,9 +1017,11 @@ class WeatherService extends IWeatherService {
     
     // Process daily data (8 days of real data!)
     const dailyForecasts = data.daily.map((day, index) => {
+      // Apply timezone offset to convert UTC to local time
+      const localDayTimestamp = (day.dt + data.timezone_offset) * 1000;
       return {
-        date: new Date(day.dt * 1000).toISOString().split('T')[0],
-        dayOfWeek: new Date(day.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' }),
+        date: new Date(localDayTimestamp).toISOString().split('T')[0],
+        dayOfWeek: new Date(localDayTimestamp).toLocaleDateString('en-US', { weekday: 'short' }),
         min: Math.round(day.temp.min),
         max: Math.round(day.temp.max),
         avg: Math.round((day.temp.min + day.temp.max) / 2),
@@ -1033,7 +1072,7 @@ class WeatherService extends IWeatherService {
       allHourly: allHourlyData,
       // Keep flat hourly array for scheduler convenience (48 hours of real data!)
       hourly: data.hourly.map(hour => ({
-        datetime: new Date(hour.dt * 1000).toISOString(),
+        datetime: new Date((hour.dt + data.timezone_offset) * 1000).toISOString(),
         temperature: Math.round(hour.temp),
         feelsLike: Math.round(hour.feels_like),
         humidity: hour.humidity,
@@ -1051,7 +1090,7 @@ class WeatherService extends IWeatherService {
       })),
       // Keep flat daily array for backward compatibility  
       forecasts: data.daily.map(day => ({
-        datetime: new Date(day.dt * 1000).toISOString(),
+        datetime: new Date((day.dt + data.timezone_offset) * 1000).toISOString(),
         temperature: Math.round(day.temp.day),
         tempMin: Math.round(day.temp.min),
         tempMax: Math.round(day.temp.max),
@@ -1162,12 +1201,25 @@ class WeatherService extends IWeatherService {
       async () => {
         try {
           // Use sunrise-sunset.org API for all dates (includes twilight data)
-          const lat = 39.63; // Silverthorne latitude
-          const lon = -106.07; // Silverthorne longitude
+          const lat = 39.66336894676102; // Silverthorne, CO
+          const lon = -106.06774195949477; // Silverthorne, CO
           
-          const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${formattedDate}&formatted=0`;
-          this.logger.info(`Fetching sun times from sunrise-sunset.org for ${formattedDate}`);
+          const url = `https://api.sunrise-sunset.org/json?tzid=America/Denver&lat=${lat}&lng=${lon}&date=${formattedDate}&formatted=0`;
+          console.log('🌐 Making API request to:', url);
           const data = await this.makeHttpRequest(url);
+          
+          // Log sunrise-sunset API response
+          if (data.status === 'OK') {
+            console.log('☀️ SUNRISE-SUNSET API RESPONSE:', {
+              date: formattedDate,
+              sunrise: data.results.sunrise,
+              sunset: data.results.sunset,
+              civil_twilight_begin: data.results.civil_twilight_begin,
+              civil_twilight_end: data.results.civil_twilight_end,
+              day_length: data.results.day_length,
+              solar_noon: data.results.solar_noon
+            });
+          }
           
           if (data.status === 'OK') {
             const sunriseDate = new Date(data.results.sunrise);
@@ -1179,13 +1231,15 @@ class WeatherService extends IWeatherService {
               sunset: sunsetDate.getTime(),
               sunriseTime: this.timezoneManager.formatForDisplay(sunriseDate),
               sunsetTime: this.timezoneManager.formatForDisplay(sunsetDate),
-              // Store additional twilight data for future use
+              // Store additional twilight and solar timing data
               civilTwilightBegin: data.results.civil_twilight_begin,
               civilTwilightEnd: data.results.civil_twilight_end,
               nauticalTwilightBegin: data.results.nautical_twilight_begin,
               nauticalTwilightEnd: data.results.nautical_twilight_end,
               astronomicalTwilightBegin: data.results.astronomical_twilight_begin,
-              astronomicalTwilightEnd: data.results.astronomical_twilight_end
+              astronomicalTwilightEnd: data.results.astronomical_twilight_end,
+              solarNoon: data.results.solar_noon,
+              dayLength: data.results.day_length
             };
             
             // Cache the result

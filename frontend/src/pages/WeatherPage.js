@@ -99,7 +99,8 @@ function WeatherPage() {
   const formatDate = (dateStr, type = 'short') => {
     if (!dateStr) return '';
     
-    const date = new Date(dateStr);
+    // Parse date as local time to avoid timezone shift issues
+    const date = new Date(dateStr + 'T12:00:00');
     if (type === 'short') {
       return new Intl.DateTimeFormat('en-US', { 
         month: 'short', 
@@ -283,7 +284,17 @@ function WeatherPage() {
               </div>
               <div>
                 <span className="text-gray-600">Wind:</span>
-                <span className="ml-2 font-medium">{currentWeather.wind?.speed || '--'} mph</span>
+                <span className="ml-2 font-medium">
+                  {currentWeather.wind?.speed || '--'} mph
+                  {currentWeather.wind?.direction !== undefined && (
+                    <>
+                      {' '}{getWindDirectionData(currentWeather.wind.direction).compass}{' '}
+                      <span className="text-lg" style={{ fontFamily: 'monospace' }}>
+                        {getWindDirectionData(currentWeather.wind.direction).arrow}
+                      </span>
+                    </>
+                  )}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Pressure:</span>
@@ -432,8 +443,8 @@ function WeatherPage() {
     
     displayEntries.forEach((hour, index) => {
       const hourTime = new Date(hour.timestamp);
-      const mountainTime = new Date(hourTime.toLocaleString("en-US", {timeZone: "America/Denver"}));
-      const dayKey = mountainTime.toDateString();
+      // Backend already sends local time, no need for timezone conversion
+      const dayKey = hourTime.toDateString();
       
       if (dayKey !== currentDay) {
         if (currentDayHours.length > 0) {
@@ -466,11 +477,10 @@ function WeatherPage() {
             <div className="inline-flex pb-2 min-w-full">
               {displayEntries.map((hour, index) => {
                 const hourTime = new Date(hour.timestamp);
-                const mountainTime = new Date(hourTime.toLocaleString("en-US", {timeZone: "America/Denver"}));
-                const prevMountainTime = index === 0 ? null : 
-                  new Date(new Date(displayEntries[index - 1].timestamp).toLocaleString("en-US", {timeZone: "America/Denver"}));
+                // Backend already sends local time, no need for timezone conversion
+                const prevHourTime = index === 0 ? null : new Date(displayEntries[index - 1].timestamp);
                 const isNewDay = index === 0 || 
-                  (prevMountainTime && prevMountainTime.toDateString() !== mountainTime.toDateString());
+                  (prevHourTime && prevHourTime.toDateString() !== hourTime.toDateString());
                 
                 return (
                   <div key={index} className={`min-w-[100px] text-center ${index > 0 ? 'ml-4' : ''}`}>

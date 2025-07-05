@@ -184,7 +184,7 @@ function WeatherMap() {
           <h3 className="text-xl font-semibold">
             Weather Radar
             <span className="text-sm font-normal text-gray-600 ml-4">
-             {/*Summit County, CO*/}
+             (Next ~3 hours model)
             </span>
           </h3>
         </div>
@@ -397,7 +397,7 @@ function WeatherMap() {
       </div>
       
       <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-        <span>🔄 Updates every 5 minutes with current conditions</span>
+        <span>🔄 Near real-time data (may show 3-hour model intervals)</span>
         <span>Powered by OpenWeatherMap</span>
       </div>
     </div>

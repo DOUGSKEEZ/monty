@@ -203,6 +203,10 @@ console.log('[DEBUG] About to require monitoringRoutes...');
 const monitoringRoutes = require('./routes/monitoring');
 console.log('[DEBUG] monitoringRoutes imported');
 
+console.log('[DEBUG] About to require systemRoutes...');
+const systemRoutes = require('./routes/system');
+console.log('[DEBUG] systemRoutes imported');
+
 // API Routes
 app.get('/api/health', async (req, res) => {
   // Enhanced health check that verifies key system components
@@ -906,6 +910,7 @@ app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/system', systemRoutes);
 
 // Catch-all route for client-side routing (production only)
 if (process.env.NODE_ENV === 'production') {

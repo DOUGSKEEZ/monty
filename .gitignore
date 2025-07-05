@@ -73,3 +73,6 @@ config/config.json.backup
 **/cache/api_usage.json
 **/cache/pianobar_stations.json
 **/cache/sun_times_cache.json
+
+# Personal documentation
+CLAUDE.md

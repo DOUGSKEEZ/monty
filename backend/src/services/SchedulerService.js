@@ -152,24 +152,12 @@ class SchedulerService {
       times.good_afternoon_display = `${hour12}:${minuteStr} ${ampm}`;
       
       // Also store the date for scheduling purposes
-      // Create Good Afternoon time for today (daily recurring job)  
-      // Create date string with proper timezone using Intl.DateTimeFormat
+      // Create Good Afternoon time for today using local time (system is now in local timezone)
       const today = new Date();
-      const todayDateStr = today.toISOString().split('T')[0]; // Get YYYY-MM-DD
-      
-      // Get current timezone offset for America/Denver (or whatever timezone is configured)
-      const timezone = this.timezoneManager.getCronTimezone() || 'America/Denver';
-      const testDate = new Date();
-      const formatter = new Intl.DateTimeFormat('en', {
-        timeZone: timezone,
-        timeZoneName: 'longOffset'
-      });
-      const parts = formatter.formatToParts(testDate);
-      const offsetPart = parts.find(part => part.type === 'timeZoneName');
-      const offset = offsetPart ? offsetPart.value.replace('GMT', '') : '-06:00';
-      
-      const afternoonDateStr = `${todayDateStr}T${afternoonTime}:00${offset}`;
-      times.good_afternoon = new Date(afternoonDateStr);
+      const [afternoonHours, afternoonMinutes] = afternoonTime.split(':').map(Number);
+      const goodAfternoonTime = new Date(today);
+      goodAfternoonTime.setHours(afternoonHours, afternoonMinutes, 0, 0);
+      times.good_afternoon = goodAfternoonTime;
       
       // Get full sun times data (includes twilight)
       const sunTimesData = await this.getSunTimesData(date);
@@ -413,8 +401,7 @@ class SchedulerService {
       const afternoonJob = cron.schedule(afternoonCron, () => {
         this.executeScene('good_afternoon');
       }, {
-        scheduled: true,
-        timezone: this.timezoneManager.getCronTimezone()
+        scheduled: true
       });
       
       this.scheduledJobs.set('good_afternoon', afternoonJob);
@@ -424,8 +411,7 @@ class SchedulerService {
       const midnightJob = cron.schedule('0 0 * * *', () => {
         this.calculateAndScheduleDynamicScenes();
       }, {
-        scheduled: true,
-        timezone: this.timezoneManager.getCronTimezone()
+        scheduled: true
       });
       
       this.scheduledJobs.set('midnight_recalc', midnightJob);
@@ -455,15 +441,13 @@ class SchedulerService {
       if (times.good_evening > now) {
         const eveningDate = times.good_evening;
         
-        // Convert to Mountain Time for cron scheduling
-        const eveningMT = this.timezoneManager.toUserTime(eveningDate);
-        const eveningCron = `${eveningMT.getMinutes()} ${eveningMT.getHours()} ${eveningMT.getDate()} ${eveningMT.getMonth() + 1} *`;
+        // Schedule directly with local time since system is now in local timezone
+        const eveningCron = `${eveningDate.getMinutes()} ${eveningDate.getHours()} ${eveningDate.getDate()} ${eveningDate.getMonth() + 1} *`;
         
         const eveningJob = cron.schedule(eveningCron, () => {
           this.executeScene('good_evening');
         }, {
-          scheduled: true,
-          timezone: this.timezoneManager.getCronTimezone()
+          scheduled: true
         });
         
         this.scheduledJobs.set('good_evening_today', eveningJob);
@@ -474,15 +458,13 @@ class SchedulerService {
       if (times.good_night > now) {
         const nightDate = times.good_night;
         
-        // Convert to Mountain Time for cron scheduling
-        const nightMT = this.timezoneManager.toUserTime(nightDate);
-        const nightCron = `${nightMT.getMinutes()} ${nightMT.getHours()} ${nightMT.getDate()} ${nightMT.getMonth() + 1} *`;
+        // Schedule directly with local time since system is now in local timezone
+        const nightCron = `${nightDate.getMinutes()} ${nightDate.getHours()} ${nightDate.getDate()} ${nightDate.getMonth() + 1} *`;
         
         const nightJob = cron.schedule(nightCron, () => {
           this.executeScene('good_night');
         }, {
-          scheduled: true,
-          timezone: this.timezoneManager.getCronTimezone()
+          scheduled: true
         });
         
         this.scheduledJobs.set('good_night_today', nightJob);
@@ -985,8 +967,7 @@ class SchedulerService {
         logger.info('🚨 [WAKE_UP_DEBUG] CRON JOB TRIGGERED! Executing wake up sequence...');
         this.executeWakeUpSequence();
       }, {
-        scheduled: true,
-        timezone: this.timezoneManager.getCronTimezone()
+        scheduled: true
       });
       
       logger.debug('🔍 [WAKE_UP_DEBUG] cron.schedule() returned, checking result...');
@@ -1146,8 +1127,7 @@ class SchedulerService {
           logger.error(`Error during Good Morning execution: ${error.message}`);
         }
       }, {
-        scheduled: true,
-        timezone: this.timezoneManager.getCronTimezone()
+        scheduled: true
       });
       
       this.scheduledJobs.set('good_morning_wakeup', goodMorningJob);
@@ -1259,8 +1239,7 @@ class SchedulerService {
             logger.error(`Error during rescheduled Good Morning execution: ${error.message}`);
           }
         }, {
-          scheduled: true,
-          timezone: this.timezoneManager.getCronTimezone()
+          scheduled: true
         });
         
         this.scheduledJobs.set('good_morning_wakeup', newGoodMorningJob);
@@ -1480,7 +1459,12 @@ class SchedulerService {
           const minuteStr = m.toString().padStart(2, '0');
           return `${next.name} at ${hour12}:${minuteStr} ${ampm}`;
         } else {
-          return `${next.name} at ${this.timezoneManager.formatForDisplay(next.time)}`;
+          const hour = next.time.getHours();
+          const minute = next.time.getMinutes();
+          const hour12 = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+          const ampm = hour >= 12 ? 'PM' : 'AM';
+          const minuteStr = minute.toString().padStart(2, '0');
+          return `${next.name} at ${hour12}:${minuteStr} ${ampm}`;
         }
       }
       
@@ -1509,7 +1493,17 @@ class SchedulerService {
           if (key === 'good_afternoon_display') {
             acc['good_afternoon'] = this.nextSceneTimes[key];
           } else if (key !== 'good_afternoon') {
-            acc[key] = this.nextSceneTimes[key] ? this.timezoneManager.formatForDisplay(this.nextSceneTimes[key]) : null;
+            const time = this.nextSceneTimes[key];
+            if (time) {
+              const hour = time.getHours();
+              const minute = time.getMinutes();
+              const hour12 = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+              const ampm = hour >= 12 ? 'PM' : 'AM';
+              const minuteStr = minute.toString().padStart(2, '0');
+              acc[key] = `${hour12}:${minuteStr} ${ampm}`;
+            } else {
+              acc[key] = null;
+            }
           }
           return acc;
         }, {}),

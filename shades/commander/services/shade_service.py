@@ -105,8 +105,8 @@ class ShadeService:
             # Get last command time from Arduino status
             last_command_time = None
             if arduino_status.get("last_successful_command"):
-                from datetime import datetime
-                last_command_time = datetime.fromisoformat(arduino_status["last_successful_command"])
+                # The Arduino returns ISO timestamp, keep as string for API
+                last_command_time = arduino_status["last_successful_command"]
             
             # Determine overall status
             if arduino_connected and database_accessible:

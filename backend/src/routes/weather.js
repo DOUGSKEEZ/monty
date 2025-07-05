@@ -191,6 +191,8 @@ router.get('/map-tile/:layer/:z/:x/:y', async (req, res) => {
     }
     
     // Build OpenWeatherMap tile URL with secure API key
+    // Note: Using Weather Maps 1.0 API - this shows current conditions but may have 3-hour model intervals
+    // For more precise current data, consider upgrading to Weather Maps 2.0 API with date parameter
     const tileUrl = `https://tile.openweathermap.org/map/${layer}/${z}/${x}/${y}.png?appid=${apiKey}`;
     
     // Map tile request (logging disabled to reduce verbosity)

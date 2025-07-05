@@ -7,7 +7,7 @@ import AwayPeriodsList from '../components/AwayPeriodsList';
 
 function SettingsPage() {
   // Get state and actions from context
-  const { scheduler, actions } = useAppContext();
+  const { scheduler, weather, actions } = useAppContext();
   
   // Component state
   const [saving, setSaving] = useState(false);
@@ -50,10 +50,9 @@ function SettingsPage() {
   });
   const [timezoneSettings, setTimezoneSettings] = useState({
     current: 'America/Denver',
-    display: 'America/Denver (Mountain Time)'
+    display: 'America/Denver (Mountain Time)',
+    systemTime: ''
   });
-  const [showTimezoneConfirm, setShowTimezoneConfirm] = useState(false);
-  const [pendingTimezone, setPendingTimezone] = useState(null);
 
   // Update form states when scheduler config changes
   useEffect(() => {
@@ -88,14 +87,6 @@ function SettingsPage() {
         enabled_for_afternoon: config.music?.enabled_for_afternoon === true,
         enabled_for_night: config.music?.enabled_for_night === true
       });
-      
-      // Update timezone settings from location config
-      if (config.location?.timezone) {
-        setTimezoneSettings({
-          current: config.location.timezone,
-          display: getTimezoneDisplay(config.location.timezone)
-        });
-      }
     }
   }, [scheduler.config]);
 
@@ -104,6 +95,7 @@ function SettingsPage() {
     console.log('🛠️ SettingsPage mounted - loading scheduler data...');
     actions.refreshScheduler();
     loadArduinoStatus();
+    loadSystemTimezone();
   }, []); // Empty dependency array - only run on mount
 
   // Load Arduino status
@@ -120,6 +112,24 @@ function SettingsPage() {
     } catch (error) {
       console.error('Error loading Arduino status:', error);
       setArduinoStatus({ connected: false, loading: false, error: true });
+    }
+  };
+
+  // Load system timezone
+  const loadSystemTimezone = async () => {
+    try {
+      const response = await fetch('/api/system/timezone');
+      const result = await response.json();
+      
+      if (result.success) {
+        setTimezoneSettings({
+          current: result.data.timezone,
+          display: getTimezoneDisplay(result.data.timezone),
+          systemTime: result.data.currentTime
+        });
+      }
+    } catch (error) {
+      console.error('Error loading system timezone:', error);
     }
   };
 
@@ -241,54 +251,7 @@ function SettingsPage() {
     }
   };
 
-  // Handle timezone selection
-  const handleTimezoneSelect = (newTimezone) => {
-    if (newTimezone === timezoneSettings.current) return;
-    
-    setPendingTimezone(newTimezone);
-    setShowTimezoneConfirm(true);
-  };
-
-  // Update timezone settings
-  const updateTimezone = async () => {
-    try {
-      setSaving(true);
-      setShowTimezoneConfirm(false);
-      
-      const response = await fetch('/api/scheduler/timezone', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ timezone: pendingTimezone })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setTimezoneSettings({
-          current: pendingTimezone,
-          display: getTimezoneDisplay(pendingTimezone)
-        });
-        showSuccess('Timezone updated - all schedules refreshed');
-        // Refresh scheduler data to show updated times
-        actions.refreshScheduler();
-      } else {
-        showError(`Failed to update timezone: ${result.error}`);
-      }
-    } catch (err) {
-      showError(`Error updating timezone: ${err.message}`);
-    } finally {
-      setSaving(false);
-      setPendingTimezone(null);
-    }
-  };
-
-  // Cancel timezone change
-  const cancelTimezoneChange = () => {
-    setShowTimezoneConfirm(false);
-    setPendingTimezone(null);
-  };
+  // Timezone is now read-only - no change functionality
 
   // Test a scene manually
   const testScene = async (sceneName) => {
@@ -319,7 +282,7 @@ function SettingsPage() {
     return sceneName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  // Timezone helper function
+  // Timezone helper function for display
   const getTimezoneDisplay = (timezone) => {
     const timezoneMap = {
       'America/Los_Angeles': 'Pacific Time',
@@ -641,6 +604,16 @@ function SettingsPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div>
+            {/* Solar Noon Display */}
+            {weather.sunTimes?.solarNoon && (
+              <div className="text-xs text-gray-400 mb-1">
+                Solar noon: {new Date(weather.sunTimes.solarNoon).toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit', 
+                  hour12: true 
+                })}
+              </div>
+            )}
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Afternoon Time
             </label>
@@ -675,6 +648,12 @@ function SettingsPage() {
           </div>
           
           <div>
+            {/* Sunset Time Display */}
+            {weather.sunTimes?.sunsetTime && (
+              <div className="text-xs text-gray-400 mb-1">
+                Sunset: {weather.sunTimes.sunsetTime}
+              </div>
+            )}
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Evening (minutes before sunset)
             </label>
@@ -712,6 +691,16 @@ function SettingsPage() {
           </div>
           
           <div>
+            {/* Civil Twilight End Display */}
+            {weather.sunTimes?.civilTwilightEnd && (
+              <div className="text-xs text-gray-400 mb-1">
+                Civil twilight: {new Date(weather.sunTimes.civilTwilightEnd).toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit', 
+                  hour12: true 
+                })}
+              </div>
+            )}
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Good Night (civil twilight offset)
             </label>
@@ -1041,103 +1030,42 @@ Current Queue Size: ${result.queue_size || 0}`;
         </AwayManager>
       </div>
 
-      {/* Timezone Settings Section */}
+      {/* System Timezone Information */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
           <span className="mr-2">🌍</span>
-          Timezone Settings
+          System Timezone
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-gray-700 text-sm font-bold mb-2">
-              Current Timezone
+              Current System Timezone
             </label>
-            <div className="bg-gray-100 rounded py-2 px-3 text-gray-700 mb-3">
-              {timezoneSettings.display}
+            <div className="bg-gray-100 rounded py-3 px-4 text-gray-800 mb-3 border-l-4 border-blue-500">
+              <span className="font-medium">{timezoneSettings.display}</span>
             </div>
-            
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              Change Timezone
-            </label>
-            <select
-              value={timezoneSettings.current}
-              onChange={(e) => handleTimezoneSelect(e.target.value)}
-              className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-full"
-            >
-              <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
-              <option value="America/Denver">Mountain Time (Denver)</option>
-              <option value="America/Chicago">Central Time (Chicago)</option>
-              <option value="America/New_York">Eastern Time (New York)</option>
-              <option value="America/Phoenix">Arizona Time (Phoenix)</option>
-              <option value="Pacific/Honolulu">Hawaii Time (Honolulu)</option>
-              <option value="America/Anchorage">Alaska Time (Anchorage)</option>
-            </select>
+            {timezoneSettings.systemTime && (
+              <div className="bg-blue-50 rounded py-2 px-3 border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">System Time:</span> {timezoneSettings.systemTime}
+                </p>
+              </div>
+            )}
           </div>
           
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2">⚠️ Important:</h3>
+            <h3 className="font-semibold text-gray-700 mb-2">ℹ️ About System Timezone:</h3>
             <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Changing timezone affects all scheduled times</li>
-              <li>• Wake-up alarms will be adjusted automatically</li>
-              <li>• Scene times will be recalculated</li>
-              <li>• All active schedules will be refreshed</li>
+              <li>• All scheduled times use this timezone</li>
+              <li>• Changes require system administrator access</li>
+              <li>• To change: SSH to server and use <code className="bg-gray-100 px-1 rounded">timedatectl</code></li>
             </ul>
+            
           </div>
         </div>
       </div>
 
-      {/* Timezone Confirmation Modal */}
-      {showTimezoneConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              🌍 Confirm Timezone Change
-            </h3>
-            
-            <div className="mb-4">
-              <p className="text-gray-700 mb-2">
-                Change from:
-              </p>
-              <div className="bg-gray-100 rounded p-2 mb-2">
-                <strong>{getTimezoneDisplay(timezoneSettings.current)}</strong>
-              </div>
-              
-              <p className="text-gray-700 mb-2">
-                Change to:
-              </p>
-              <div className="bg-blue-100 rounded p-2 mb-4">
-                <strong>{getTimezoneDisplay(pendingTimezone)}</strong>
-              </div>
-              
-              <div className="bg-yellow-100 border border-yellow-400 rounded p-3 mb-4">
-                <p className="text-sm text-yellow-800">
-                  <strong>This will:</strong><br/>
-                  • Update all scheduled scenes<br/>
-                  • Adjust wake-up alarm times<br/>
-                  • Recalculate sunset-based scenes<br/>
-                  • Refresh all cron schedules
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={cancelTimezoneChange}
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={updateTimezone}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Confirm Change
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Status notifications */}
       {saving && (

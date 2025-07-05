@@ -683,80 +683,10 @@ router.put('/music', async (req, res) => {
 });
 
 /**
- * Update timezone configuration
+ * Timezone management has been moved to system-level configuration
+ * Web applications should not change system timezone for security reasons
+ * Use: sudo timedatectl set-timezone <timezone> on the server
  */
-router.put('/timezone', async (req, res) => {
-  try {
-    const { timezone } = req.body;
-    
-    // Validate timezone format
-    if (!timezone || typeof timezone !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Valid timezone identifier required'
-      });
-    }
-    
-    // Validate timezone is supported
-    const supportedTimezones = [
-      'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
-      'America/Phoenix', 'Pacific/Honolulu', 'America/Anchorage'
-    ];
-    
-    if (!supportedTimezones.includes(timezone)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Unsupported timezone. Must be one of: ' + supportedTimezones.join(', ')
-      });
-    }
-    
-    const result = await schedulerCircuit.execute(async () => {
-      const schedulerService = await getSchedulerService();
-      
-      // Update scheduler configuration
-      schedulerService.schedulerConfig.location.timezone = timezone;
-      
-      // Save configuration to file
-      schedulerService.saveSchedulerConfig();
-      
-      // Reinitialize TimezoneManager with new timezone
-      const { initializeTimezoneManager } = require('../utils/TimezoneManager');
-      const newTimezoneManager = initializeTimezoneManager(timezone);
-      
-      // Update the service's timezone manager
-      schedulerService.timezoneManager = newTimezoneManager;
-      
-      // Reschedule all scenes with new timezone
-      logger.info(`Timezone changed to ${timezone}, rescheduling all scenes`);
-      await schedulerService.scheduleAllScenes();
-      
-      return {
-        timezone: timezone,
-        display: newTimezoneManager.getTimezoneDisplay(),
-        message: 'Timezone updated and all schedules refreshed'
-      };
-    }, 'update-timezone');
-    
-    if (result.fallback) {
-      return res.status(503).json(result);
-    }
-    
-    logger.info(`Timezone successfully updated to: ${timezone}`);
-    
-    res.json({
-      success: true,
-      message: 'Timezone updated successfully',
-      data: result
-    });
-    
-  } catch (error) {
-    logger.error(`Error updating timezone: ${error.message}`);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update timezone'
-    });
-  }
-});
 
 /**
  * Test a scene manually (for scene testing)

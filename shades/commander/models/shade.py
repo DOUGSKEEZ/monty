@@ -29,7 +29,7 @@ class ShadeResponse(BaseModel):
     shade_id: int = Field(..., description="ID of the shade we transmitted to")
     action: str = Field(..., description="Action that was transmitted")
     execution_time_ms: int = Field(..., description="Time taken to transmit command in milliseconds")
-    timestamp: datetime = Field(default_factory=datetime.now, description="When command was transmitted")
+    timestamp: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), description="When command was transmitted (local time)")
     arduino_response: Optional[str] = Field(None, description="Raw Arduino response for debugging")
     
     class Config:
@@ -88,7 +88,7 @@ class HealthStatus(BaseModel):
     arduino_connected: bool = Field(..., description="Can we talk to Arduino?")
     database_accessible: bool = Field(..., description="Can we read shades.db?")
     uptime_seconds: float = Field(..., description="How long has service been running?")
-    last_command_time: Optional[datetime] = Field(None, description="When did we last send a command?")
+    last_command_time: Optional[str] = Field(None, description="When did we last send a command? (local time)")
     
     class Config:
         json_schema_extra = {
@@ -154,7 +154,7 @@ class ErrorResponse(BaseModel):
     error: str = Field(..., description="Error category (ShadeNotFound, ArduinoDisconnected, etc)")
     message: str = Field(..., description="Human-readable explanation of what went wrong")
     shade_id: Optional[int] = Field(None, description="Which shade caused the error (if applicable)")
-    timestamp: datetime = Field(default_factory=datetime.now, description="When the error occurred")
+    timestamp: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), description="When the error occurred (local time)")
     
     class Config:
         json_schema_extra = {
@@ -178,7 +178,7 @@ class SceneExecutionLog(BaseModel):
     - Troubleshooting: "Scene failed because shade 14 didn't respond"
     """
     scene_name: str = Field(..., description="Name of the scene that was executed")
-    execution_time: datetime = Field(default_factory=datetime.now, description="When the scene started")
+    execution_time: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), description="When the scene started (local time)")
     total_commands: int = Field(..., description="Total number of shade commands in scene")
     successful_commands: int = Field(..., description="Number of commands that succeeded")
     failed_commands: int = Field(..., description="Number of commands that failed")

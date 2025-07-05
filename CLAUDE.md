@@ -285,6 +285,31 @@ Shades are organized by:
 - Application should be resilient to restarts and gracefully recover state
 - Use node-cron for scheduling based on sunset data
 
+## API Data Sources
+
+### Location Coordinates
+Monty uses specific coordinates for different purposes:
+
+- **Hamilton Creek Metro District** (Primary weather/sun data): `39.66336894676102, -106.06774195949477`
+- **Silverthorne, CO** (General reference): `39.6321, -106.0743`
+- **Lake Silverthorne** (WeatherMap frontend center): `39.60821587173474, -106.04554769654602`
+
+**Current Configuration**: All weather and sunrise/sunset API requests use Hamilton Creek Metro District coordinates for the most accurate local data.
+
+### Weather Data
+All weather data uses OpenWeatherMap One Call API:
+```
+https://api.openweathermap.org/data/3.0/onecall?lat=39.66336894676102&lon=-106.06774195949477&appid=4e36aad2ef3010d3e5fb37d39b95ff4f
+```
+**Note:** OpenWeatherMap responses are in UTC but contain `"timezone_offset": -21600` parameter which is critical for converting times into the correct local timezone.
+
+### Sun-related Data  
+All sun-related data (sunrise/sunset/civil twilight) uses sunrise-sunset.org API:
+```
+https://api.sunrise-sunset.org/json?tzid=America/Denver&lat=39.66336894676102&lng=-106.06774195949477&date=today
+```
+**Note:** The `tzid=America/Denver` parameter is critical for getting times in the correct local timezone rather than UTC. OpenWeatherMap has sunrise/sunset but does NOT have civil twilight times.
+
 ## Working with Assumptions
 
 When making technical decisions or analyzing system behavior:
@@ -298,6 +323,47 @@ When making technical decisions or analyzing system behavior:
 > "I'm assuming a standard exponential backoff pattern of 2s/4s/8s for retry delays, but let me check the actual ShadeCommander configuration since this directly impacts our zombie detection thresholds..."
 
 Assumptions aren't bad - they help explore possibilities and catch missing considerations. But transparency prevents small cracks from becoming big bugs as we iterate.
+
+## Timezone Management
+
+The system uses a **system-level timezone approach** to eliminate complex timezone conversion bugs:
+
+### Current Implementation
+- **System Timezone**: All times use the server's system timezone (set via `timedatectl`)
+- **No App Conversions**: The application does not perform timezone conversions
+- **Scheduler**: Uses system local time for all cron schedules (no timezone parameters)
+- **API Responses**: All timestamps are in local time format
+
+### Settings Page Timezone Display
+- **Read-Only**: The Settings page displays the current system timezone but does not allow changes
+- **System Information**: Shows current timezone and system time for reference
+- **Administrator Notes**: Provides instructions for changing timezone via SSH
+
+### How to Change System Timezone
+```bash
+# SSH to the server
+ssh user@server
+
+# Change timezone (requires sudo)
+sudo timedatectl set-timezone America/Denver
+
+# Verify the change
+timedatectl show --property=Timezone --value
+
+# Restart backend service
+cd /home/monty/monty/backend
+./kill-server.sh && ./dev.sh
+```
+
+### API Endpoints
+- **GET** `/api/system/timezone` - Returns current system timezone and time (read-only)
+- **No PUT/POST** - Timezone changes are not allowed via web API for security reasons
+
+### Key Benefits
+- Eliminates timezone conversion bugs in the application
+- All scheduled times are consistent with system time
+- Simple, reliable approach that uses OS-level timezone management
+- No complex date manipulation or conversion logic needed
 
 ## SchedulerService Development Guidelines
 

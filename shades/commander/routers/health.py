@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException
 import logging
 import time
+from datetime import datetime
 
 from commander.models.shade import HealthStatus, SystemStatus
 from commander.services.shade_service import shade_service
@@ -190,7 +191,7 @@ async def retry_tasks_status():
         
         return {
             "success": True,
-            "timestamp": time.time(),
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
             **task_stats,
             "latest_command_wins_active": len(task_stats["shade_task_mapping"]) > 0,
             "message": f"Active: {task_stats['total_active_tasks']} tasks, Cancelled: {task_stats['total_cancelled_tasks']} total, Recent: {task_stats['recent_cancellations']}"
@@ -233,7 +234,7 @@ async def cancel_all_retries():
             "success": True,
             "message": f"Cancelled {initial_count} active retry tasks",
             "tasks_cancelled": initial_count,
-            "timestamp": time.time()
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         }
     except Exception as e:
         logger.error(f"Error cancelling retry tasks: {e}")

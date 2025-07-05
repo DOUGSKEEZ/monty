@@ -89,7 +89,7 @@ class SmartArduinoConnection:
                 logger.debug(f"🔌 Testing port: {port}")
                 
                 # Try to open the port
-                test_ser = serial.Serial(port, self.baud_rate, timeout=2)
+                test_ser = serial.Serial(port, self.baud_rate, timeout=2, write_timeout=2)
                 time.sleep(2)  # Give Arduino time to reset/initialize
                 
                 # Send INFO command to see if it's our Arduino
@@ -168,7 +168,7 @@ class SmartArduinoConnection:
             
             try:
                 # Connect to the Arduino
-                self.serial_connection = serial.Serial(port, self.baud_rate, timeout=1)
+                self.serial_connection = serial.Serial(port, self.baud_rate, timeout=1, write_timeout=1)
                 time.sleep(2)  # Wait for Arduino to initialize
                 self.current_port = port
                 
@@ -254,7 +254,16 @@ class SmartArduinoConnection:
             
             try:
                 # Send command immediately
-                self.serial_connection.write((command + '\n').encode())
+                try:
+                    self.serial_connection.write((command + '\n').encode())
+                except serial.SerialTimeoutException:
+                    logger.warning(f"⏱️ Write timeout for command: {command}")
+                    return {
+                        "success": False,
+                        "error": "Serial write timeout - Arduino may be unresponsive",
+                        "port": self.current_port,
+                        "command": command
+                    }
                 # Remove the blocking sleep - let Arduino process in parallel
                 
                 # Read response with fast timeout
