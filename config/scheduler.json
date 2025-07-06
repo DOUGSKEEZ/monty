@@ -10,8 +10,8 @@
     "good_night_offset_minutes": -15
   },
   "wake_up": {
-    "enabled": false,
-    "time": "08:58",
+    "enabled": true,
+    "time": "08:00",
     "last_triggered": null,
     "good_morning_delay_minutes": 15
   },

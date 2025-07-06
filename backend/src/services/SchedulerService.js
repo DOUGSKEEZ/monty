@@ -944,9 +944,22 @@ class SchedulerService {
         }
       }
       
-      // Generate cron expression
-      const riseNShineCron = `${minutes} ${hours} * * *`;
-      logger.debug(`🔍 [WAKE_UP_DEBUG] Generated cron expression: "${riseNShineCron}"`);
+      // Generate cron expression - always one-time for next upcoming occurrence
+      const targetDate = new Date();
+      
+      if (wakeUpMinutesFromMidnight > currentMinutesFromMidnight) {
+        // Wake up time is later today - schedule for today
+        logger.debug(`🔍 [WAKE_UP_DEBUG] Scheduling for today`);
+      } else {
+        // Wake up time has passed today - schedule for tomorrow
+        targetDate.setDate(targetDate.getDate() + 1);
+        logger.debug(`🔍 [WAKE_UP_DEBUG] Scheduling for tomorrow`);
+      }
+      
+      const dayOfMonth = targetDate.getDate();
+      const month = targetDate.getMonth() + 1; // cron months are 1-based
+      const riseNShineCron = `${minutes} ${hours} ${dayOfMonth} ${month} *`;
+      logger.debug(`🔍 [WAKE_UP_DEBUG] Generated ONE-TIME cron expression: "${riseNShineCron}" (${dayOfMonth}/${month})`);
       
       // Validate cron expression format
       if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
@@ -956,13 +969,7 @@ class SchedulerService {
       
       logger.debug('✅ [WAKE_UP_DEBUG] Cron expression validated, proceeding to schedule');
       
-      // Get timezone configuration
-      const timezone = this.timezoneManager.getCronTimezone();
-      logger.debug(`🔍 [WAKE_UP_DEBUG] Using timezone: ${timezone}`);
-      
-      logger.debug('🔍 [WAKE_UP_DEBUG] About to call cron.schedule()...');
-      
-      // Schedule Rise'n'Shine at wake up time (use original hours/minutes for cron)
+      // Schedule Rise'n'Shine at wake up time (uses system timezone)
       const riseNShineJob = cron.schedule(riseNShineCron, () => {
         logger.info('🚨 [WAKE_UP_DEBUG] CRON JOB TRIGGERED! Executing wake up sequence...');
         this.executeWakeUpSequence();
