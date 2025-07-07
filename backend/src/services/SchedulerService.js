@@ -88,7 +88,7 @@ class SchedulerService {
   getDefaultConfig() {
     return {
       location: {
-        timezone: this.timezoneManager?.getCronTimezone() || "America/Denver",
+        // Uses system timezone automatically
         city: "Silverthorne, CO"
       },
       scenes: {
@@ -138,7 +138,7 @@ class SchedulerService {
   async calculateSceneTimes(date = new Date()) {
     try {
       const times = {};
-      const dateStr = date.toLocaleDateString('en-CA', { timeZone: this.timezoneManager.getCronTimezone() });
+      const dateStr = date.toLocaleDateString('en-US'); // Uses system timezone
       
       // Good Afternoon - static time (user input is in user's timezone)
       const afternoonTime = this.schedulerConfig.scenes.good_afternoon_time || "14:30";
@@ -1100,10 +1100,9 @@ class SchedulerService {
       
       logger.info(`Scheduling Good Morning scene in ${delayMinutes} minutes...`);
       
-      // Schedule Good Morning as a one-time cron job instead of setTimeout for better reliability
+      // Schedule Good Morning as a one-time cron job (system local time)
       const goodMorningTime = new Date(Date.now() + delayMs);
-      const goodMorningUserTime = this.timezoneManager.toUserTime(goodMorningTime);
-      const goodMorningCron = `${goodMorningUserTime.getMinutes()} ${goodMorningUserTime.getHours()} ${goodMorningUserTime.getDate()} ${goodMorningUserTime.getMonth() + 1} *`;
+      const goodMorningCron = `${goodMorningTime.getMinutes()} ${goodMorningTime.getHours()} ${goodMorningTime.getDate()} ${goodMorningTime.getMonth() + 1} *`;
       
       const goodMorningJob = cron.schedule(goodMorningCron, async () => {
         try {
@@ -1215,8 +1214,7 @@ class SchedulerService {
       
       // Only reschedule if the new time is still in the future
       if (newGoodMorningTime > now) {
-        const goodMorningUserTime = this.timezoneManager.toUserTime(newGoodMorningTime);
-        const goodMorningCron = `${goodMorningUserTime.getMinutes()} ${goodMorningUserTime.getHours()} ${goodMorningUserTime.getDate()} ${goodMorningUserTime.getMonth() + 1} *`;
+        const goodMorningCron = `${newGoodMorningTime.getMinutes()} ${newGoodMorningTime.getHours()} ${newGoodMorningTime.getDate()} ${newGoodMorningTime.getMonth() + 1} *`;
         
         const newGoodMorningJob = cron.schedule(goodMorningCron, async () => {
           try {
@@ -1424,12 +1422,8 @@ class SchedulerService {
       if (!wakeUpConfig.enabled && wakeUpConfig.last_triggered && wakeUpConfig.time) {
         const lastTriggered = new Date(wakeUpConfig.last_triggered);
         
-        // Get user timezone times for comparison
-        const nowUserTime = this.timezoneManager.toUserTime(now);
-        const lastTriggeredUserTime = this.timezoneManager.toUserTime(lastTriggered);
-        
-        // Check if wake up was triggered today in user timezone
-        if (lastTriggeredUserTime.toDateString() === nowUserTime.toDateString()) {
+        // Check if wake up was triggered today (system local time)
+        if (lastTriggered.toDateString() === now.toDateString()) {
           const delayMinutes = wakeUpConfig.good_morning_delay_minutes || 15;
           
           // Calculate Good Morning time based on actual trigger time

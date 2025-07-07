@@ -81,6 +81,7 @@ class SceneExecutionResponse(BaseModel):
     commands_successful: int = Field(..., description="Number of commands that succeeded")
     results: List[SceneExecutionResult] = Field(..., description="Detailed results for each command")
     timestamp: datetime = Field(default_factory=datetime.now, description="When scene was executed")
+    task_id: Optional[str] = Field(None, description="Background task ID for tracking execution")
 
 class SceneExecutionRequest(BaseModel):
     """Optional parameters for scene execution"""

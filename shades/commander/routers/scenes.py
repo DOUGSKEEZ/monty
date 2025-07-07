@@ -316,117 +316,56 @@ async def execute_scene(
                 results=results
             )
         
-        # Execute scene commands - FIRST CYCLE ONLY (immediate response) 
-        results = []
-        successful_commands = 0
+        # NEW APPROACH: Queue entire scene execution as background task (fire-and-forget)
+        logger.info(f"Queuing scene '{scene_name}' for background execution (fire-and-forget)")
         
-        scene_start_time = time.time()
+        # Prepare all commands for background execution
+        scene_commands = []
+        for cmd in scene.commands:
+            scene_commands.append({
+                "shade_id": cmd.shade_id,
+                "action": cmd.action,
+                "delay_ms": cmd.delay_ms
+            })
         
-        # Prepare commands for background retry cycles
-        retry_commands = []
+        # Queue the entire scene as a background task (including first cycle + retries)
+        task_id = async_retry_service.queue_scene_execution(
+            scene_name=scene_name,
+            scene_commands=scene_commands,
+            retry_count=retry_count + 1,  # +1 to include the first execution
+            delay_between_commands_ms=scene.commands[0].delay_ms if scene.commands else 750,
+            timeout_seconds=timeout_seconds
+        )
         
-        for i, cmd in enumerate(scene.commands):
-            # Check timeout
-            if time.time() - scene_start_time > timeout_seconds:
-                logger.warning(f"Scene '{scene_name}' timed out after {timeout_seconds}s")
-                break
-            
-            try:
-                logger.info(f"Executing command {i+1}/{len(scene.commands)}: shade {cmd.shade_id} {cmd.action}")
-                
-                # Execute command via shade service (NO RETRIES - single attempt only)
-                response = await shade_service.execute_shade_command(cmd.shade_id, cmd.action)
-                
-                results.append(SceneExecutionResult(
-                    shade_id=cmd.shade_id,
-                    action=cmd.action,
-                    success=response.success,
-                    message=response.message,
-                    execution_time_ms=response.execution_time_ms,
-                    retry_attempt=0  # This is the first cycle, not a retry
-                ))
-                
-                if response.success:
-                    successful_commands += 1
-                else:
-                    logger.warning(f"First cycle command failed: {response.message}")
-                
-                # Add to retry commands list for background processing
-                retry_commands.append({
-                    "shade_id": cmd.shade_id,
-                    "action": cmd.action
-                })
-                
-            except Exception as e:
-                logger.error(f"Error executing command: {e}")
-                results.append(SceneExecutionResult(
-                    shade_id=cmd.shade_id,
-                    action=cmd.action,
-                    success=False,
-                    message=f"Command failed: {str(e)}",
-                    execution_time_ms=0,
-                    retry_attempt=0
-                ))
-                
-                # Still add to retry commands - background retries might succeed
-                retry_commands.append({
-                    "shade_id": cmd.shade_id,
-                    "action": cmd.action
-                })
-            
-            # Apply delay after command (except for last command)
-            if i < len(scene.commands) - 1 and cmd.delay_ms > 0:
-                await asyncio.sleep(cmd.delay_ms / 1000.0)
+        logger.info(f"✅ Scene '{scene_name}' queued for background execution (task: {task_id})")
         
-        # Queue background retry cycles if configured
-        if retry_count > 0 and retry_commands:
-            retry_task_id = async_retry_service.queue_scene_retries(
-                scene_name=scene_name,
-                scene_commands=retry_commands,
-                retry_count=retry_count,
-                delay_between_commands_ms=scene.commands[0].delay_ms if scene.commands else 750
-            )
-            logger.info(f"📝 Queued {retry_count} background retry cycles for scene '{scene_name}' (task: {retry_task_id})")
-        else:
-            logger.info(f"📝 No background retries queued for scene '{scene_name}' (retry_count: {retry_count})")
-        
+        # Return immediately with success (fire-and-forget pattern)
         total_time = int((time.time() - start_time) * 1000)
         
-        # Determine overall success for first cycle
-        overall_success = successful_commands == len(scene.commands)
-        success_rate = successful_commands / len(scene.commands) if scene.commands else 0
+        # For immediate response, we'll show the scene as "queued" rather than executed
+        results = []
+        for cmd in scene.commands:
+            results.append(SceneExecutionResult(
+                shade_id=cmd.shade_id,
+                action=cmd.action,
+                success=True,
+                message=f"Queued for background execution",
+                execution_time_ms=0,
+                retry_attempt=0
+            ))
         
-        if overall_success:
-            if retry_count > 0:
-                message = f"Scene '{scene_name}' first cycle completed successfully - {retry_count} background retry cycles queued"
-            else:
-                message = f"Scene '{scene_name}' executed successfully"
-        else:
-            if retry_count > 0:
-                message = f"Scene '{scene_name}' first cycle: {successful_commands}/{len(scene.commands)} commands succeeded ({success_rate:.1%}) - {retry_count} background retry cycles queued"
-            else:
-                message = f"Scene '{scene_name}' partially completed: {successful_commands}/{len(scene.commands)} commands succeeded ({success_rate:.1%})"
-        
-        logger.info(f"✅ Scene '{scene_name}' first cycle completed: {message}")
-        
-        # Log scene execution for monitoring
-        if not execution_params.dry_run:  # Don't log dry runs
-            _log_scene_execution(
-                scene_name=scene_name,
-                total_commands=len(results),
-                successful_commands=successful_commands,
-                duration_ms=total_time,
-                command_results=results
-            )
+        # Return immediately with success (fire-and-forget pattern)
+        message = f"Scene '{scene_name}' queued for background execution with {retry_count + 1} total cycles"
         
         return SceneExecutionResponse(
-            success=overall_success,
+            success=True,
             scene_name=scene_name,
             message=message,
             total_execution_time_ms=total_time,
-            commands_executed=len(results),
-            commands_successful=successful_commands,
-            results=results
+            commands_executed=len(scene.commands),
+            commands_successful=len(scene.commands),  # All "successful" since they're queued
+            results=results,
+            task_id=task_id  # Include task ID so user can track progress
         )
         
     except FileNotFoundError:

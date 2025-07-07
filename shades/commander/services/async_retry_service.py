@@ -286,6 +286,85 @@ class AsyncRetryService:
         logger.info(f"🚀 Queued fire-and-forget sequence for shade {shade_id} action '{action}' (task: {task_id})")
         return task_id
     
+    def queue_scene_execution(self, scene_name: str, scene_commands: List[Dict[str, Any]], 
+                            retry_count: int, delay_between_commands_ms: int = 750,
+                            timeout_seconds: int = 30) -> str:
+        """
+        Queue complete scene execution as a background task (fire-and-forget).
+        
+        This makes scenes non-blocking like individual shade commands.
+        
+        Args:
+            scene_name: Name of the scene to execute
+            scene_commands: List of commands with shade_id, action, and delay_ms
+            retry_count: Total number of execution cycles (including first)
+            delay_between_commands_ms: Default delay between commands
+            timeout_seconds: Timeout for the entire scene execution
+            
+        Returns:
+            task_id: Unique identifier for this scene execution
+        """
+        task_id = self._generate_task_id()
+        
+        async def execute_scene_with_retries():
+            """Execute the scene with all retry cycles"""
+            try:
+                logger.info(f"🎬 Starting scene '{scene_name}' execution with {retry_count} total cycles")
+                
+                for cycle in range(retry_count):
+                    logger.info(f"🔄 Scene '{scene_name}' cycle {cycle + 1}/{retry_count}")
+                    
+                    for i, cmd in enumerate(scene_commands):
+                        try:
+                            # Execute the command
+                            result = await send_shade_command_fast(cmd["shade_id"], cmd["action"])
+                            
+                            if result["success"]:
+                                logger.debug(f"✅ Scene command: shade {cmd['shade_id']} {cmd['action']} successful")
+                            else:
+                                logger.warning(f"⚠️ Scene command: shade {cmd['shade_id']} {cmd['action']} failed")
+                            
+                            # Apply command-specific delay or default delay
+                            delay_ms = cmd.get("delay_ms", delay_between_commands_ms)
+                            if i < len(scene_commands) - 1 and delay_ms > 0:
+                                await asyncio.sleep(delay_ms / 1000.0)
+                                
+                        except Exception as e:
+                            logger.error(f"❌ Scene command error for shade {cmd['shade_id']}: {e}")
+                    
+                    # Add delay between retry cycles (except after last cycle)
+                    if cycle < retry_count - 1:
+                        await asyncio.sleep(2.0)  # 2 second delay between cycles
+                
+                logger.info(f"✅ Scene '{scene_name}' completed all {retry_count} cycles")
+                
+            except asyncio.CancelledError:
+                logger.info(f"🛑 Scene '{scene_name}' task {task_id} was cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"❌ Scene '{scene_name}' execution failed: {e}")
+            finally:
+                # Clean up the task
+                if task_id in self.active_tasks:
+                    del self.active_tasks[task_id]
+        
+        # Create task with timeout protection
+        async def timeout_protected_scene():
+            try:
+                await asyncio.wait_for(
+                    execute_scene_with_retries(),
+                    timeout=float(timeout_seconds)
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"⏱️ Scene '{scene_name}' timed out after {timeout_seconds}s")
+        
+        # Queue the scene execution as a background task
+        task = asyncio.create_task(timeout_protected_scene())
+        self.active_tasks[task_id] = task
+        
+        logger.info(f"🚀 Queued scene '{scene_name}' for background execution (task: {task_id})")
+        return task_id
+    
     async def _execute_scene_retry_cycles(self, scene_name: str, scene_commands: List[Dict[str, Any]], 
                                         retry_count: int, delay_between_commands_ms: int = 750) -> None:
         """

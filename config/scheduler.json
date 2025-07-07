@@ -11,7 +11,7 @@
   },
   "wake_up": {
     "enabled": true,
-    "time": "08:00",
+    "time": "07:45",
     "last_triggered": null,
     "good_morning_delay_minutes": 15
   },
