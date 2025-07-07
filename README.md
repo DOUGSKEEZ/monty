@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Monty.png" alt="Monty the Owl" width="200"/>
+  <img src="images/Monty.png" alt="Monty the Owl" width="200"/>
   
   # 🦉 Monty Home Automation System
   

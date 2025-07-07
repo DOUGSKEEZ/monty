@@ -10,9 +10,9 @@
     "good_night_offset_minutes": -15
   },
   "wake_up": {
-    "enabled": true,
-    "time": "07:45",
-    "last_triggered": null,
+    "enabled": false,
+    "time": "08:28",
+    "last_triggered": "2025-07-07T14:28:00.030Z",
     "good_morning_delay_minutes": 15
   },
   "music": {
