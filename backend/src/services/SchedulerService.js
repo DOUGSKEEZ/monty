@@ -1283,6 +1283,21 @@ class SchedulerService {
         logger.debug(`Stopped wake up job: ${jobName}`);
       }
     }
+    
+    // Check if wake up was scheduled for today and was cleared manually
+    const wakeUpConfig = this.getWakeUpConfig();
+    if (!wakeUpConfig.enabled && wakeUpConfig.time) {
+      const [hours, minutes] = wakeUpConfig.time.split(':').map(Number);
+      const now = new Date();
+      const wakeUpTime = new Date();
+      wakeUpTime.setHours(hours, minutes, 0, 0);
+      
+      // If wake up was scheduled for today and we're clearing it before it triggered
+      if (wakeUpTime.toDateString() === now.toDateString() && wakeUpTime > now) {
+        logger.info('Wake up alarm cleared for today - recalculating next scene times');
+        this.calculateSceneTimes().catch(() => {});
+      }
+    }
   }
 
   /**
