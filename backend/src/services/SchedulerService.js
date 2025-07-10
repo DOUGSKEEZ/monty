@@ -19,7 +19,7 @@ const chokidar = require('chokidar');
 const logger = require('../utils/logger').getModuleLogger('scheduler-service');
 
 class SchedulerService {
-  constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, weatherService, timezoneManager) {
+  constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, weatherService, timezoneManager, alarmNotificationService) {
     this.configManager = configManager;
     this.retryHelper = retryHelper;
     this.circuitBreaker = circuitBreaker;
@@ -27,6 +27,7 @@ class SchedulerService {
     this.serviceWatchdog = serviceWatchdog;
     this.weatherService = weatherService;
     this.timezoneManager = timezoneManager;
+    this.alarmNotificationService = alarmNotificationService;
     
     // Configuration
     this.schedulerConfigPath = path.join(__dirname, '../../../config/scheduler.json');
@@ -865,7 +866,7 @@ class SchedulerService {
   /**
    * Schedule wake up alarm if enabled
    */
-  scheduleWakeUp() {
+  async scheduleWakeUp() {
     try {
       logger.debug('🔍 [WAKE_UP_DEBUG] scheduleWakeUp() method called');
       
@@ -1015,6 +1016,32 @@ class SchedulerService {
       logger.debug('🔍 [WAKE_UP_DEBUG] All scheduled jobs:');
       for (const [name, job] of this.scheduledJobs) {
         logger.debug(`🔍 [WAKE_UP_DEBUG] - ${name}: ${job ? 'ACTIVE' : 'NULL'}`);
+      }
+      
+      // Notify alarm device about new wake-up schedule
+      if (this.alarmNotificationService) {
+        try {
+          // Calculate the actual alarm date/time
+          const nextAlarmDate = new Date();
+          if (wakeUpMinutesFromMidnight <= currentMinutesFromMidnight) {
+            // Alarm is tomorrow
+            nextAlarmDate.setDate(nextAlarmDate.getDate() + 1);
+          }
+          nextAlarmDate.setHours(hours, minutes, 0, 0);
+          
+          const notificationResult = await this.alarmNotificationService.notifyWakeUpScheduled(
+            wakeUpConfig.time,
+            nextAlarmDate
+          );
+          
+          if (notificationResult.success) {
+            logger.info('Alarm device notified of new wake-up schedule');
+          } else {
+            logger.warn(`Could not notify alarm device: ${notificationResult.message}`);
+          }
+        } catch (notifyError) {
+          logger.error(`Error notifying alarm device: ${notifyError.message}`);
+        }
       }
       
     } catch (error) {
@@ -1273,7 +1300,7 @@ class SchedulerService {
   /**
    * Clear wake up scheduled jobs
    */
-  clearWakeUpSchedules() {
+  async clearWakeUpSchedules() {
     const wakeUpJobs = ['rise_n_shine', 'good_morning_wakeup'];
     
     for (const jobName of wakeUpJobs) {
@@ -1296,6 +1323,20 @@ class SchedulerService {
       if (wakeUpTime.toDateString() === now.toDateString() && wakeUpTime > now) {
         logger.info('Wake up alarm cleared for today - recalculating next scene times');
         this.calculateSceneTimes().catch(() => {});
+      }
+    }
+    
+    // Notify alarm device that schedules are cleared
+    if (this.alarmNotificationService) {
+      try {
+        const notificationResult = await this.alarmNotificationService.notifyScheduleCleared();
+        if (notificationResult.success) {
+          logger.info('Alarm device notified of schedule clearing');
+        } else {
+          logger.warn(`Could not notify alarm device: ${notificationResult.message}`);
+        }
+      } catch (error) {
+        logger.error(`Error notifying alarm device: ${error.message}`);
       }
     }
   }
@@ -1796,6 +1837,67 @@ class SchedulerService {
    */
   async reloadConfig() {
     return await this.reloadConfigurationAndReschedule();
+  }
+
+  /**
+   * Get alarm device status for debugging
+   */
+  async getAlarmDeviceStatus() {
+    if (!this.alarmNotificationService) {
+      return {
+        error: 'AlarmNotificationService not available'
+      };
+    }
+    
+    const configStatus = this.alarmNotificationService.getConfig();
+    const pingResult = await this.alarmNotificationService.pingAlarmDevice();
+    const lastNotification = this.alarmNotificationService.lastNotificationResult;
+    
+    return {
+      config: configStatus,
+      connectivity: pingResult,
+      lastNotificationStatus: lastNotification || null
+    };
+  }
+
+  /**
+   * Manual alarm device sync - push current schedule to device
+   */
+  async syncWithAlarmDevice() {
+    if (!this.alarmNotificationService) {
+      return {
+        success: false,
+        error: 'AlarmNotificationService not available'
+      };
+    }
+    
+    const wakeUpConfig = this.getWakeUpConfig();
+    
+    if (wakeUpConfig.enabled && wakeUpConfig.time) {
+      // Calculate next alarm date/time
+      const [hours, minutes] = wakeUpConfig.time.split(':').map(Number);
+      const now = new Date();
+      const nextAlarmDate = new Date();
+      
+      // Use same logic as scheduleWakeUp for consistency
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const wakeUpMinutesFromMidnight = hours * 60 + minutes;
+      const currentMinutesFromMidnight = currentHour * 60 + currentMinute;
+      
+      if (wakeUpMinutesFromMidnight <= currentMinutesFromMidnight) {
+        // Alarm is tomorrow
+        nextAlarmDate.setDate(nextAlarmDate.getDate() + 1);
+      }
+      nextAlarmDate.setHours(hours, minutes, 0, 0);
+      
+      return await this.alarmNotificationService.notifyWakeUpScheduled(
+        wakeUpConfig.time,
+        nextAlarmDate
+      );
+    } else {
+      return await this.alarmNotificationService.notifyScheduleCleared();
+    }
   }
 }
 

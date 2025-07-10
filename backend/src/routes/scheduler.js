@@ -740,4 +740,178 @@ router.post('/test/:sceneName', async (req, res) => {
   }
 });
 
+/**
+ * Get alarm device status and connectivity
+ */
+router.get('/alarm-device/status', async (req, res) => {
+  try {
+    const schedulerService = container.resolve('schedulerService');
+    
+    if (!schedulerService) {
+      return res.status(503).json({
+        success: false,
+        error: 'SchedulerService not available'
+      });
+    }
+    
+    const status = await schedulerService.getAlarmDeviceStatus();
+    
+    res.json({
+      success: true,
+      data: status
+    });
+    
+  } catch (error) {
+    logger.error(`Error getting alarm device status: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get alarm device status'
+    });
+  }
+});
+
+/**
+ * Manually sync current schedule with alarm device
+ */
+router.post('/alarm-device/sync', async (req, res) => {
+  try {
+    const schedulerService = container.resolve('schedulerService');
+    
+    if (!schedulerService) {
+      return res.status(503).json({
+        success: false,
+        error: 'SchedulerService not available'
+      });
+    }
+    
+    const result = await schedulerService.syncWithAlarmDevice();
+    
+    if (result.success) {
+      logger.info('Manual alarm device sync completed successfully');
+      res.json({
+        success: true,
+        message: 'Alarm device synchronized',
+        data: result
+      });
+    } else {
+      logger.warn(`Manual alarm device sync failed: ${result.message}`);
+      res.status(400).json({
+        success: false,
+        error: result.message || 'Failed to sync with alarm device',
+        details: result
+      });
+    }
+    
+  } catch (error) {
+    logger.error(`Error syncing with alarm device: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync with alarm device'
+    });
+  }
+});
+
+/**
+ * Update alarm device notification settings
+ */
+router.put('/alarm-device/config', async (req, res) => {
+  try {
+    const { enabled, deviceUrl, timeout, maxRetries } = req.body;
+    
+    const alarmNotificationService = container.resolve('alarmNotificationService');
+    
+    if (!alarmNotificationService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AlarmNotificationService not available'
+      });
+    }
+    
+    // Validate inputs
+    if (deviceUrl && !/^https?:\/\/.+/.test(deviceUrl)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid device URL format'
+      });
+    }
+    
+    if (timeout !== undefined && (timeout < 1000 || timeout > 30000)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Timeout must be between 1000 and 30000 milliseconds'
+      });
+    }
+    
+    if (maxRetries !== undefined && (maxRetries < 0 || maxRetries > 10)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Max retries must be between 0 and 10'
+      });
+    }
+    
+    // Update configuration
+    const updateConfig = {};
+    if (enabled !== undefined) updateConfig.enabled = enabled;
+    if (deviceUrl) updateConfig.deviceUrl = deviceUrl;
+    if (timeout !== undefined) updateConfig.timeout = timeout;
+    if (maxRetries !== undefined) updateConfig.maxRetries = maxRetries;
+    
+    alarmNotificationService.updateConfig(updateConfig);
+    
+    logger.info('Alarm device configuration updated', updateConfig);
+    
+    res.json({
+      success: true,
+      message: 'Alarm device configuration updated',
+      data: alarmNotificationService.getConfig()
+    });
+    
+  } catch (error) {
+    logger.error(`Error updating alarm device config: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update alarm device configuration'
+    });
+  }
+});
+
+/**
+ * Test alarm device connectivity
+ */
+router.post('/alarm-device/ping', async (req, res) => {
+  try {
+    const alarmNotificationService = container.resolve('alarmNotificationService');
+    
+    if (!alarmNotificationService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AlarmNotificationService not available'
+      });
+    }
+    
+    const pingResult = await alarmNotificationService.pingAlarmDevice();
+    
+    if (pingResult.success) {
+      res.json({
+        success: true,
+        message: 'Alarm device is reachable',
+        data: pingResult
+      });
+    } else {
+      res.status(503).json({
+        success: false,
+        message: pingResult.message,
+        error: pingResult.error
+      });
+    }
+    
+  } catch (error) {
+    logger.error(`Error pinging alarm device: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to ping alarm device'
+    });
+  }
+});
+
 module.exports = router;

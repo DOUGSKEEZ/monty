@@ -31,6 +31,7 @@ const BluetoothService = require('../services/BluetoothService');
 const PianobarService = require('../services/PianobarService');
 const { createPianobarCommandInterface } = require('../services/PianobarCommandInterface');
 const prometheusMetrics = require('../services/PrometheusMetricsService');
+const AlarmNotificationService = require('../services/AlarmNotificationService');
 
 /**
  * Register core dependencies in the container
@@ -88,6 +89,27 @@ function createWeatherService() {
 }
 
 /**
+ * Create a properly configured Alarm Notification Service
+ * @returns {AlarmNotificationService} - Configured alarm notification service
+ */
+function createAlarmNotificationService() {
+  if (!container.has('alarmNotificationService')) {
+    // Register alarm notification service in container
+    container.register('alarmNotificationService', AlarmNotificationService, {
+      dependencies: [
+        'configManager',
+        'retryHelper',
+        'serviceRegistry',
+        'serviceWatchdog'
+      ],
+      lifecycle: Lifecycle.SINGLETON
+    });
+  }
+  
+  return container.resolve('alarmNotificationService');
+}
+
+/**
  * Create a properly configured Scheduler Service
  * @returns {SchedulerService} - Configured scheduler service
  */
@@ -96,6 +118,11 @@ function createSchedulerService() {
     // Ensure WeatherService is created first
     if (!container.has('weatherService')) {
       createWeatherService();
+    }
+    
+    // Ensure AlarmNotificationService is created first
+    if (!container.has('alarmNotificationService')) {
+      createAlarmNotificationService();
     }
     
     // Register scheduler service in container
@@ -107,7 +134,8 @@ function createSchedulerService() {
         'serviceRegistry',
         'serviceWatchdog',
         'weatherService',
-        'timezoneManager'
+        'timezoneManager',
+        'alarmNotificationService'
       ],
       lifecycle: Lifecycle.SINGLETON
     });
@@ -257,6 +285,7 @@ function initializeContainerComplete() {
   }
   
   createWeatherService();
+  createAlarmNotificationService();
   createSchedulerService();
   createBluetoothService();
   createMusicService();
@@ -280,6 +309,7 @@ module.exports = {
   container,
   registerCoreDependencies,
   createWeatherService,
+  createAlarmNotificationService,
   createSchedulerService,
   // createMusicService, // REMOVED: Legacy MusicService
   createBluetoothService,
