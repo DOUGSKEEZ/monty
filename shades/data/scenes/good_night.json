@@ -6,8 +6,8 @@
     {"shade_id": 33, "action": "d", "delay_ms": 1000},
     {"shade_id": 40, "action": "d", "delay_ms": 1000},
     {"shade_id": 44, "action": "d", "delay_ms": 1000},
-    {"shade_id": 48, "action": "d", "delay_ms": 750}
+    {"shade_id": 48, "action": "d", "delay_ms": 1000}
   ],
   "retry_count": 2,
-  "timeout_seconds": 10
+  "timeout_seconds": 15
 }

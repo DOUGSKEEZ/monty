@@ -5,7 +5,7 @@ import logging
 import time
 from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass
-from commander.interface.arduino_whisperer import send_shade_command_fast
+from commander.interface.arduino_whisperer import send_shade_command_fast, send_shade_command_single_shot
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,8 @@ class AsyncRetryService:
             "total_zombies_detected": 0,
             "total_zombies_cleaned": 0,
             "total_timeout_kills": 0,
-            "current_warnings": 0
+            "zombies_today": 0,
+            "last_reset_date": self._get_current_date()
         }
 
         # Start periodic cleanup task
@@ -50,6 +51,9 @@ class AsyncRetryService:
             try:
                 await asyncio.sleep(60)  # Check every 1 minute for better zombie detection
                 
+                # Check for daily reset first
+                self._check_daily_reset()
+                
                 current_time = time.time()
                 tasks_to_remove = []
                 zombie_warnings_to_remove = []
@@ -60,28 +64,27 @@ class AsyncRetryService:
                         task_timestamp = int(task_id.split('_')[-1]) / 1000
                         task_age_minutes = (current_time - task_timestamp) / 60
                         
-                        # ZOMBIE DETECTION: Tasks older than 1 minute are suspicious
-                        if task_age_minutes > 1:
+                        # ZOMBIE DETECTION: Tasks older than 6 seconds are suspicious
+                        task_age_seconds = current_time - task_timestamp
+                        if task_age_seconds > 6:
                             if task_id not in self.zombie_warnings:
                                 # First time detecting this potential zombie
                                 self.zombie_warnings[task_id] = current_time
                                 self.zombie_metrics["total_zombies_detected"] += 1
-                                self.zombie_metrics["current_warnings"] += 1
-                                logger.warning(f"🧟 ZOMBIE DETECTED: Task {task_id} is {task_age_minutes:.1f} minutes old - monitoring for cleanup")
+                                self.zombie_metrics["zombies_today"] += 1
+                                logger.warning(f"🧟 ZOMBIE DETECTED: Task {task_id} is {task_age_seconds:.1f} seconds old - will cleanup at 12 seconds")
                             
-                            # ZOMBIE CLEANUP: Tasks older than 5 minutes get force-killed
-                            if task_age_minutes > 5:  # 5 minutes
+                            # ZOMBIE CLEANUP: Tasks older than 12 seconds get force-killed
+                            if task_age_seconds > 12:  # 12 seconds max
                                 task.cancel()
                                 tasks_to_remove.append(task_id)
                                 zombie_warnings_to_remove.append(task_id)
                                 self.zombie_metrics["total_zombies_cleaned"] += 1
-                                self.zombie_metrics["current_warnings"] -= 1
-                                logger.error(f"🧟 ZOMBIE CLEANUP: Force-cancelled task {task_id} (age: {task_age_minutes:.1f} minutes)")
-                        
+                                logger.error(f"🧟 ZOMBIE CLEANUP: Force-cancelled task {task_id} (age: {task_age_seconds:.1f} seconds)")
+
                         # Remove resolved warnings for tasks that completed normally
                         elif task_id in self.zombie_warnings:
                             zombie_warnings_to_remove.append(task_id)
-                            self.zombie_metrics["current_warnings"] -= 1
                             logger.info(f"✅ ZOMBIE RESOLVED: Task {task_id} completed normally after warning")
                             
                     except:
@@ -99,12 +102,28 @@ class AsyncRetryService:
                 for task_id in zombie_warnings_to_remove:
                     self.zombie_warnings.pop(task_id, None)
                 
-                # Log summary if there are active zombies
-                if self.zombie_metrics["current_warnings"] > 0:
-                    logger.warning(f"🧟 ZOMBIE STATUS: {self.zombie_metrics['current_warnings']} active warnings, {self.zombie_metrics['total_zombies_detected']} total detected, {self.zombie_metrics['total_zombies_cleaned']} cleaned")
+                # Log summary if there are active zombie warnings
+                active_warnings = len(self.zombie_warnings)
+                if active_warnings > 0:
+                    logger.warning(f"🧟 ZOMBIE STATUS: {active_warnings} active warnings, {self.zombie_metrics['zombies_today']} today, {self.zombie_metrics['total_zombies_detected']} total detected")
             
             except Exception as e:
                 logger.error(f"Error in cleanup/zombie detection task: {e}")
+    
+    def _get_current_date(self) -> str:
+        """Get current date as YYYY-MM-DD string"""
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d")
+    
+    def _check_daily_reset(self):
+        """Reset daily zombie count if it's a new day"""
+        current_date = self._get_current_date()
+        if current_date != self.zombie_metrics["last_reset_date"]:
+            old_count = self.zombie_metrics["zombies_today"]
+            self.zombie_metrics["zombies_today"] = 0
+            self.zombie_metrics["last_reset_date"] = current_date
+            if old_count > 0:
+                logger.info(f"📅 Daily zombie reset: {old_count} zombies detected yesterday, counter reset for {current_date}")
     
     def _generate_task_id(self) -> str:
         """Generate unique task ID"""
@@ -117,7 +136,7 @@ class AsyncRetryService:
         
         This replaces the retry sequence with a complete fire-and-forget approach:
         - Executes first command immediately in background
-        - Follows with 3 additional commands at optimized intervals
+        - Follows with 2 additional commands at optimized intervals (total 3 attempts)
         - Silent failure strategy - no blocking on errors
         - ZOMBIE PREVENTION: Overall timeout protection
         
@@ -127,57 +146,32 @@ class AsyncRetryService:
         try:
             logger.info(f"🚀 Starting fire-and-forget sequence for shade {retry_task.shade_id} action '{retry_task.action}' (task: {retry_task.task_id})")
             
-            # ZOMBIE PREVENTION: Add individual command timeout (10 seconds max per command)
-            command_timeout = 10.0
-            
-            # Command 1: Execute immediately (this is the "first" command, now in background)
+            # Command 1: Execute immediately (true fire-and-forget)
             cmd_start = time.time()
-            try:
-                logger.info(f"🚀 Command 1/4 for shade {retry_task.shade_id} action '{retry_task.action}' (immediate)")
-                result = await asyncio.wait_for(
-                    send_shade_command_fast(retry_task.shade_id, retry_task.action),
-                    timeout=command_timeout
-                )
-                cmd_time = int((time.time() - cmd_start) * 1000)
-                
-                if result["success"]:
-                    logger.info(f"✅ Command 1/4 successful for shade {retry_task.shade_id} (took {cmd_time}ms)")
-                else:
-                    logger.warning(f"⚠️ Command 1/4 failed for shade {retry_task.shade_id}: {result.get('message', 'Unknown error')} (took {cmd_time}ms)")
-                    
-            except asyncio.TimeoutError:
-                cmd_time = int((time.time() - cmd_start) * 1000)
-                logger.error(f"⏰ Command 1/4 TIMEOUT for shade {retry_task.shade_id} after {command_timeout}s (took {cmd_time}ms) - ZOMBIE PREVENTION")
-            except Exception as e:
-                cmd_time = int((time.time() - cmd_start) * 1000)
-                logger.error(f"❌ Command 1/4 error for shade {retry_task.shade_id}: {e} (took {cmd_time}ms)")
+            logger.info(f"🚀 Command 1/3 for shade {retry_task.shade_id} action '{retry_task.action}' (immediate)")
+            result = await send_shade_command_fast(retry_task.shade_id, retry_task.action)
+            cmd_time = int((time.time() - cmd_start) * 1000)
             
-            # Commands 2-4: Execute at optimized intervals
+            if result["success"]:
+                logger.debug(f"✅ Command 1/3 sent for shade {retry_task.shade_id} (took {cmd_time}ms)")
+            else:
+                logger.warning(f"⚠️ Command 1/3 failed for shade {retry_task.shade_id}: {result.get('message', 'Unknown error')} (took {cmd_time}ms)")
+            
+            # Commands 2-3: Execute at optimized intervals
             for i, delay_ms in enumerate(retry_task.retry_delays_ms):
                 # Wait for the specified delay
                 await asyncio.sleep(delay_ms / 1000.0)
                 
-                # Execute the command with timeout protection
+                # Execute the command (true fire-and-forget)
                 cmd_start = time.time()
-                try:
-                    logger.info(f"🚀 Command {i+2}/4 for shade {retry_task.shade_id} action '{retry_task.action}' (after {delay_ms}ms)")
-                    result = await asyncio.wait_for(
-                        send_shade_command_fast(retry_task.shade_id, retry_task.action),
-                        timeout=command_timeout
-                    )
-                    cmd_time = int((time.time() - cmd_start) * 1000)
-                    
-                    if result["success"]:
-                        logger.info(f"✅ Command {i+2}/4 successful for shade {retry_task.shade_id} (took {cmd_time}ms)")
-                    else:
-                        logger.warning(f"⚠️ Command {i+2}/4 failed for shade {retry_task.shade_id}: {result.get('message', 'Unknown error')} (took {cmd_time}ms)")
-                        
-                except asyncio.TimeoutError:
-                    cmd_time = int((time.time() - cmd_start) * 1000)
-                    logger.error(f"⏰ Command {i+2}/4 TIMEOUT for shade {retry_task.shade_id} after {command_timeout}s (took {cmd_time}ms) - ZOMBIE PREVENTION")
-                except Exception as e:
-                    cmd_time = int((time.time() - cmd_start) * 1000)
-                    logger.error(f"❌ Command {i+2}/4 error for shade {retry_task.shade_id}: {e} (took {cmd_time}ms)")
+                logger.info(f"🚀 Command {i+2}/3 for shade {retry_task.shade_id} action '{retry_task.action}' (after {delay_ms}ms)")
+                result = await send_shade_command_fast(retry_task.shade_id, retry_task.action)
+                cmd_time = int((time.time() - cmd_start) * 1000)
+                
+                if result["success"]:
+                    logger.debug(f"✅ Command {i+2}/3 sent for shade {retry_task.shade_id} (took {cmd_time}ms)")
+                else:
+                    logger.warning(f"⚠️ Command {i+2}/3 failed for shade {retry_task.shade_id}: {result.get('message', 'Unknown error')} (took {cmd_time}ms)")
             
             total_time = int((time.time() - retry_task.started_at) * 1000)
             logger.info(f"🏁 Completed fire-and-forget sequence for shade {retry_task.shade_id} (total time: {total_time}ms)")
@@ -258,22 +252,22 @@ class AsyncRetryService:
         retry_task = RetryTask(
             shade_id=shade_id,
             action=action,
-            retry_delays_ms=[650, 1500, 2500],  # RF-optimized timing for commands 2-4
+            retry_delays_ms=[650, 1500],  # RF-optimized timing for commands 2-3 (total 3 attempts)
             task_id=task_id,
             started_at=time.time()
         )
         
         # Start the fire-and-forget background task with overall timeout protection
-        # ZOMBIE PREVENTION: Maximum 60 seconds for entire sequence (includes all delays + commands)
+        # ZOMBIE PREVENTION: Maximum 10 seconds for entire sequence (includes all delays + commands)
         async def timeout_protected_sequence():
             try:
                 await asyncio.wait_for(
                     self._execute_fire_and_forget_sequence(retry_task),
-                    timeout=60.0  # 60 second max for entire sequence
+                    timeout=10.0  # 10 second max for entire sequence
                 )
             except asyncio.TimeoutError:
                 self.zombie_metrics["total_timeout_kills"] += 1
-                logger.error(f"🧟 ZOMBIE PREVENTION: Task {task_id} exceeded 60s timeout - forcing cleanup (total timeouts: {self.zombie_metrics['total_timeout_kills']})")
+                logger.error(f"🧟 ZOMBIE PREVENTION: Task {task_id} exceeded 10s timeout - forcing cleanup (total timeouts: {self.zombie_metrics['total_timeout_kills']})")
                 # The finally block in _execute_fire_and_forget_sequence will handle cleanup
                 raise
         
@@ -294,6 +288,8 @@ class AsyncRetryService:
         
         This makes scenes non-blocking like individual shade commands.
         
+        Implements "Latest Scene Wins" - cancels any active scene tasks before starting.
+        
         Args:
             scene_name: Name of the scene to execute
             scene_commands: List of commands with shade_id, action, and delay_ms
@@ -304,6 +300,11 @@ class AsyncRetryService:
         Returns:
             task_id: Unique identifier for this scene execution
         """
+        # LATEST SCENE WINS: Cancel any active scene tasks before starting new scene
+        scene_tasks_cancelled = self.cancel_all_scene_tasks()
+        if scene_tasks_cancelled > 0:
+            logger.info(f"🎬 Latest Scene Wins: Cancelled {scene_tasks_cancelled} active scene tasks before starting '{scene_name}'")
+        
         task_id = self._generate_task_id()
         
         async def execute_scene_with_retries():
@@ -315,14 +316,24 @@ class AsyncRetryService:
                     logger.info(f"🔄 Scene '{scene_name}' cycle {cycle + 1}/{retry_count}")
                     
                     for i, cmd in enumerate(scene_commands):
+                        shade_id = cmd["shade_id"]
                         try:
-                            # Execute the command
-                            result = await send_shade_command_fast(cmd["shade_id"], cmd["action"])
+                            # LATEST COMMAND WINS: Register this shade as being controlled by this scene
+                            # This allows individual shade commands to cancel scene commands for this shade
+                            cancelled = self.cancel_shade_retries(shade_id)
+                            if cancelled:
+                                logger.info(f"🔄 Latest Command Wins: Scene cancelled previous command for shade {shade_id}")
+                            
+                            # Register this scene task as controlling this shade
+                            self.active_shade_tasks[shade_id] = task_id
+                            
+                            # Execute the command (single-shot, no individual retries)
+                            result = await send_shade_command_single_shot(shade_id, cmd["action"])
                             
                             if result["success"]:
-                                logger.debug(f"✅ Scene command: shade {cmd['shade_id']} {cmd['action']} successful")
+                                logger.debug(f"✅ Scene command: shade {shade_id} {cmd['action']} successful")
                             else:
-                                logger.warning(f"⚠️ Scene command: shade {cmd['shade_id']} {cmd['action']} failed")
+                                logger.warning(f"⚠️ Scene command: shade {shade_id} {cmd['action']} failed")
                             
                             # Apply command-specific delay or default delay
                             delay_ms = cmd.get("delay_ms", delay_between_commands_ms)
@@ -330,7 +341,11 @@ class AsyncRetryService:
                                 await asyncio.sleep(delay_ms / 1000.0)
                                 
                         except Exception as e:
-                            logger.error(f"❌ Scene command error for shade {cmd['shade_id']}: {e}")
+                            logger.error(f"❌ Scene command error for shade {shade_id}: {e}")
+                        finally:
+                            # Unregister this shade when command completes (successful or failed)
+                            if shade_id in self.active_shade_tasks and self.active_shade_tasks[shade_id] == task_id:
+                                del self.active_shade_tasks[shade_id]
                     
                     # Add delay between retry cycles (except after last cycle)
                     if cycle < retry_count - 1:
@@ -376,24 +391,17 @@ class AsyncRetryService:
             retry_count: Number of additional retry cycles (scene config)
             delay_between_commands_ms: Delay between commands in each cycle
         """
-        MAX_SCENE_DURATION = 300  # 5 minutes max for any scene
-        start_time = time.time()
-        
         try:
             logger.info(f"🎬 Starting {retry_count} background retry cycles for scene '{scene_name}'")
             
             for cycle in range(retry_count):
-                # Check if we've exceeded max duration
-                if time.time() - start_time > MAX_SCENE_DURATION:
-                    logger.warning(f"Scene '{scene_name}' exceeded max duration of {MAX_SCENE_DURATION}s, aborting retries")
-                    break
                     
                 logger.info(f"🔄 Scene '{scene_name}' retry cycle {cycle + 1}/{retry_count}")
                 
                 for i, cmd in enumerate(scene_commands):
                     try:
-                        # Execute the command
-                        result = await send_shade_command_fast(cmd["shade_id"], cmd["action"])
+                        # Execute the command (single-shot, no individual retries)
+                        result = await send_shade_command_single_shot(cmd["shade_id"], cmd["action"])
                         
                         if result["success"]:
                             logger.debug(f"✅ Scene retry: shade {cmd['shade_id']} {cmd['action']} successful")
@@ -486,7 +494,7 @@ class AsyncRetryService:
             "recent_cancellations": len([t for t in self.cancelled_tasks.values() if time.time() - t < 300]),  # Last 5 minutes
             # ZOMBIE MONITORING METRICS for dashboard
             "zombie_metrics": self.zombie_metrics.copy(),
-            "zombie_warnings": len(self.zombie_warnings),
+            "active_zombie_warnings": len(self.zombie_warnings),
             "suspicious_tasks": suspicious_tasks,
             "task_ages": task_ages,
             "oldest_task_age_minutes": max(task_ages.values()) if task_ages else 0
@@ -507,6 +515,35 @@ class AsyncRetryService:
             logger.info(f"🛑 Cancelled retry task: {task_id}")
             return True
         return False
+    
+    def cancel_all_scene_tasks(self) -> int:
+        """
+        Cancel all active scene tasks (for Latest Scene Wins).
+        
+        Scene tasks have task_ids that don't correspond to individual shades
+        in active_shade_tasks mapping.
+        
+        Returns:
+            int: Number of scene tasks cancelled
+        """
+        scene_tasks_cancelled = 0
+        tasks_to_cancel = []
+        
+        # Find scene tasks (tasks not in active_shade_tasks)
+        shade_task_ids = set(self.active_shade_tasks.values())
+        
+        for task_id, task in self.active_tasks.items():
+            if task_id not in shade_task_ids:  # This is a scene task
+                tasks_to_cancel.append((task_id, task))
+        
+        # Cancel scene tasks
+        for task_id, task in tasks_to_cancel:
+            task.cancel()
+            scene_tasks_cancelled += 1
+            logger.info(f"🛑 Cancelled scene task: {task_id}")
+            # Remove from active_tasks (cleanup will happen in task's finally block)
+        
+        return scene_tasks_cancelled
     
     def cancel_all_tasks(self):
         """Cancel all active retry tasks"""

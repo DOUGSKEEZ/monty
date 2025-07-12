@@ -868,25 +868,32 @@ function SettingsPage() {
                 <button
                   onClick={async () => {
                     try {
-                      setOperationMessage('Getting retry stats...');
+                      setOperationMessage('Getting shade monitor stats...');
                       setSaveSuccess('loading');
                       const response = await fetch('http://192.168.0.15:8000/retries');
                       const result = await response.json();
-                      
-                      const retryInfo = `Active Retries: ${result.active_retries || 0}
+                                            
+                      const monitorInfo = `🧟 ZOMBIE MONITORING
+Zombies Seen Today: ${result.zombie_metrics?.zombies_today || 0}
+Active Zombies: ${result.active_zombie_warnings || 0}
+
+🔄 ACTIVE OPERATIONS
+Total Active Tasks: ${result.total_active_tasks || 0}
+Active Shade Tasks: ${result.active_shade_tasks || 0}
+
+📊 SYSTEM STATS
 Recent Cancellations: ${result.recent_cancellations || 0}
-Total Failed Operations: ${result.total_failed || 0}
-Current Queue Size: ${result.queue_size || 0}`;
+Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
                       
-                      alert(retryInfo);
-                      showSuccess('Retrieved retry statistics');
+                      alert(monitorInfo);
+                      showSuccess('Retrieved shade monitor statistics');
                     } catch (error) {
-                      showError(`Error getting retries: ${error.message}`);
+                      showError(`Error getting shade monitor: ${error.message}`);
                     }
                   }}
                   className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200 flex-1"
                 >
-                  View Retries
+                  View Shade Monitor
                 </button>
 
                 <button

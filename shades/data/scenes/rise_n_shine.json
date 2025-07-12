@@ -2,8 +2,8 @@
   "name": "Rise 'N' Shine!",
   "description": "Raise all bedroom blackout shades to Rise 'N' Shine!",
   "commands": [
-    {"shade_id": 40, "action": "u", "delay_ms": 750}
+    {"shade_id": 40, "action": "u", "delay_ms": 1000}
   ],
   "retry_count": 2,
-  "timeout_seconds": 10
+  "timeout_seconds": 5
 }

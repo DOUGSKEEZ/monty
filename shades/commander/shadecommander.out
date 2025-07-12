@@ -1,0 +1,656 @@
+🫡 Starting ShadeCommander with monitoring...
+INFO:     Started server process [709147]
+INFO:     Waiting for application startup.
+2025-07-12 00:44:32,157 - main - INFO - 🫡 ShadeCommander starting up...
+2025-07-12 00:44:32,158 - main - INFO - 🔌 Establishing Arduino connection...
+2025-07-12 00:44:32,158 - commander.interface.arduino_whisperer - INFO - 🔄 Manual reconnection requested...
+2025-07-12 00:44:32,158 - commander.interface.arduino_whisperer - INFO - 🔍 Searching for Arduino... (grab some coffee! ☕)
+2025-07-12 00:44:32,158 - commander.interface.arduino_whisperer - INFO - 📡 Found potential ports: ['/dev/ttyACM0', '/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_85438363938351508060-if00', '/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_85438363938351508060-if00']
+2025-07-12 00:44:34,660 - commander.interface.arduino_whisperer - INFO - ✅ Found Arduino Shade Controller at: /dev/ttyACM0
+2025-07-12 00:44:36,763 - commander.interface.arduino_whisperer - INFO - 🎉 Successfully connected to Arduino at: /dev/ttyACM0
+2025-07-12 00:44:36,763 - main - INFO - ✅ Arduino connected successfully on startup
+2025-07-12 00:44:36,763 - main - INFO - 🚀 ShadeCommander ready to receive commands!
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2025-07-12 00:44:44,060 (709147/MainThread) newrelic.core.agent INFO - New Relic Python Agent (10.13.0)
+INFO:     192.168.0.15:59270 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:44:44,094 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:44:44,095 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:59276 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:44:44,102 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:59292 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 00:44:45,276 (709147/NR-Activate-Session/ShadeCommander) newrelic.core.agent_protocol INFO - Reporting to: https://rpm.newrelic.com/accounts/6827291/applications/482742478
+INFO:     192.168.0.15:55362 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:45:44,066 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:45:44,067 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:55376 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:45:44,073 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:55392 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:55030 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.15:36298 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:46:44,066 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:46:44,067 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:36300 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:46:44,074 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:36306 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 00:46:56,661 - commander.routers.scenes - INFO - Starting execution of scene 'good_evening'
+2025-07-12 00:46:56,661 - commander.routers.scenes - INFO - Scene 'good_evening': 2 commands, 2 retries, 10s timeout
+2025-07-12 00:46:56,662 - commander.routers.scenes - INFO - Queuing scene 'good_evening' for background execution (fire-and-forget)
+2025-07-12 00:46:56,662 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_evening' for background execution (task: retry_1_1752302816662)
+2025-07-12 00:46:56,662 - commander.routers.scenes - INFO - ✅ Scene 'good_evening' queued for background execution (task: retry_1_1752302816662)
+2025-07-12 00:46:56,662 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_evening' execution with 3 total cycles
+2025-07-12 00:46:56,662 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_evening' cycle 1/3
+INFO:     192.168.0.15:43660 - "POST /scenes/good_evening/execute HTTP/1.1" 200 OK
+2025-07-12 00:46:59,665 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_evening' cycle 2/3
+2025-07-12 00:47:02,667 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_evening' cycle 3/3
+2025-07-12 00:47:03,669 - commander.services.async_retry_service - INFO - ✅ Scene 'good_evening' completed all 3 cycles
+INFO:     192.168.0.151:52780 - "OPTIONS /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:47:28,568 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.UP
+2025-07-12 00:47:28,569 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 'u' (task: retry_2_1752302848569)
+2025-07-12 00:47:28,569 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_2_1752302848569) in 0ms
+2025-07-12 00:47:28,569 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 'u' (task: retry_2_1752302848569)
+2025-07-12 00:47:28,570 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 'u' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:47:29,222 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 'u' (after 650ms)
+INFO:     192.168.0.151:52780 - "OPTIONS /shades/30/command HTTP/1.1" 200 OK
+2025-07-12 00:47:29,764 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 30: ShadeAction.UP
+2025-07-12 00:47:29,765 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 30 action 'u' (task: retry_3_1752302849765)
+2025-07-12 00:47:29,765 - commander.routers.shades - INFO - ✅ Shade 30 fire-and-forget sequence queued (task: retry_3_1752302849765) in 0ms
+2025-07-12 00:47:29,765 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 30 action 'u' (task: retry_3_1752302849765)
+2025-07-12 00:47:29,765 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 30 action 'u' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/30/command HTTP/1.1" 200 OK
+2025-07-12 00:47:30,417 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 30 action 'u' (after 650ms)
+INFO:     192.168.0.151:52780 - "OPTIONS /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 00:47:30,665 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 31: ShadeAction.UP
+2025-07-12 00:47:30,665 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 31 action 'u' (task: retry_4_1752302850665)
+2025-07-12 00:47:30,665 - commander.routers.shades - INFO - ✅ Shade 31 fire-and-forget sequence queued (task: retry_4_1752302850665) in 0ms
+2025-07-12 00:47:30,666 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 31 action 'u' (task: retry_4_1752302850665)
+2025-07-12 00:47:30,666 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 31 action 'u' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 00:47:30,725 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 'u' (after 1500ms)
+2025-07-12 00:47:30,726 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2157ms)
+2025-07-12 00:47:31,319 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 31 action 'u' (after 650ms)
+2025-07-12 00:47:31,604 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.STOP
+2025-07-12 00:47:31,604 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 's' (task: retry_5_1752302851604)
+2025-07-12 00:47:31,604 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_5_1752302851604) in 0ms
+2025-07-12 00:47:31,605 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 's' (task: retry_5_1752302851604)
+2025-07-12 00:47:31,605 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 's' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:47:31,920 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 30 action 'u' (after 1500ms)
+2025-07-12 00:47:31,922 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 30 (total time: 2157ms)
+2025-07-12 00:47:32,256 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 's' (after 650ms)
+2025-07-12 00:47:32,402 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 30: ShadeAction.STOP
+2025-07-12 00:47:32,402 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 30 action 's' (task: retry_6_1752302852402)
+2025-07-12 00:47:32,403 - commander.routers.shades - INFO - ✅ Shade 30 fire-and-forget sequence queued (task: retry_6_1752302852402) in 1ms
+2025-07-12 00:47:32,403 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 30 action 's' (task: retry_6_1752302852402)
+2025-07-12 00:47:32,403 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 30 action 's' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/30/command HTTP/1.1" 200 OK
+2025-07-12 00:47:32,821 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 31 action 'u' (after 1500ms)
+2025-07-12 00:47:32,822 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 31 (total time: 2157ms)
+2025-07-12 00:47:32,948 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 31: ShadeAction.STOP
+2025-07-12 00:47:32,949 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 31 action 's' (task: retry_7_1752302852949)
+2025-07-12 00:47:32,949 - commander.routers.shades - INFO - ✅ Shade 31 fire-and-forget sequence queued (task: retry_7_1752302852949) in 0ms
+2025-07-12 00:47:32,949 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 31 action 's' (task: retry_7_1752302852949)
+2025-07-12 00:47:32,949 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 31 action 's' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 00:47:33,055 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 30 action 's' (after 650ms)
+2025-07-12 00:47:33,601 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 31 action 's' (after 650ms)
+2025-07-12 00:47:33,759 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 's' (after 1500ms)
+2025-07-12 00:47:33,761 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2157ms)
+2025-07-12 00:47:34,388 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 30: ShadeAction.STOP
+2025-07-12 00:47:34,388 - commander.services.async_retry_service - INFO - 🛑 Cancelled existing retry task for shade 30 (task: retry_6_1752302852402) - Latest Command Wins!
+2025-07-12 00:47:34,388 - commander.services.async_retry_service - INFO - 🔄 Latest Command Wins: Cancelled previous sequence for shade 30
+2025-07-12 00:47:34,388 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 30 action 's' (task: retry_8_1752302854388)
+2025-07-12 00:47:34,389 - commander.routers.shades - INFO - ✅ Shade 30 fire-and-forget sequence queued (task: retry_8_1752302854388) in 1ms
+2025-07-12 00:47:34,389 - commander.services.async_retry_service - INFO - 🛑 Fire-and-forget task retry_6_1752302852402 was cancelled
+2025-07-12 00:47:34,389 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 30 action 's' (task: retry_8_1752302854388)
+2025-07-12 00:47:34,389 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 30 action 's' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/30/command HTTP/1.1" 200 OK
+2025-07-12 00:47:35,041 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 30 action 's' (after 650ms)
+2025-07-12 00:47:35,104 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 31 action 's' (after 1500ms)
+2025-07-12 00:47:35,106 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 31 (total time: 2157ms)
+2025-07-12 00:47:35,262 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 31: ShadeAction.STOP
+2025-07-12 00:47:35,263 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 31 action 's' (task: retry_9_1752302855263)
+2025-07-12 00:47:35,263 - commander.routers.shades - INFO - ✅ Shade 31 fire-and-forget sequence queued (task: retry_9_1752302855263) in 0ms
+2025-07-12 00:47:35,263 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 31 action 's' (task: retry_9_1752302855263)
+2025-07-12 00:47:35,263 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 31 action 's' (immediate)
+INFO:     192.168.0.151:52780 - "POST /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 00:47:35,915 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 31 action 's' (after 650ms)
+2025-07-12 00:47:36,543 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 30 action 's' (after 1500ms)
+2025-07-12 00:47:36,544 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 30 (total time: 2155ms)
+2025-07-12 00:47:37,418 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 31 action 's' (after 1500ms)
+2025-07-12 00:47:37,420 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 31 (total time: 2157ms)
+INFO:     192.168.0.151:52780 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:52780 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.15:43716 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:47:44,068 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:47:44,068 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:43724 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:47:44,074 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:43732 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 00:48:02,301 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.UP
+2025-07-12 00:48:02,301 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 'u' (task: retry_10_1752302882301)
+2025-07-12 00:48:02,301 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_10_1752302882301) in 0ms
+2025-07-12 00:48:02,302 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 'u' (task: retry_10_1752302882301)
+2025-07-12 00:48:02,302 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 'u' (immediate)
+INFO:     192.168.0.151:53264 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:48:02,954 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 'u' (after 650ms)
+2025-07-12 00:48:04,456 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 'u' (after 1500ms)
+2025-07-12 00:48:04,457 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2156ms)
+2025-07-12 00:48:04,483 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.STOP
+2025-07-12 00:48:04,483 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 's' (task: retry_11_1752302884483)
+2025-07-12 00:48:04,484 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_11_1752302884483) in 0ms
+2025-07-12 00:48:04,484 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 's' (task: retry_11_1752302884483)
+2025-07-12 00:48:04,484 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 's' (immediate)
+INFO:     192.168.0.15:32878 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:48:05,135 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 's' (after 650ms)
+2025-07-12 00:48:06,637 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 's' (after 1500ms)
+2025-07-12 00:48:06,638 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2154ms)
+INFO:     192.168.0.151:46688 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:46700 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:48:33,601 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 00:48:33,601 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 10s timeout
+2025-07-12 00:48:33,601 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 00:48:33,602 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_12_1752302913602)
+2025-07-12 00:48:33,602 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_12_1752302913602)
+2025-07-12 00:48:33,602 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 00:48:33,602 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+INFO:     192.168.0.15:46960 - "POST /scenes/good_night/execute HTTP/1.1" 200 OK
+2025-07-12 00:48:37,970 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.151:48242 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 00:48:39,614 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 2/3
+2025-07-12 00:48:43,603 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_12_1752302913602 was cancelled
+2025-07-12 00:48:43,604 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 10s
+INFO:     192.168.0.15:58084 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:48:44,068 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:48:44,069 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:58098 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:48:44,075 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:58110 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.151:41242 - "OPTIONS /shades/34/command HTTP/1.1" 200 OK
+2025-07-12 00:48:49,575 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 34: ShadeAction.UP
+2025-07-12 00:48:49,575 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 34 action 'u' (task: retry_13_1752302929575)
+2025-07-12 00:48:49,576 - commander.routers.shades - INFO - ✅ Shade 34 fire-and-forget sequence queued (task: retry_13_1752302929575) in 0ms
+2025-07-12 00:48:49,576 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 34 action 'u' (task: retry_13_1752302929575)
+2025-07-12 00:48:49,576 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 34 action 'u' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/34/command HTTP/1.1" 200 OK
+2025-07-12 00:48:50,229 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 34 action 'u' (after 650ms)
+2025-07-12 00:48:50,979 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.UP
+2025-07-12 00:48:50,979 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 'u' (task: retry_14_1752302930979)
+2025-07-12 00:48:50,979 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_14_1752302930979) in 0ms
+2025-07-12 00:48:50,979 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 'u' (task: retry_14_1752302930979)
+2025-07-12 00:48:50,979 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 'u' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:48:51,631 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 'u' (after 650ms)
+2025-07-12 00:48:51,669 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 30: ShadeAction.UP
+2025-07-12 00:48:51,670 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 30 action 'u' (task: retry_15_1752302931670)
+2025-07-12 00:48:51,670 - commander.routers.shades - INFO - ✅ Shade 30 fire-and-forget sequence queued (task: retry_15_1752302931670) in 0ms
+2025-07-12 00:48:51,670 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 30 action 'u' (task: retry_15_1752302931670)
+2025-07-12 00:48:51,671 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 30 action 'u' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/30/command HTTP/1.1" 200 OK
+2025-07-12 00:48:51,732 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 34 action 'u' (after 1500ms)
+2025-07-12 00:48:51,734 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 34 (total time: 2158ms)
+2025-07-12 00:48:52,317 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 31: ShadeAction.UP
+2025-07-12 00:48:52,318 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 31 action 'u' (task: retry_16_1752302932318)
+2025-07-12 00:48:52,318 - commander.routers.shades - INFO - ✅ Shade 31 fire-and-forget sequence queued (task: retry_16_1752302932318) in 0ms
+2025-07-12 00:48:52,319 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 31 action 'u' (task: retry_16_1752302932318)
+2025-07-12 00:48:52,319 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 31 action 'u' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 00:48:52,321 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 30 action 'u' (after 650ms)
+2025-07-12 00:48:52,970 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 31 action 'u' (after 650ms)
+2025-07-12 00:48:53,134 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 'u' (after 1500ms)
+2025-07-12 00:48:53,136 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2157ms)
+2025-07-12 00:48:53,823 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 30 action 'u' (after 1500ms)
+2025-07-12 00:48:53,826 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 30 (total time: 2155ms)
+2025-07-12 00:48:54,473 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 31 action 'u' (after 1500ms)
+2025-07-12 00:48:54,475 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 31 (total time: 2157ms)
+2025-07-12 00:48:55,963 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 31: ShadeAction.STOP
+2025-07-12 00:48:55,964 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 31 action 's' (task: retry_17_1752302935963)
+2025-07-12 00:48:55,964 - commander.routers.shades - INFO - ✅ Shade 31 fire-and-forget sequence queued (task: retry_17_1752302935963) in 0ms
+2025-07-12 00:48:55,964 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 31 action 's' (task: retry_17_1752302935963)
+2025-07-12 00:48:55,964 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 31 action 's' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 00:48:56,615 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 31 action 's' (after 650ms)
+2025-07-12 00:48:57,278 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.STOP
+2025-07-12 00:48:57,279 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 's' (task: retry_18_1752302937279)
+2025-07-12 00:48:57,279 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_18_1752302937279) in 0ms
+2025-07-12 00:48:57,279 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 's' (task: retry_18_1752302937279)
+2025-07-12 00:48:57,280 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 's' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:48:57,931 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 's' (after 650ms)
+2025-07-12 00:48:58,120 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 31 action 's' (after 1500ms)
+2025-07-12 00:48:58,122 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 31 (total time: 2158ms)
+2025-07-12 00:48:58,206 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 30: ShadeAction.UP
+2025-07-12 00:48:58,206 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 30 action 'u' (task: retry_19_1752302938206)
+2025-07-12 00:48:58,206 - commander.routers.shades - INFO - ✅ Shade 30 fire-and-forget sequence queued (task: retry_19_1752302938206) in 0ms
+2025-07-12 00:48:58,207 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 30 action 'u' (task: retry_19_1752302938206)
+2025-07-12 00:48:58,207 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 30 action 'u' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/30/command HTTP/1.1" 200 OK
+2025-07-12 00:48:58,859 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 30 action 'u' (after 650ms)
+2025-07-12 00:48:59,434 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 's' (after 1500ms)
+2025-07-12 00:48:59,436 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2157ms)
+2025-07-12 00:49:00,362 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 30 action 'u' (after 1500ms)
+2025-07-12 00:49:00,364 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 30 (total time: 2158ms)
+2025-07-12 00:49:03,043 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 30: ShadeAction.STOP
+2025-07-12 00:49:03,044 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 30 action 's' (task: retry_20_1752302943044)
+2025-07-12 00:49:03,044 - commander.routers.shades - INFO - ✅ Shade 30 fire-and-forget sequence queued (task: retry_20_1752302943044) in 0ms
+2025-07-12 00:49:03,044 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 30 action 's' (task: retry_20_1752302943044)
+2025-07-12 00:49:03,044 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 30 action 's' (immediate)
+INFO:     192.168.0.151:41242 - "POST /shades/30/command HTTP/1.1" 200 OK
+2025-07-12 00:49:03,696 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 30 action 's' (after 650ms)
+INFO:     192.168.0.151:41242 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:36272 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:49:05,199 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 30 action 's' (after 1500ms)
+2025-07-12 00:49:05,202 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 30 (total time: 2157ms)
+2025-07-12 00:49:06,590 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 00:49:06,591 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 10s timeout
+2025-07-12 00:49:06,591 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 00:49:06,591 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_21_1752302946591)
+2025-07-12 00:49:06,591 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_21_1752302946591)
+2025-07-12 00:49:06,592 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 00:49:06,592 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+INFO:     192.168.0.15:46358 - "POST /scenes/good_night/execute HTTP/1.1" 200 OK
+2025-07-12 00:49:12,601 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 2/3
+INFO:     192.168.0.151:51648 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:51648 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:49:16,592 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_21_1752302946591 was cancelled
+2025-07-12 00:49:16,592 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 10s
+INFO:     192.168.0.15:58780 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:49:44,077 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:49:44,077 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:58784 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:49:44,084 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:58796 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.151:59168 - "OPTIONS /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 00:50:29,954 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 33: ShadeAction.UP
+2025-07-12 00:50:29,955 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 33 action 'u' (task: retry_22_1752303029955)
+2025-07-12 00:50:29,955 - commander.routers.shades - INFO - ✅ Shade 33 fire-and-forget sequence queued (task: retry_22_1752303029955) in 0ms
+2025-07-12 00:50:29,955 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 33 action 'u' (task: retry_22_1752303029955)
+2025-07-12 00:50:29,956 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 33 action 'u' (immediate)
+INFO:     192.168.0.151:59168 - "POST /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 00:50:30,607 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 33 action 'u' (after 650ms)
+2025-07-12 00:50:32,109 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 33 action 'u' (after 1500ms)
+2025-07-12 00:50:32,110 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 33 (total time: 2155ms)
+2025-07-12 00:50:33,680 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 33: ShadeAction.STOP
+2025-07-12 00:50:33,680 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 33 action 's' (task: retry_23_1752303033680)
+2025-07-12 00:50:33,681 - commander.routers.shades - INFO - ✅ Shade 33 fire-and-forget sequence queued (task: retry_23_1752303033680) in 0ms
+2025-07-12 00:50:33,681 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 33 action 's' (task: retry_23_1752303033680)
+2025-07-12 00:50:33,681 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 33 action 's' (immediate)
+INFO:     192.168.0.151:59168 - "POST /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 00:50:34,333 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 33 action 's' (after 650ms)
+INFO:     192.168.0.151:59168 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:59180 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:50:35,836 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 33 action 's' (after 1500ms)
+2025-07-12 00:50:35,839 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 33 (total time: 2158ms)
+2025-07-12 00:50:37,118 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 00:50:37,119 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 10s timeout
+2025-07-12 00:50:37,119 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 00:50:37,119 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_24_1752303037119)
+2025-07-12 00:50:37,119 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_24_1752303037119)
+2025-07-12 00:50:37,119 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 00:50:37,119 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+INFO:     192.168.0.15:46240 - "POST /scenes/good_night/execute HTTP/1.1" 200 OK
+INFO:     192.168.0.151:45608 - "OPTIONS /shades/36/command HTTP/1.1" 200 OK
+2025-07-12 00:50:42,499 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 36: ShadeAction.UP
+2025-07-12 00:50:42,500 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 36 action 'u' (task: retry_25_1752303042500)
+2025-07-12 00:50:42,500 - commander.routers.shades - INFO - ✅ Shade 36 fire-and-forget sequence queued (task: retry_25_1752303042500) in 0ms
+2025-07-12 00:50:42,500 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 36 action 'u' (task: retry_25_1752303042500)
+2025-07-12 00:50:42,501 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 36 action 'u' (immediate)
+INFO:     192.168.0.151:45608 - "POST /shades/36/command HTTP/1.1" 200 OK
+2025-07-12 00:50:43,131 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 2/3
+2025-07-12 00:50:43,153 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 36 action 'u' (after 650ms)
+2025-07-12 00:50:44,057 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.UP
+2025-07-12 00:50:44,057 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 'u' (task: retry_26_1752303044057)
+2025-07-12 00:50:44,057 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_26_1752303044057) in 0ms
+2025-07-12 00:50:44,058 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 'u' (task: retry_26_1752303044057)
+2025-07-12 00:50:44,058 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 'u' (immediate)
+INFO:     192.168.0.151:45608 - "POST /shades/29/command HTTP/1.1" 200 OK
+INFO:     192.168.0.15:46252 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:50:44,075 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:50:44,075 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:46268 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:50:44,082 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:46278 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 00:50:44,655 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 36 action 'u' (after 1500ms)
+2025-07-12 00:50:44,657 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 36 (total time: 2157ms)
+2025-07-12 00:50:44,711 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 'u' (after 650ms)
+2025-07-12 00:50:46,214 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 'u' (after 1500ms)
+2025-07-12 00:50:46,216 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2158ms)
+2025-07-12 00:50:47,102 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.STOP
+2025-07-12 00:50:47,103 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 's' (task: retry_27_1752303047103)
+2025-07-12 00:50:47,103 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_27_1752303047103) in 0ms
+2025-07-12 00:50:47,104 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 's' (task: retry_27_1752303047103)
+2025-07-12 00:50:47,104 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 's' (immediate)
+INFO:     192.168.0.151:45608 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:50:47,122 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_24_1752303037119 was cancelled
+2025-07-12 00:50:47,122 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 10s
+2025-07-12 00:50:47,756 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 's' (after 650ms)
+2025-07-12 00:50:47,767 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.DOWN
+2025-07-12 00:50:47,768 - commander.services.async_retry_service - INFO - 🛑 Cancelled existing retry task for shade 29 (task: retry_27_1752303047103) - Latest Command Wins!
+2025-07-12 00:50:47,768 - commander.services.async_retry_service - INFO - 🔄 Latest Command Wins: Cancelled previous sequence for shade 29
+2025-07-12 00:50:47,768 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 'd' (task: retry_28_1752303047768)
+2025-07-12 00:50:47,768 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_28_1752303047768) in 0ms
+2025-07-12 00:50:47,769 - commander.services.async_retry_service - INFO - 🛑 Fire-and-forget task retry_27_1752303047103 was cancelled
+2025-07-12 00:50:47,769 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 'd' (task: retry_28_1752303047768)
+2025-07-12 00:50:47,769 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 'd' (immediate)
+INFO:     192.168.0.151:45608 - "POST /shades/29/command HTTP/1.1" 200 OK
+2025-07-12 00:50:48,421 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 29 action 'd' (after 650ms)
+2025-07-12 00:50:49,925 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 29 action 'd' (after 1500ms)
+2025-07-12 00:50:49,927 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 29 (total time: 2158ms)
+INFO:     192.168.0.151:36896 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:36896 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:50:56,427 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.151:36896 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:36580 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:51:44,079 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:51:44,079 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:36584 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:51:44,090 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:36592 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:35706 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:52:44,066 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:52:44,066 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:35718 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:52:44,073 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:35730 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:57570 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:53:44,071 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:53:44,071 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:57576 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:53:44,077 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:57578 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:48130 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:54:44,080 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:54:44,080 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:48138 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:54:44,089 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:48140 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:36642 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:55:44,078 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:55:44,078 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:36654 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:55:44,088 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:36658 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:40732 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:56:44,078 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:56:44,078 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:40748 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:56:44,089 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:40760 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:59286 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:57:44,076 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:57:44,076 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:59302 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:57:44,082 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:59312 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:48460 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:58:44,086 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:58:44,086 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:48468 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:58:44,094 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:48478 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:56016 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 00:59:44,080 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 00:59:44,081 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:56026 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 00:59:44,103 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:56028 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:60478 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:00:44,081 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:00:44,081 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:60486 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:00:44,090 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:60492 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:60358 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:01:44,083 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:01:44,083 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:60370 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:01:44,091 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:60372 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.151:48398 - "OPTIONS /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 01:02:18,583 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 33: ShadeAction.UP
+2025-07-12 01:02:18,583 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 33 action 'u' (task: retry_29_1752303738583)
+2025-07-12 01:02:18,583 - commander.routers.shades - INFO - ✅ Shade 33 fire-and-forget sequence queued (task: retry_29_1752303738583) in 0ms
+2025-07-12 01:02:18,584 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 33 action 'u' (task: retry_29_1752303738583)
+2025-07-12 01:02:18,584 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 33 action 'u' (immediate)
+INFO:     192.168.0.151:48398 - "POST /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 01:02:19,237 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 33 action 'u' (after 650ms)
+2025-07-12 01:02:20,740 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 33 action 'u' (after 1500ms)
+2025-07-12 01:02:20,742 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 33 (total time: 2159ms)
+2025-07-12 01:02:21,481 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 33: ShadeAction.STOP
+2025-07-12 01:02:21,481 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 33 action 's' (task: retry_30_1752303741481)
+2025-07-12 01:02:21,481 - commander.routers.shades - INFO - ✅ Shade 33 fire-and-forget sequence queued (task: retry_30_1752303741481) in 0ms
+2025-07-12 01:02:21,482 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 33 action 's' (task: retry_30_1752303741481)
+2025-07-12 01:02:21,482 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 33 action 's' (immediate)
+INFO:     192.168.0.151:48398 - "POST /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 01:02:22,134 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 33 action 's' (after 650ms)
+2025-07-12 01:02:23,637 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 33 action 's' (after 1500ms)
+2025-07-12 01:02:23,639 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 33 (total time: 2157ms)
+2025-07-12 01:02:25,721 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 01:02:25,721 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 15s timeout
+2025-07-12 01:02:25,721 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 01:02:25,721 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_31_1752303745721)
+2025-07-12 01:02:25,721 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_31_1752303745721)
+2025-07-12 01:02:25,722 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 01:02:25,722 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+INFO:     192.168.0.15:59770 - "POST /scenes/good_night/execute HTTP/1.1" 200 OK
+2025-07-12 01:02:29,907 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 01:02:29,907 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 15s timeout
+2025-07-12 01:02:29,908 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 01:02:29,908 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_32_1752303749908)
+2025-07-12 01:02:29,908 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_32_1752303749908)
+2025-07-12 01:02:29,908 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 01:02:29,908 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+INFO:     192.168.0.15:59784 - "POST /scenes/good_night/execute HTTP/1.1" 200 OK
+2025-07-12 01:02:30,733 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 2/3
+2025-07-12 01:02:32,176 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE DETECTED: Task retry_31_1752303745721 is 6.5 seconds old - will cleanup at 12 seconds
+2025-07-12 01:02:32,177 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+2025-07-12 01:02:34,921 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 2/3
+2025-07-12 01:02:35,746 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 3/3
+2025-07-12 01:03:13,809 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_32_1752303749908 was cancelled
+2025-07-12 01:03:13,809 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 15s
+2025-07-12 01:03:13,809 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_31_1752303745721 was cancelled
+2025-07-12 01:03:13,809 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 15s
+2025-07-12 01:03:13,813 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 01:03:13,813 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 15s timeout
+2025-07-12 01:03:13,813 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 01:03:13,813 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_33_1752303793813)
+2025-07-12 01:03:13,813 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_33_1752303793813)
+2025-07-12 01:03:13,814 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 01:03:13,814 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+2025-07-12 01:04:12,189 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_33_1752303793813 was cancelled
+2025-07-12 01:04:12,189 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 15s
+2025-07-12 01:04:12,189 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+2025-07-12 01:04:12,194 - commander.routers.health - INFO - Getting retry tasks status
+2025-07-12 01:04:12,195 - commander.routers.health - INFO - Getting retry tasks status
+2025-07-12 01:04:12,199 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:34292 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:57084 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:57086 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:60318 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:04:12,206 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 01:04:12,207 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 15s timeout
+2025-07-12 01:04:12,207 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 01:04:12,207 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_34_1752303852207)
+2025-07-12 01:04:12,207 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_34_1752303852207)
+2025-07-12 01:04:12,207 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 01:04:12,207 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+2025-07-12 01:05:10,567 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_34_1752303852207 was cancelled
+2025-07-12 01:05:10,568 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 15s
+2025-07-12 01:05:12,189 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.15:52168 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:05:44,082 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:05:44,082 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:52172 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:05:44,092 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:52176 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:06:12,190 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.15:43462 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:06:44,088 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:06:44,089 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:43468 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:06:44,100 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:43470 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:07:12,192 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.15:37076 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:07:44,086 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:07:44,087 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:37090 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:07:44,095 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:37100 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:08:12,194 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+2025-07-12 01:08:26,150 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.151:44978 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.151:49798 - "OPTIONS /retries/all HTTP/1.1" 200 OK
+2025-07-12 01:08:32,194 - commander.services.async_retry_service - INFO - 🛑 Cancelled 0 active retry tasks
+2025-07-12 01:08:32,194 - commander.routers.health - INFO - Cancelled 0 active retry tasks via API
+INFO:     192.168.0.151:49798 - "DELETE /retries/all HTTP/1.1" 200 OK
+2025-07-12 01:08:33,226 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.151:49798 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:08:35,082 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.151:49798 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:08:38,286 - commander.services.async_retry_service - INFO - 🛑 Cancelled 0 active retry tasks
+2025-07-12 01:08:38,287 - commander.routers.health - INFO - Cancelled 0 active retry tasks via API
+INFO:     192.168.0.151:49798 - "DELETE /retries/all HTTP/1.1" 200 OK
+2025-07-12 01:08:39,644 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.151:49798 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.15:33248 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:08:44,088 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:08:44,088 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:33258 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:08:44,098 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:33266 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:08:51,963 - commander.routers.scenes - INFO - Starting execution of scene 'good_night'
+2025-07-12 01:08:51,964 - commander.routers.scenes - INFO - Scene 'good_night': 5 commands, 2 retries, 15s timeout
+2025-07-12 01:08:51,964 - commander.routers.scenes - INFO - Queuing scene 'good_night' for background execution (fire-and-forget)
+2025-07-12 01:08:51,964 - commander.services.async_retry_service - INFO - 🚀 Queued scene 'good_night' for background execution (task: retry_35_1752304131964)
+2025-07-12 01:08:51,964 - commander.routers.scenes - INFO - ✅ Scene 'good_night' queued for background execution (task: retry_35_1752304131964)
+2025-07-12 01:08:51,965 - commander.services.async_retry_service - INFO - 🎬 Starting scene 'good_night' execution with 3 total cycles
+2025-07-12 01:08:51,965 - commander.services.async_retry_service - INFO - 🔄 Scene 'good_night' cycle 1/3
+INFO:     192.168.0.15:49814 - "POST /scenes/good_night/execute HTTP/1.1" 200 OK
+2025-07-12 01:10:02,460 - commander.services.async_retry_service - INFO - 🛑 Scene 'good_night' task retry_35_1752304131964 was cancelled
+2025-07-12 01:10:02,460 - commander.services.async_retry_service - ERROR - ⏱️ Scene 'good_night' timed out after 15s
+2025-07-12 01:10:02,460 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.151:46422 - "GET /docs HTTP/1.1" 200 OK
+INFO:     192.168.0.151:46422 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     192.168.0.15:42240 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:10:44,079 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:10:44,079 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:42246 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:10:44,086 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:42256 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:11:02,461 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.15:39018 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:11:44,084 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:11:44,085 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:39030 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:11:44,092 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:39034 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.151:38024 - "GET /docs HTTP/1.1" 200 OK
+2025-07-12 01:12:02,463 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.15:33222 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:12:44,073 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:12:44,073 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:33234 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:12:44,081 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:33246 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:13:02,464 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.15:54234 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:13:44,075 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:13:44,075 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:54248 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:13:44,081 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:54260 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.151:57740 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:57744 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:14:02,466 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.15:41790 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:14:44,078 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:14:44,079 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:41804 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:14:44,086 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:41810 - "GET /retries HTTP/1.1" 200 OK
+INFO:     192.168.0.151:49446 - "OPTIONS /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 01:14:58,692 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 31: ShadeAction.DOWN
+2025-07-12 01:14:58,693 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 31 action 'd' (task: retry_36_1752304498693)
+2025-07-12 01:14:58,693 - commander.routers.shades - INFO - ✅ Shade 31 fire-and-forget sequence queued (task: retry_36_1752304498693) in 0ms
+2025-07-12 01:14:58,693 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 31 action 'd' (task: retry_36_1752304498693)
+2025-07-12 01:14:58,694 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 31 action 'd' (immediate)
+INFO:     192.168.0.151:49446 - "POST /shades/31/command HTTP/1.1" 200 OK
+2025-07-12 01:14:59,345 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 31 action 'd' (after 650ms)
+2025-07-12 01:15:00,850 - commander.services.async_retry_service - INFO - 🚀 Command 3/3 for shade 31 action 'd' (after 1500ms)
+2025-07-12 01:15:00,852 - commander.services.async_retry_service - INFO - 🏁 Completed fire-and-forget sequence for shade 31 (total time: 2159ms)
+INFO:     192.168.0.151:49446 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:49446 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:15:02,468 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.151:49446 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:49446 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.15:34758 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:15:44,088 - commander.routers.health - INFO - Getting Arduino connection status
+2025-07-12 01:15:44,089 - commander.routers.health - INFO - ✅ Arduino status: connected=True, port=/dev/ttyACM0
+INFO:     192.168.0.15:34766 - "GET /arduino/status HTTP/1.1" 200 OK
+2025-07-12 01:15:44,098 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.15:34768 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:16:02,470 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+INFO:     192.168.0.151:36536 - "OPTIONS /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 01:16:30,048 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 33: ShadeAction.DOWN
+2025-07-12 01:16:30,048 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 33 action 'd' (task: retry_37_1752304590048)
+2025-07-12 01:16:30,048 - commander.routers.shades - INFO - ✅ Shade 33 fire-and-forget sequence queued (task: retry_37_1752304590048) in 0ms
+2025-07-12 01:16:30,049 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 33 action 'd' (task: retry_37_1752304590048)
+2025-07-12 01:16:30,049 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 33 action 'd' (immediate)
+INFO:     192.168.0.151:36536 - "POST /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 01:16:30,701 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 33 action 'd' (after 650ms)
+2025-07-12 01:16:31,069 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 33: ShadeAction.STOP
+2025-07-12 01:16:31,070 - commander.services.async_retry_service - INFO - 🛑 Cancelled existing retry task for shade 33 (task: retry_37_1752304590048) - Latest Command Wins!
+2025-07-12 01:16:31,070 - commander.services.async_retry_service - INFO - 🔄 Latest Command Wins: Cancelled previous sequence for shade 33
+2025-07-12 01:16:31,070 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 33 action 's' (task: retry_38_1752304591070)
+2025-07-12 01:16:31,070 - commander.routers.shades - INFO - ✅ Shade 33 fire-and-forget sequence queued (task: retry_38_1752304591070) in 0ms
+2025-07-12 01:16:31,071 - commander.services.async_retry_service - INFO - 🛑 Fire-and-forget task retry_37_1752304590048 was cancelled
+2025-07-12 01:16:31,071 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 33 action 's' (task: retry_38_1752304591070)
+2025-07-12 01:16:31,071 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 33 action 's' (immediate)
+INFO:     192.168.0.151:36536 - "POST /shades/33/command HTTP/1.1" 200 OK
+2025-07-12 01:16:31,723 - commander.services.async_retry_service - INFO - 🚀 Command 2/3 for shade 33 action 's' (after 650ms)
+2025-07-12 01:16:51,111 - commander.services.async_retry_service - INFO - 🛑 Fire-and-forget task retry_38_1752304591070 was cancelled
+2025-07-12 01:16:51,111 - commander.services.async_retry_service - ERROR - 🧟 ZOMBIE PREVENTION: Task retry_38_1752304591070 exceeded 10s timeout - forcing cleanup (total timeouts: 1)
+2025-07-12 01:17:02,472 - commander.services.async_retry_service - WARNING - 🧟 ZOMBIE STATUS: 1 active warnings, 1 today, 1 total detected
+2025-07-12 01:17:13,317 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-578' coro=<AsyncRetryService.queue_fire_and_forget_sequence.<locals>.timeout_protected_sequence() done, defined at /home/monty/monty/shades/commander/services/async_retry_service.py:262> exception=TimeoutError()>
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/monty/monty/shades/commander/services/async_retry_service.py", line 163, in _execute_fire_and_forget_sequence
+    await asyncio.sleep(delay_ms / 1000.0)
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 665, in sleep
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/monty/monty/shades/commander/services/async_retry_service.py", line 264, in timeout_protected_sequence
+    await asyncio.wait_for(
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 519, in wait_for
+    async with timeouts.timeout(timeout):
+  File "/usr/lib/python3.12/asyncio/timeouts.py", line 115, in __aexit__
+    raise TimeoutError from exc_val
+TimeoutError
+INFO:     192.168.0.151:57908 - "GET /health HTTP/1.1" 200 OK
+INFO:     192.168.0.151:57922 - "GET /health HTTP/1.1" 200 OK
+2025-07-12 01:17:14,414 - commander.routers.health - INFO - Getting retry tasks status
+INFO:     192.168.0.151:57908 - "GET /retries HTTP/1.1" 200 OK
+2025-07-12 01:17:38,960 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 28: ShadeAction.UP
+2025-07-12 01:17:38,960 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 28 action 'u' (task: retry_39_1752304658960)
+2025-07-12 01:17:38,960 - commander.routers.shades - INFO - ✅ Shade 28 fire-and-forget sequence queued (task: retry_39_1752304658960) in 0ms
+2025-07-12 01:17:38,960 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 28 action 'u' (task: retry_39_1752304658960)
+2025-07-12 01:17:38,961 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 28 action 'u' (immediate)
+INFO:     192.168.0.15:34128 - "POST /shades/28/command HTTP/1.1" 200 OK
+2025-07-12 01:17:49,490 - commander.services.async_retry_service - INFO - 🛑 Fire-and-forget task retry_39_1752304658960 was cancelled
+2025-07-12 01:17:49,491 - commander.services.async_retry_service - ERROR - 🧟 ZOMBIE PREVENTION: Task retry_39_1752304658960 exceeded 10s timeout - forcing cleanup (total timeouts: 2)
+2025-07-12 01:17:56,243 - commander.routers.shades - INFO - 🚀 Fire-and-forget command for shade 29: ShadeAction.UP
+2025-07-12 01:17:56,243 - commander.services.async_retry_service - INFO - 🚀 Queued fire-and-forget sequence for shade 29 action 'u' (task: retry_40_1752304676243)
+2025-07-12 01:17:56,243 - commander.routers.shades - INFO - ✅ Shade 29 fire-and-forget sequence queued (task: retry_40_1752304676243) in 0ms
+2025-07-12 01:17:56,243 - commander.services.async_retry_service - INFO - 🚀 Starting fire-and-forget sequence for shade 29 action 'u' (task: retry_40_1752304676243)
+2025-07-12 01:17:56,244 - commander.services.async_retry_service - INFO - 🚀 Command 1/3 for shade 29 action 'u' (immediate)
+./start-shadecommander.sh: line 19: 709147 Killed                  newrelic-admin run-program uvicorn main:app --host 0.0.0.0 --port 8000

@@ -43,7 +43,15 @@ class SmartArduinoConnection:
                     time.sleep(3600)  # Sleep for 1 hour
                     if self._should_do_health_check():
                         logger.info("🏥 Hourly Arduino health check...")
-                        self._test_connection_health()
+                        # Use timeout to prevent deadlock
+                        lock_acquired = self.connection_lock.acquire(timeout=5.0)
+                        if lock_acquired:
+                            try:
+                                self._test_connection_health()
+                            finally:
+                                self.connection_lock.release()
+                        else:
+                            logger.warning("⚠️ Health check skipped - connection lock busy")
                 except Exception as e:
                     logger.error(f"❌ Background health check error: {e}")
         
@@ -167,8 +175,9 @@ class SmartArduinoConnection:
                 return False
             
             try:
-                # Connect to the Arduino
-                self.serial_connection = serial.Serial(port, self.baud_rate, timeout=1, write_timeout=1)
+                # Connect to the Arduino with non-blocking settings
+                # timeout=1 for reads (health checks), write_timeout=0 for non-blocking writes
+                self.serial_connection = serial.Serial(port, self.baud_rate, timeout=1, write_timeout=0)
                 time.sleep(2)  # Wait for Arduino to initialize
                 self.current_port = port
                 
@@ -253,10 +262,24 @@ class SmartArduinoConnection:
                 }
             
             try:
-                # Send command immediately
+                # TRUE FIRE-AND-FORGET: Send command without waiting for response
                 try:
+                    # Set write_timeout to 0 for non-blocking write
+                    self.serial_connection.write_timeout = 0
                     self.serial_connection.write((command + '\n').encode())
+                    
+                    # Immediately mark as successful - we don't wait for Arduino
+                    self.last_successful_command = datetime.now()
+                    
+                    # Return success immediately
+                    return {
+                        "success": True,
+                        "responses": ["Fire-and-forget - no response expected"],
+                        "port": self.current_port,
+                        "command": command
+                    }
                 except serial.SerialTimeoutException:
+                    # This shouldn't happen with write_timeout=0, but just in case
                     logger.warning(f"⏱️ Write timeout for command: {command}")
                     return {
                         "success": False,
@@ -264,26 +287,15 @@ class SmartArduinoConnection:
                         "port": self.current_port,
                         "command": command
                     }
-                # Remove the blocking sleep - let Arduino process in parallel
-                
-                # Read response with fast timeout
-                responses = []
-                start_time = time.time()
-                while time.time() - start_time < timeout:
-                    if self.serial_connection.in_waiting:
-                        line = self.serial_connection.readline().decode().strip()
-                        if line:  # Only add non-empty lines
-                            responses.append(line)
-                            break  # Got response, exit fast
-                
-                self.last_successful_command = datetime.now()
-                
-                return {
-                    "success": True,
-                    "responses": responses,
-                    "port": self.current_port,
-                    "command": command
-                }
+                except Exception as e:
+                    # Buffer full or other write error
+                    logger.warning(f"⚠️ Write error for command: {command} - {str(e)}")
+                    return {
+                        "success": False,
+                        "error": f"Serial write error: {str(e)}",
+                        "port": self.current_port,
+                        "command": command
+                    }
             finally:
                 self.connection_lock.release()
                 
@@ -494,6 +506,118 @@ async def send_shade_command_fast(shade_id: int, command: str) -> Dict[str, Any]
         return {
             "success": False,
             "message": f"Fire-and-forget command error",
+            "shade_id": shade_id,
+            "action": command,
+            "execution_time_ms": execution_time_ms
+        }
+
+async def send_shade_command_single_shot(shade_id: int, command: str) -> Dict[str, Any]:
+    """
+    Send a single shade command with NO retries - for scene execution.
+    
+    This is used by scenes to send one attempt per shade per cycle,
+    letting the scene retry logic handle repetition instead of
+    individual shade retry bursts.
+    
+    Args:
+        shade_id: Shade ID from database
+        command: 'u' (up), 'd' (down), or 's' (stop)
+    
+    Returns:
+        Dict with success status, message, and execution details
+    """
+    start_time = time.time()
+    
+    # Fast command validation
+    if command not in ['u', 'd', 's']:
+        return {
+            "success": False,
+            "message": f"Invalid command '{command}'. Must be u, d, or s",
+            "shade_id": shade_id,
+            "action": command,
+            "execution_time_ms": 0
+        }
+    
+    # Get shade configuration from database (fast lookup)
+    shade_data = _get_shade_data(shade_id)
+    if not shade_data:
+        return {
+            "success": False,
+            "message": f"Shade {shade_id} not found in database",
+            "shade_id": shade_id,
+            "action": command,
+            "execution_time_ms": int((time.time() - start_time) * 1000)
+        }
+    
+    try:
+        # Select command based on action (fast lookup)
+        if command == 'u':
+            cmd = shade_data.get('up_command')
+        elif command == 'd':
+            cmd = shade_data.get('down_command')
+        else:  # command == 's'
+            cmd = shade_data.get('stop_command')
+        
+        if not cmd or cmd == 'FF FF':
+            return {
+                "success": False,
+                "message": f"Command '{command}' not configured for shade {shade_id}",
+                "shade_id": shade_id,
+                "action": command,
+                "execution_time_ms": int((time.time() - start_time) * 1000)
+            }
+        
+        # Build Arduino command (optimized)
+        remote_type_val = 0 if shade_data['remote_type'] == 'AC123-06D' else 1
+        cmd_type_val = 0 if command == 'u' else 1 if command == 'd' else 2
+        is_cc = 1 if shade_data['channel'] == 'CC' else 0
+        
+        arduino_command = (f"TX:{shade_data['remote_id']:02X},"
+                         f"{shade_data['header_bytes'].replace(' ', '')},"
+                         f"{shade_data['identifier_bytes'].replace(' ', '')},"
+                         f"{cmd.replace(' ', '')},"
+                         f"{remote_type_val},"
+                         f"{shade_data['common_byte']},"
+                         f"{is_cc},"
+                         f"{cmd_type_val}")
+        
+        # Send SINGLE command (no retries) via fire-and-forget Arduino connection
+        result = await arduino_connection.send_command_fast(arduino_command, timeout=0.05)
+        
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        
+        if result["success"]:
+            action_name = {'u': 'UP', 'd': 'DOWN', 's': 'STOP'}[command]
+            message = f"Shade {shade_id} {action_name} single-shot command sent"
+            logger.debug(f"🎯 {message} (took {execution_time_ms}ms)")
+            
+            return {
+                "success": True,
+                "message": message,
+                "shade_id": shade_id,
+                "action": command,
+                "execution_time_ms": execution_time_ms,
+                "arduino_response": "\n".join(result.get("responses", [])) if result.get("responses") else None,
+                "port": result.get("port")
+            }
+        else:
+            # Silent failure in single-shot mode
+            logger.debug(f"🎯 Single-shot command failed for shade {shade_id}: {result.get('error', 'Unknown error')}")
+            return {
+                "success": False,
+                "message": f"Single-shot command failed silently",
+                "shade_id": shade_id,
+                "action": command,
+                "execution_time_ms": execution_time_ms,
+                "arduino_response": result.get("error")
+            }
+            
+    except Exception as e:
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        logger.debug(f"🎯 Single-shot shade {shade_id} error: {e}")
+        return {
+            "success": False,
+            "message": f"Single-shot command error",
             "shade_id": shade_id,
             "action": command,
             "execution_time_ms": execution_time_ms
