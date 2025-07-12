@@ -704,6 +704,7 @@ class WeatherService extends IWeatherService {
     return {
       dailyCount: this.apiUsage.dailyCount,
       dailyLimit: this.dailyLimit,
+      remaining: this.dailyLimit - this.apiUsage.dailyCount,
       usagePercent: Math.round(usagePercent * 10) / 10, // Round to 1 decimal
       status,
       statusColor,

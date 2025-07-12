@@ -11,6 +11,122 @@ if (fs.existsSync(envPath)) {
   dotenv.config({ path: envPath });
 }
 
+// Custom Elasticsearch Transport that sends logs to ELK stack
+class ElasticsearchTransport extends winston.Transport {
+  constructor(options) {
+    super(options);
+    this.name = 'elasticsearch';
+    this.elasticsearchConfig = options.elasticsearch;
+    this.client = null;
+    this.initializeClient();
+  }
+
+  async initializeClient() {
+    try {
+      const { Client } = require('@elastic/elasticsearch');
+      this.client = new Client({
+        node: this.elasticsearchConfig.url,
+        auth: this.elasticsearchConfig.username ? {
+          username: this.elasticsearchConfig.username,
+          password: this.elasticsearchConfig.password
+        } : undefined
+      });
+      
+      // Test connection with proper headers
+      await this.client.ping({}, {
+        headers: {
+          'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'
+        }
+      });
+      console.log('Elasticsearch transport connected successfully');
+    } catch (error) {
+      console.error('Elasticsearch transport connection failed:', error.message);
+      this.client = null;
+    }
+  }
+
+  log(info, callback) {
+    if (!this.client) {
+      return callback(null, true); // Fail silently if no client
+    }
+
+    // Create flat event structure for Elasticsearch
+    const flatEvent = {
+      '@timestamp': new Date().toISOString(),
+      level: info.level,
+      message: info.message,
+      service: info.service,
+      version: info.version,
+      environment: info.environment
+    };
+
+    // Function to flatten nested objects with dot notation
+    const flattenObject = (obj, prefix = '') => {
+      Object.keys(obj).forEach(key => {
+        const value = obj[key];
+        const newKey = prefix ? `${prefix}.${key}` : key;
+        
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          // Recursively flatten nested objects
+          flattenObject(value, newKey);
+        } else {
+          // Add primitive values to flat event
+          flatEvent[newKey] = value;
+        }
+      });
+    };
+
+    // Flatten all other fields from info object
+    Object.keys(info).forEach(key => {
+      if (!['timestamp', 'level', 'message', 'service', 'version', 'environment', 'meta', 'splat'].includes(key) && 
+          !key.startsWith('Symbol(')) {
+        const value = info[key];
+        
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          flattenObject(value, key);
+        } else {
+          flatEvent[key] = value;
+        }
+      }
+    });
+
+    // Remove winston internal fields
+    delete flatEvent.meta;
+    delete flatEvent.splat;
+    delete flatEvent[Symbol.for('level')];
+    delete flatEvent[Symbol.for('message')];
+
+    // Send to Elasticsearch
+    this.sendToElasticsearch(flatEvent, callback);
+  }
+
+  async sendToElasticsearch(event, callback) {
+    if (!this.client) {
+      return callback(null, false);
+    }
+
+    try {
+      const indexName = `${this.elasticsearchConfig.index}-${new Date().toISOString().slice(0, 7)}`; // monthly indices
+      
+      await this.client.index({
+        index: indexName,
+        body: event
+      }, {
+        headers: {
+          'Accept': 'application/vnd.elasticsearch+json; compatible-with=8',
+          'Content-Type': 'application/vnd.elasticsearch+json; compatible-with=8'
+        }
+      });
+      
+      callback(null, true);
+    } catch (error) {
+      // Only log errors, not debug info
+      console.error('Elasticsearch indexing error:', error.message);
+      callback(null, false); // Don't crash winston
+    }
+  }
+}
+
 // Custom Splunk HEC Transport that sends flat JSON with dot notation
 class SplunkHECTransport extends winston.transports.Http {
   constructor(options) {
@@ -223,6 +339,26 @@ class EnhancedLogger {
           )
         })
       );
+    }
+
+    // Custom Elasticsearch transport when enabled
+    if (process.env.ELASTICSEARCH_ENABLED === 'true') {
+      const elasticsearchConfig = {
+        url: process.env.ELASTICSEARCH_URL,
+        username: process.env.ELASTICSEARCH_USERNAME,
+        password: process.env.ELASTICSEARCH_PASSWORD,
+        index: process.env.ELASTICSEARCH_INDEX || 'monty-logs'
+      };
+
+      const elasticsearchTransport = new ElasticsearchTransport({
+        elasticsearch: elasticsearchConfig,
+        format: winston.format.combine(
+          winston.format.timestamp(),
+          winston.format.json()
+        )
+      });
+      
+      transports.push(elasticsearchTransport);
     }
 
     // Custom Splunk HEC transport when enabled
