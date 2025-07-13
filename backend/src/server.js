@@ -29,6 +29,9 @@ console.log('[DEBUG] Loaded dotenv');
 const logger = require('./utils/logger');
 console.log('[DEBUG] Loaded logger');
 
+const shadeCommanderMonitor = require('./services/ShadeCommanderMonitorService');
+console.log('[DEBUG] Loaded ShadeCommanderMonitorService');
+
 const http = require('http');
 console.log('[DEBUG] Loaded http');
 
@@ -1087,6 +1090,18 @@ try {
           logger.logger.error(`SchedulerService post-startup initialization failed: ${error.message}`);
         }
       }, 3000); // Wait 3 seconds after server starts
+      
+      // Start ShadeCommander background monitoring after server is stable
+      setTimeout(() => {
+        try {
+          console.log('[INIT] Starting ShadeCommander background monitor...');
+          shadeCommanderMonitor.start();
+          console.log('[INIT] ✅ ShadeCommander monitor started successfully');
+        } catch (error) {
+          console.error('[INIT] ❌ ShadeCommander monitor startup failed:', error.message);
+          logger.logger.error(`ShadeCommander monitor startup failed: ${error.message}`);
+        }
+      }, 5000); // Wait 5 seconds after server starts (after SchedulerService)
     }
   });
   

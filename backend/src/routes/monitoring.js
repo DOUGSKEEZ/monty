@@ -3,6 +3,8 @@ const express = require('express');
 const router = express.Router();
 const multiVendorMetrics = require('../services/MultiVendorMetricsService');
 const prometheusMetrics = require('../services/PrometheusMetricsService');
+const shadeCommanderMonitor = require('../services/ShadeCommanderMonitorService');
+const notificationService = require('../services/NotificationService');
 const logger = require('../utils/logger').getModuleLogger('monitoring-api');
 
 // Get status of all monitoring providers
@@ -67,6 +69,158 @@ router.get('/status', async (req, res) => {
 });
 
 // Get metrics about metrics (meta-monitoring)
+// ShadeCommander deep health check endpoint
+router.get('/shadecommander-health', async (req, res) => {
+  try {
+    const startTime = Date.now();
+    const timeout = 5000; // 5 second timeout
+    
+    try {
+      const response = await fetch('http://192.168.0.15:8000/health', {
+        method: 'GET',
+        signal: AbortSignal.timeout(timeout)
+      });
+      
+      const responseTime = Date.now() - startTime;
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const healthData = await response.json();
+      
+      // Deep health analysis
+      const isHealthy = healthData.status === 'healthy' && 
+                       healthData.arduino_connected === true && 
+                       healthData.database_accessible === true;
+      
+      const result = {
+        status: isHealthy ? 'healthy' : 'degraded',
+        responseTime: responseTime,
+        httpStatus: response.status,
+        details: {
+          fastapi_responding: true,
+          arduino_connected: healthData.arduino_connected,
+          database_accessible: healthData.database_accessible,
+          last_command_time: healthData.last_command_time,
+          uptime_seconds: healthData.uptime_seconds,
+          overall_status: healthData.status
+        },
+        lastCheck: new Date().toISOString(),
+        endpoint: 'http://192.168.0.15:8000/health'
+      };
+      
+      // Send detailed metrics to monitoring platforms
+      await multiVendorMetrics.sendMetric('shadecommander_availability', isHealthy ? 1 : 0.5, 'gauge', {
+        status: isHealthy ? 'healthy' : 'degraded',
+        arduino_connected: healthData.arduino_connected,
+        database_accessible: healthData.database_accessible
+      });
+      
+      await multiVendorMetrics.sendMetric('shadecommander_response_time', responseTime, 'histogram', {
+        endpoint: 'health'
+      });
+      
+      // Individual component metrics
+      await multiVendorMetrics.sendMetric('shadecommander_arduino_status', healthData.arduino_connected ? 1 : 0, 'gauge');
+      await multiVendorMetrics.sendMetric('shadecommander_database_status', healthData.database_accessible ? 1 : 0, 'gauge');
+      
+      if (!isHealthy) {
+        await multiVendorMetrics.sendEvent(
+          'ShadeCommander Degraded',
+          `ShadeCommander responding but degraded - Arduino: ${healthData.arduino_connected}, DB: ${healthData.database_accessible}`,
+          { 
+            arduino_connected: healthData.arduino_connected,
+            database_accessible: healthData.database_accessible,
+            status: healthData.status
+          },
+          'warning'
+        );
+      }
+      
+      res.json({ success: true, data: result });
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      
+      const result = {
+        status: 'down',
+        responseTime: responseTime >= timeout ? timeout : responseTime,
+        error: error.message,
+        errorType: error.name === 'TimeoutError' ? 'TIMEOUT' : (error.cause?.code || 'CONNECTION_ERROR'),
+        details: {
+          fastapi_responding: false,
+          arduino_connected: null,
+          database_accessible: null,
+          last_command_time: null,
+          uptime_seconds: null,
+          overall_status: 'unreachable'
+        },
+        lastCheck: new Date().toISOString(),
+        endpoint: 'http://192.168.0.15:8000/health'
+      };
+      
+      // Send failure metrics
+      await multiVendorMetrics.sendMetric('shadecommander_availability', 0, 'gauge', {
+        status: 'down',
+        error_type: result.errorType
+      });
+      
+      await multiVendorMetrics.sendMetric('shadecommander_arduino_status', 0, 'gauge');
+      await multiVendorMetrics.sendMetric('shadecommander_database_status', 0, 'gauge');
+      
+      await multiVendorMetrics.sendEvent(
+        'ShadeCommander Down',
+        `ShadeCommander health check failed: ${error.message}`,
+        { 
+          error_type: result.errorType, 
+          response_time: responseTime,
+          timeout_used: timeout
+        },
+        'error'
+      );
+      
+      res.json({ success: false, data: result });
+    }
+    
+  } catch (error) {
+    logger.error('Error in ShadeCommander health check:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ShadeCommander monitor status and history
+router.get('/shadecommander-stats', async (req, res) => {
+  try {
+    const stats = shadeCommanderMonitor.getHealthStats();
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    logger.error('Error getting ShadeCommander stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Notification service endpoints
+router.get('/notifications/status', async (req, res) => {
+  try {
+    const status = notificationService.getStatus();
+    res.json({ success: true, data: status });
+  } catch (error) {
+    logger.error('Error getting notification status:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/notifications/test', async (req, res) => {
+  try {
+    const result = await notificationService.sendTestAlert();
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Error sending test notification:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.get('/metrics-stats', async (req, res) => {
   try {
     // This would typically come from your metrics storage

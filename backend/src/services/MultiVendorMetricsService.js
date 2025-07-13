@@ -15,12 +15,10 @@ class MultiVendorMetricsService {
   // Lazy initialization to ensure env vars are loaded
   ensureInitialized() {
     if (!this.isInitialized) {
-      // Load monitoring environment variables if not already loaded
-      if (!process.env.NEW_RELIC_LICENSE_KEY && !process.env.DATADOG_API_KEY) {
-        const dotenv = require('dotenv');
-        const path = require('path');
-        dotenv.config({ path: path.join(__dirname, '../../.env.monitoring') });
-      }
+      // Always load monitoring environment variables
+      const dotenv = require('dotenv');
+      const path = require('path');
+      dotenv.config({ path: path.join(__dirname, '../../.env.monitoring') });
       
       this.initializeProviders();
       this.isInitialized = true;
@@ -300,7 +298,6 @@ class MultiVendorMetricsService {
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify(event);
       const fullUrl = `https://${config.host}:${config.port}/services/collector/event`;
-      this.logger.debug(`Sending to Splunk URL: ${fullUrl}`);
       
       const parsedUrl = url.parse(fullUrl);
       const options = {
@@ -313,7 +310,7 @@ class MultiVendorMetricsService {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData)
         },
-        rejectUnauthorized: false  // Add this for self-signed certs
+        rejectUnauthorized: process.env.SPLUNK_VERIFY_SSL !== 'false'
       };
       
       const req = https.request(options, (res) => {
