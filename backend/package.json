@@ -33,6 +33,7 @@
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
     "dotenv": "^16.5.0",
+    "elastic-apm-node": "^4.13.0",
     "express": "^5.1.0",
     "moment": "^2.30.1",
     "newrelic": "^12.21.0",

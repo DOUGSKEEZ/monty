@@ -24,10 +24,15 @@ const NEW_RELIC_APP_NAME = process.env.NEW_RELIC_APP_NAME || 'Monty Backend';
 const NEW_RELIC_DISTRIBUTED_TRACING_ENABLED = process.env.NEW_RELIC_DISTRIBUTED_TRACING_ENABLED === 'true';
 const NEW_RELIC_LOGGING_ENABLED = process.env.NEW_RELIC_LOGGING_ENABLED === 'true';
 
+// Check for Elastic APM configuration
+const ELASTIC_APM_ENABLED = process.env.ELASTIC_APM_ENABLED === 'true';
+const ELASTIC_APM_SERVER_URL = process.env.ELASTIC_APM_SERVER_URL;
+
 // Determine which agents to enable
 const enabledAgents = {
   newRelic: !!NEW_RELIC_LICENSE_KEY,
-  datadog: false // Datadog not currently implemented
+  datadog: false, // Datadog not currently implemented
+  elasticAPM: ELASTIC_APM_ENABLED && !!ELASTIC_APM_SERVER_URL
 };
 
 console.log('[MONITORING] Module loaded!');
@@ -50,6 +55,18 @@ if (enabledAgents.newRelic) {
     console.log('[MONITORING] New Relic agent loaded successfully');
   } catch (error) {
     console.error('[MONITORING] Failed to load New Relic agent:', error.message);
+    console.error('[MONITORING] Stack trace:', error.stack);
+  }
+}
+
+// Initialize Elastic APM if enabled
+if (enabledAgents.elasticAPM) {
+  try {
+    console.log('[MONITORING] Loading Elastic APM agent...');
+    require('./elastic-apm');
+    console.log('[MONITORING] Elastic APM agent loaded successfully');
+  } catch (error) {
+    console.error('[MONITORING] Failed to load Elastic APM agent:', error.message);
     console.error('[MONITORING] Stack trace:', error.stack);
   }
 }

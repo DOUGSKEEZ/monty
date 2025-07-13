@@ -47,8 +47,9 @@ class MultiVendorMetricsService {
       this.providers.newrelic = this.initializeNewRelic();
     }
   
-    // Elastic/ELK Stack - Only if ACTUALLY configured
-    if (process.env.ELASTICSEARCH_URL && process.env.ELASTICSEARCH_URL !== 'your_elasticsearch_url_here') {
+    // Elastic/ELK Stack - Only if ACTUALLY configured AND metrics enabled
+    if (process.env.ELASTICSEARCH_URL && process.env.ELASTICSEARCH_URL !== 'your_elasticsearch_url_here' && 
+        process.env.ELASTICSEARCH_METRICS_ENABLED !== 'false') {
       this.providers.elasticsearch = this.initializeElasticsearch();
     }
   
