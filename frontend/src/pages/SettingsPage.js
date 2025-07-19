@@ -82,10 +82,10 @@ function SettingsPage() {
       setWakeUpDelayChanged(false);
       
       setMusicSettings({
-        enabled_for_morning: config.music?.enabled_for_morning !== false,
-        enabled_for_evening: config.music?.enabled_for_evening !== false,
-        enabled_for_afternoon: config.music?.enabled_for_afternoon === true,
-        enabled_for_night: config.music?.enabled_for_night === true
+        enabled_for_morning: config.music?.enabled_for_morning !== undefined ? config.music.enabled_for_morning : true,
+        enabled_for_evening: config.music?.enabled_for_evening !== undefined ? config.music.enabled_for_evening : true,
+        enabled_for_afternoon: config.music?.enabled_for_afternoon !== undefined ? config.music.enabled_for_afternoon : false,
+        enabled_for_night: config.music?.enabled_for_night !== undefined ? config.music.enabled_for_night : false
       });
     }
   }, [scheduler.config]);

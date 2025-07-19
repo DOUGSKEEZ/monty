@@ -103,13 +103,13 @@ app.use(metricsMiddleware); // Add metrics middleware
 app.use(multiVendorMetricsMiddleware); // Add multi-vendor metrics middleware
 console.log('[DEBUG] Metrics middleware configured');
 
-// Add request logger for debugging (excluding map tiles)
-app.use((req, res, next) => {
-  if (!req.url.includes('/api/weather/map-tile/')) {
-    console.log(`[DEBUG] ${new Date().toISOString()} - ${req.method} ${req.url}`);
-  }
-  next();
-});
+// Add request logger for debugging (excluding map tiles) - disabled to reduce log noise
+// app.use((req, res, next) => {
+//   if (!req.url.includes('/api/weather/map-tile/')) {
+//     console.log(`[DEBUG] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+//   }
+//   next();
+// });
 
 // Add a better error handler for debugging
 process.on('uncaughtException', (err) => {
@@ -1070,6 +1070,11 @@ try {
       // CRITICAL: Initialize SchedulerService after server is running
       setTimeout(async () => {
         try {
+          // Initialize TimeLogger for hourly clock chimes
+          console.log('[INIT] Starting TimeLogger for hourly clock chimes...');
+          const timeLogger = require('./utils/TimeLogger');
+          timeLogger.start();
+          
           console.log('[INIT] Initializing SchedulerService after server startup...');
           const schedulerService = createSchedulerService();
           

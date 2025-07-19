@@ -26,12 +26,13 @@ class SmartArduinoConnection:
         self.last_successful_command: Optional[datetime] = None
         self.last_health_check: Optional[datetime] = None
         self.connection_lock = threading.Lock()
+        self.last_command_time: Optional[float] = None  # Track timing between commands
         
         # Health check every hour (much more reasonable than 5-10 minutes!)
         self.health_check_interval = timedelta(hours=1)
         
-        # Start background health checker
-        self._start_background_health_check()
+        # DISABLED: Background health checker - causes serial blocking during RF transmission
+        # self._start_background_health_check()
         
         logger.info("🤖 Smart Arduino Whisperer initialized - ready for your snooze-friendly shade control!")
     
@@ -264,9 +265,39 @@ class SmartArduinoConnection:
             try:
                 # TRUE FIRE-AND-FORGET: Send command without waiting for response
                 try:
-                    # Set write_timeout to 0 for non-blocking write
-                    self.serial_connection.write_timeout = 0
-                    self.serial_connection.write((command + '\n').encode())
+                    # Track command spacing
+                    current_time = time.time()
+                    if self.last_command_time:
+                        spacing_ms = (current_time - self.last_command_time) * 1000
+                        logger.info(f"⏱️ Command spacing: {spacing_ms:.1f}ms since last command")
+                        if spacing_ms < 100:  # Less than 100ms between commands is concerning
+                            logger.warning(f"⚠️ RAPID COMMANDS: Only {spacing_ms:.1f}ms between commands!")
+                    
+                    # Track serial write timing
+                    write_start = time.time()
+                    logger.info(f"📝 Serial write starting for command: {command[:20]}...")
+                    
+                    # Flush buffers before write to clear any pending data
+                    self.serial_connection.reset_input_buffer()
+                    self.serial_connection.reset_output_buffer()
+                    
+                    # Set write_timeout to 0.1 seconds (was 0, which might cause buffer issues)
+                    self.serial_connection.write_timeout = 0.1
+                    bytes_to_write = (command + '\n').encode()
+                    bytes_written = self.serial_connection.write(bytes_to_write)
+                    
+                    write_end = time.time()
+                    write_duration_ms = (write_end - write_start) * 1000
+                    
+                    # Update last command time
+                    self.last_command_time = write_end
+                    
+                    # Log write completion with timing
+                    logger.info(f"✍️ Serial write completed: {bytes_written} bytes in {write_duration_ms:.1f}ms")
+                    
+                    # Check if write was suspiciously slow (>10ms for non-blocking should be concerning)
+                    if write_duration_ms > 10:
+                        logger.warning(f"⚠️ SLOW serial write: {write_duration_ms:.1f}ms for {bytes_written} bytes")
                     
                     # Immediately mark as successful - we don't wait for Arduino
                     self.last_successful_command = datetime.now()
@@ -276,7 +307,8 @@ class SmartArduinoConnection:
                         "success": True,
                         "responses": ["Fire-and-forget - no response expected"],
                         "port": self.current_port,
-                        "command": command
+                        "command": command,
+                        "write_duration_ms": write_duration_ms
                     }
                 except serial.SerialTimeoutException:
                     # This shouldn't happen with write_timeout=0, but just in case

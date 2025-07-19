@@ -447,10 +447,10 @@ router.get('/config', async (req, res) => {
           last_triggered: config.wake_up.last_triggered
         },
         music: {
-          enabled_for_morning: config.music.enabled_for_morning || true,
-          enabled_for_evening: config.music.enabled_for_evening || true,
-          enabled_for_afternoon: config.music.enabled_for_afternoon || false,
-          enabled_for_night: config.music.enabled_for_night || false
+          enabled_for_morning: config.music.enabled_for_morning !== undefined ? config.music.enabled_for_morning : true,
+          enabled_for_evening: config.music.enabled_for_evening !== undefined ? config.music.enabled_for_evening : true,
+          enabled_for_afternoon: config.music.enabled_for_afternoon !== undefined ? config.music.enabled_for_afternoon : false,
+          enabled_for_night: config.music.enabled_for_night !== undefined ? config.music.enabled_for_night : false
         },
         // home_away data moved to main config.json under homeStatus.awayPeriods
         nextSceneTimes: health.metrics.nextSceneTimes,

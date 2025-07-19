@@ -546,14 +546,21 @@ class AsyncRetryService:
         return scene_tasks_cancelled
     
     def cancel_all_tasks(self):
-        """Cancel all active retry tasks"""
+        """Cancel all active retry tasks and clear zombie warnings"""
         cancelled_count = 0
         for task_id, task in self.active_tasks.items():
             task.cancel()
             cancelled_count += 1
         
+        # Clear all zombie warnings as well
+        zombie_warnings_count = len(self.zombie_warnings)
+        self.zombie_warnings.clear()
+        
+        # Clear task mappings
         self.active_tasks.clear()
-        logger.info(f"🛑 Cancelled {cancelled_count} active retry tasks")
+        self.active_shade_tasks.clear()
+        
+        logger.info(f"🛑 Cancelled {cancelled_count} active retry tasks and cleared {zombie_warnings_count} zombie warnings")
     
     async def wait_for_task(self, task_id: str, timeout: Optional[float] = None) -> bool:
         """
