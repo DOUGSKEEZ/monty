@@ -76,7 +76,7 @@ router.get('/shadecommander-health', async (req, res) => {
     const timeout = 5000; // 5 second timeout
     
     try {
-      const response = await fetch('http://192.168.0.15:8000/health', {
+      const response = await fetch('http://192.168.10.15:8000/health', {
         method: 'GET',
         signal: AbortSignal.timeout(timeout)
       });
@@ -107,7 +107,7 @@ router.get('/shadecommander-health', async (req, res) => {
           overall_status: healthData.status
         },
         lastCheck: new Date().toISOString(),
-        endpoint: 'http://192.168.0.15:8000/health'
+        endpoint: 'http://192.168.10.15:8000/health'
       };
       
       // Send detailed metrics to monitoring platforms
@@ -157,7 +157,7 @@ router.get('/shadecommander-health', async (req, res) => {
           overall_status: 'unreachable'
         },
         lastCheck: new Date().toISOString(),
-        endpoint: 'http://192.168.0.15:8000/health'
+        endpoint: 'http://192.168.10.15:8000/health'
       };
       
       // Send failure metrics

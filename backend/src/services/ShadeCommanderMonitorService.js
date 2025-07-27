@@ -56,7 +56,7 @@ class ShadeCommanderMonitorService {
     const checkTimestamp = new Date().toISOString();
     
     try {
-      const response = await fetch('http://192.168.0.15:8000/health', {
+      const response = await fetch('http://192.168.10.15:8000/health', {
         method: 'GET',
         signal: AbortSignal.timeout(this.timeout)
       });

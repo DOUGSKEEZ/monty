@@ -81,7 +81,7 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'http://192.168.0.15:3000'
+    'http://192.168.10.15:3000'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -615,7 +615,7 @@ app.post('/api/shade-commander/reconnect', async (req, res) => {
     
     logger.logger.info('Dashboard requested Arduino reconnection via ShadeCommander');
     
-    const response = await axios.post('http://192.168.0.15:8000/arduino/reconnect', {}, {
+    const response = await axios.post('http://192.168.10.15:8000/arduino/reconnect', {}, {
       timeout: 15000, // Arduino reconnection can take up to 10 seconds
       headers: { 'Content-Type': 'application/json' }
     });
@@ -766,7 +766,7 @@ serviceRegistry.register('shade-commander', {
       const axios = require('axios');
       
       // Health check with 5 second timeout
-      const healthResponse = await axios.get('http://192.168.0.15:8000/health', {
+      const healthResponse = await axios.get('http://192.168.10.15:8000/health', {
         timeout: 5000
       });
       
@@ -775,7 +775,7 @@ serviceRegistry.register('shade-commander', {
       let retryStats = { total_active_tasks: 0, recent_cancellations: 0 };
       
       try {
-        const arduinoResponse = await axios.get('http://192.168.0.15:8000/arduino/status', {
+        const arduinoResponse = await axios.get('http://192.168.10.15:8000/arduino/status', {
           timeout: 3000
         });
         // Arduino status is nested under arduino_status in the response
@@ -788,7 +788,7 @@ serviceRegistry.register('shade-commander', {
       }
       
       try {
-        const retryResponse = await axios.get('http://192.168.0.15:8000/retries', {
+        const retryResponse = await axios.get('http://192.168.10.15:8000/retries', {
           timeout: 3000
         });
         // Parse retry stats correctly

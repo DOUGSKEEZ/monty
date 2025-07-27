@@ -108,9 +108,9 @@ function WeatherMap() {
   }, []);
 
   // Custom tile URLs pointing to our secure backend proxy
-  const precipitationTileUrl = `http://192.168.0.15:3001/api/weather/map-tile/precipitation_new/{z}/{x}/{y}`;
-  const cloudsTileUrl = `http://192.168.0.15:3001/api/weather/map-tile/clouds_new/{z}/{x}/{y}`;
-  const windTileUrl = `http://192.168.0.15:3001/api/weather/map-tile/wind_new/{z}/{x}/{y}`;
+  const precipitationTileUrl = `http://192.168.10.15:3001/api/weather/map-tile/precipitation_new/{z}/{x}/{y}`;
+  const cloudsTileUrl = `http://192.168.10.15:3001/api/weather/map-tile/clouds_new/{z}/{x}/{y}`;
+  const windTileUrl = `http://192.168.10.15:3001/api/weather/map-tile/wind_new/{z}/{x}/{y}`;
   
 
   const handleTileError = (error) => {

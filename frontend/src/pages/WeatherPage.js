@@ -20,7 +20,7 @@ function WeatherPage() {
   // Load weather API usage statistics
   const loadUsageStats = async () => {
     try {
-      const response = await fetch('http://192.168.0.15:3001/api/weather/usage');
+      const response = await fetch('http://192.168.10.15:3001/api/weather/usage');
       if (response.ok) {
         const data = await response.json();
         setUsageStats(data.data);
@@ -37,7 +37,7 @@ function WeatherPage() {
       setRefreshSuccess(null);
       
       // Check if refresh is allowed (respects cooldown and daily limits)
-      const canRefreshResponse = await fetch('http://192.168.0.15:3001/api/weather/can-refresh');
+      const canRefreshResponse = await fetch('http://192.168.10.15:3001/api/weather/can-refresh');
       const canRefreshData = await canRefreshResponse.json();
       
       if (!canRefreshData.data.allowed) {

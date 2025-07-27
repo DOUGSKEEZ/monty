@@ -96,9 +96,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3001",        # Node.js backend server
-        "http://192.168.0.15:3001",     # Node.js backend server (IP)
+        "http://192.168.10.15:3001",     # Node.js backend server (IP)
         "http://localhost:3000",        # React frontend (localhost)
-        "http://192.168.0.15:3000",     # React frontend (IP)
+        "http://192.168.10.15:3000",     # React frontend (IP)
     ],
     allow_credentials=True,
     allow_methods=["*"],

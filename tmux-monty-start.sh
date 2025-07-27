@@ -51,29 +51,6 @@ tmux resize-pane -t $SESSION_NAME:Services.0 -x 40%   # Backend gets 40% width
 tmux resize-pane -t $SESSION_NAME:Services.1 -x 30%   # ShadeCommander gets 30% width
 # Right side (Frontend + Console) gets remaining 30% width
 
-# ======================
-# WINDOW 1: "Monitor" - Monitor top, console bottom
-# ======================
-tmux new-window -t $SESSION_NAME -n "Monitor"
-tmux send-keys -t $SESSION_NAME:Monitor "cd ~/monty" C-m
-tmux send-keys -t $SESSION_NAME:Monitor "echo '📊 Monitor Window - Run ./monitor-monty.sh'" C-m
-
-# Split horizontally (top/bottom)
-tmux split-window -v -t $SESSION_NAME:Monitor
-tmux send-keys -t $SESSION_NAME:Monitor.1 "cd ~/monty" C-m
-tmux send-keys -t $SESSION_NAME:Monitor.1 "echo '💻 Console Ready'" C-m
-
-# ======================
-# WINDOW 2: "Console" - Dual side-by-side consoles
-# ======================
-tmux new-window -t $SESSION_NAME -n "Console"
-tmux send-keys -t $SESSION_NAME:Console "cd ~/monty" C-m
-tmux send-keys -t $SESSION_NAME:Console "echo '💻 Left Console Ready'" C-m
-
-# Split vertically (side-by-side)
-tmux split-window -h -t $SESSION_NAME:Console
-tmux send-keys -t $SESSION_NAME:Console.1 "cd ~/monty" C-m
-tmux send-keys -t $SESSION_NAME:Console.1 "echo '💻 Right Console Ready'" C-m
 
 # ======================
 # FINAL SETUP

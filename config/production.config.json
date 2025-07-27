@@ -33,7 +33,7 @@
     "logLevel": "info",
     "maxLogFiles": 14,
     "enableCors": true,
-    "corsOrigins": ["http://localhost:3000", "http://192.168.0.15:3000"],
+    "corsOrigins": ["http://localhost:3000", "http://192.168.10.15:3000"],
     "apiRateLimits": {
       "windowMs": 60000,
       "maxRequests": 100
@@ -45,6 +45,6 @@
   },
   "security": {
     "enableNetworkIsolation": true,
-    "trustedNetworks": ["192.168.0.0/24"]
+    "trustedNetworks": ["192.168.10.0/24"]
   }
 }

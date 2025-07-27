@@ -2,7 +2,7 @@
 
 // Base API URL - hardcoded to work with IP access
 // IMPORTANT: This is a direct fix for accessing via IP address
-const API_BASE_URL = 'http://192.168.0.15:3001/api';
+const API_BASE_URL = 'http://192.168.10.15:3001/api';
 
 /**
  * Generic fetch function with error handling
@@ -591,7 +591,7 @@ export const stateApi = {
 
 // ShadeCommander API configuration with fallback
 console.log('Environment variable REACT_APP_SHADECOMMANDER_URL:', process.env.REACT_APP_SHADECOMMANDER_URL);
-const SHADECOMMANDER_URL = process.env.REACT_APP_SHADECOMMANDER_URL || 'http://192.168.0.15:8000';
+const SHADECOMMANDER_URL = process.env.REACT_APP_SHADECOMMANDER_URL || 'http://192.168.10.15:8000';
 console.log('Final SHADECOMMANDER_URL:', SHADECOMMANDER_URL);
 
 // Direct ShadeCommander API calls (FastAPI external service)

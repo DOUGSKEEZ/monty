@@ -101,7 +101,7 @@ function SettingsPage() {
   // Load Arduino status
   const loadArduinoStatus = async () => {
     try {
-      const response = await fetch('http://192.168.0.15:8000/health');
+      const response = await fetch('http://192.168.10.15:8000/health');
       const health = await response.json();
       setArduinoStatus({
         connected: health.arduino_connected,
@@ -814,7 +814,7 @@ function SettingsPage() {
                     try {
                       setOperationMessage('Reconnecting to Arduino...');
                       setSaveSuccess('loading');
-                      const response = await fetch('http://192.168.0.15:8000/arduino/reconnect', {
+                      const response = await fetch('http://192.168.10.15:8000/arduino/reconnect', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                       });
@@ -870,7 +870,7 @@ function SettingsPage() {
                     try {
                       setOperationMessage('Getting shade monitor stats...');
                       setSaveSuccess('loading');
-                      const response = await fetch('http://192.168.0.15:8000/retries');
+                      const response = await fetch('http://192.168.10.15:8000/retries');
                       const result = await response.json();
                                             
                       const monitorInfo = `🧟 ZOMBIE MONITORING
@@ -902,7 +902,7 @@ Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
                       try {
                         setOperationMessage('Killing zombie retries...');
                         setSaveSuccess('loading');
-                        const response = await fetch('http://192.168.0.15:8000/retries/all', {
+                        const response = await fetch('http://192.168.10.15:8000/retries/all', {
                           method: 'DELETE'
                         });
                         if (response.ok) {

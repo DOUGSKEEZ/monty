@@ -789,13 +789,13 @@ class SchedulerService {
    */
   async callShadeCommander(sceneName) {
     try {
-      const url = `http://192.168.0.15:8000/scenes/${sceneName}/execute`;
+      const url = `http://192.168.10.15:8000/scenes/${sceneName}/execute`;
       
       return new Promise((resolve, reject) => {
         const postData = JSON.stringify({});
         
         const options = {
-          hostname: '192.168.0.15',
+          hostname: '192.168.10.15',
           port: 8000,
           path: `/scenes/${sceneName}/execute`,
           method: 'POST',
