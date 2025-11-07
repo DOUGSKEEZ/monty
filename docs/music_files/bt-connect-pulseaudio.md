@@ -1,4 +1,11 @@
-# Klipsch The Fives Bluetooth Connection Script
+# Klipsch The Fives Bluetooth Connection Script (DEPRECATED - PulseAudio Version)
+
+**⚠️ DEPRECATED**: This documentation is for the old PulseAudio-based script.
+**See [bt-connect-pipewire.md](./bt-connect-pipewire.md) for the current PipeWire version.**
+
+---
+
+*Original documentation preserved for reference:*
 
 A robust, production-ready script for establishing and maintaining reliable Bluetooth connections with Klipsch The Fives speakers on Linux systems.
 
