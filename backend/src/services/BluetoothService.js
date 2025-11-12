@@ -447,6 +447,65 @@ class BluetoothService extends IBluetoothService {
   }
 
   /**
+   * Get RSSI (Received Signal Strength Indicator) for the connected Bluetooth device
+   * @returns {Promise<Object>} RSSI value in dBm or null if not connected
+   */
+  async getRSSI() {
+    try {
+      const { stdout, stderr } = await execPromise(`hcitool rssi ${this.bluetoothDevice}`, { timeout: 5000 });
+
+      // Parse the output
+      // Connected: "RSSI return value: -58"
+      // Not connected: "Not connected."
+
+      if (stdout.includes('Not connected')) {
+        return {
+          success: true,
+          rssi: null,
+          connected: false,
+          message: 'Bluetooth device not connected'
+        };
+      }
+
+      // Parse RSSI value from output
+      const match = stdout.match(/RSSI return value:\s*(-?\d+)/);
+      if (match) {
+        const rssi = parseInt(match[1], 10);
+
+        prometheusMetrics.recordOperation('bluetooth-rssi', true);
+
+        return {
+          success: true,
+          rssi: rssi,
+          connected: true,
+          message: `RSSI: ${rssi} dBm`
+        };
+      }
+
+      // Unexpected output format
+      logger.warn(`Unexpected hcitool rssi output: ${stdout}`);
+      return {
+        success: false,
+        rssi: null,
+        connected: false,
+        message: 'Unable to parse RSSI value',
+        details: { stdout: stdout.trim() }
+      };
+    } catch (error) {
+      logger.debug(`Error getting Bluetooth RSSI: ${error.message}`);
+      prometheusMetrics.recordOperation('bluetooth-rssi', false);
+
+      return {
+        success: false,
+        rssi: null,
+        connected: false,
+        message: 'Failed to get RSSI',
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Get diagnostic information about the Bluetooth system
    */
   async getDiagnostics() {

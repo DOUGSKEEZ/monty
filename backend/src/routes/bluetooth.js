@@ -201,14 +201,14 @@ router.get('/diagnostics', async (req, res) => {
   try {
     // Record request metric
     prometheusMetrics.incrementHttpRequestCount('GET', '/api/bluetooth/diagnostics');
-    
+
     logger.info('Bluetooth diagnostics requested');
-    
+
     const result = await getBluetoothService().getDiagnostics();
-    
+
     // Always return a 200 with diagnostic information
     res.json(result);
-    
+
     // Record response time
     const responseTime = Date.now() - routeStartTime;
     prometheusMetrics.recordResponseTime('GET', '/api/bluetooth/diagnostics', 200, responseTime);
@@ -219,11 +219,49 @@ router.get('/diagnostics', async (req, res) => {
       message: 'Failed to get Bluetooth diagnostics',
       error: error.message
     });
-    
+
     // Record error
     prometheusMetrics.incrementErrorCount('GET', '/api/bluetooth/diagnostics', error.message);
     const responseTime = Date.now() - routeStartTime;
     prometheusMetrics.recordResponseTime('GET', '/api/bluetooth/diagnostics', 500, responseTime);
+  }
+});
+
+// Get Bluetooth RSSI (signal strength)
+router.get('/rssi', async (req, res) => {
+  const routeStartTime = Date.now();
+  try {
+    // Record request metric
+    prometheusMetrics.incrementHttpRequestCount('GET', '/api/bluetooth/rssi');
+
+    // Check if this is a background poll request (silent logging)
+    const isSilent = req.query.silent === 'true' || req.query.background === 'true';
+
+    if (!isSilent) {
+      logger.debug('Bluetooth RSSI requested');
+    }
+
+    const result = await getBluetoothService().getRSSI();
+
+    // Always return a 200 with RSSI information
+    res.json(result);
+
+    // Record response time
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/bluetooth/rssi', 200, responseTime);
+  } catch (error) {
+    logger.error(`Error getting Bluetooth RSSI: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      rssi: null,
+      message: 'Failed to get Bluetooth RSSI',
+      error: error.message
+    });
+
+    // Record error
+    prometheusMetrics.incrementErrorCount('GET', '/api/bluetooth/rssi', error.message);
+    const responseTime = Date.now() - routeStartTime;
+    prometheusMetrics.recordResponseTime('GET', '/api/bluetooth/rssi', 500, responseTime);
   }
 });
 

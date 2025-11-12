@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../utils/AppContext';
+import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
 
 function PianobarPage() {
   // Get state from context
@@ -890,18 +891,24 @@ function PianobarPage() {
       <div className="bg-white p-6 rounded shadow">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold">
-              Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
-            </h2>
-            {/* WebSocket connection indicator */}
+            <div className="flex items-center">
+              <h2 className="text-xl font-semibold">
+                Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
+              </h2>
+              {/* Bluetooth Signal Strength Icon */}
+              <BluetoothSignalStrength mode="icon" />
+            </div>
+            {/* WebSocket connection indicator + RSSI text */}
             <div className="flex items-center mt-1">
-              <div 
-                className={`w-2 h-2 rounded-full mr-2 ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`} 
-                title={wsConnected ? 'WebSocket connected' : 'WebSocket disconnected'} 
+              <div
+                className={`w-2 h-2 rounded-full mr-2 ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}
+                title={wsConnected ? 'WebSocket connected' : 'WebSocket disconnected'}
               />
               <span className="text-xs text-gray-400">
                 {wsConnected ? 'Live updates' : 'Polling updates'}
               </span>
+              {/* Bluetooth Signal Strength Text */}
+              <BluetoothSignalStrength mode="text" />
             </div>
           </div>
           <div className="flex items-center space-x-3">
