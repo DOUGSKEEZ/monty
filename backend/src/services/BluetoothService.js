@@ -333,14 +333,12 @@ class BluetoothService extends IBluetoothService {
           }
 
           const { stdout, stderr, exitCode } = await execPromise(`${this.bluetoothScript} status || echo "Exit code: $?"`);
-
-          // Parse the new status output format
-          // New script uses: "Connection: ✅ Connected" or "❌ Not connected" or "❌ Idle (power-save)"
-          const connected = stdout.includes('Connection: ✅ Connected');
-          const audioSinkExists = stdout.includes('Audio Sink: ✅ Available');
-          const audioReady = stdout.includes('Status: Fully operational');
-          const idleConnection = stdout.includes('Idle (power-save)');
-
+          
+          // Parse the status output
+          const connected = stdout.includes('Speakers are connected');
+          const audioSinkExists = stdout.includes('Audio sink exists');
+          const audioReady = stdout.includes('ready for playback');
+          
           // Update internal state
           this.isConnected = connected;
           this.isAudioReady = audioReady;
@@ -353,9 +351,9 @@ class BluetoothService extends IBluetoothService {
             isConnected: connected,
             isAudioReady: audioReady,
             audioSinkExists: audioSinkExists,
-            message: connected ?
-              (audioReady ? 'Connected to Bluetooth speakers with audio ready' : 'Connected to Bluetooth speakers but audio not fully ready') :
-              (idleConnection ? 'Speakers in power-save mode' : 'Not connected to Bluetooth speakers'),
+            message: connected ? 
+              (audioReady ? 'Connected to Bluetooth speakers with audio ready' : 'Connected to Bluetooth speakers but audio not fully ready') : 
+              'Not connected to Bluetooth speakers',
             details: {
               stdout: stdout.trim(),
               device: this.bluetoothDevice,
