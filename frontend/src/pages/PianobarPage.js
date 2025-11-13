@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../utils/AppContext';
 import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
+import ModeSelector from '../components/ModeSelector';
 
 function PianobarPage() {
   // Get state from context
@@ -15,7 +16,10 @@ function PianobarPage() {
   
   // Love animation state
   const [isAnimatingLove, setIsAnimatingLove] = useState(false);
-  
+
+  // Mode selector state
+  const [showModeSelector, setShowModeSelector] = useState(false);
+
   // Cache version for forcing refreshes when needed
   const CACHE_VERSION = '2025-06-01-v1';
   
@@ -563,7 +567,8 @@ function PianobarPage() {
       setBluetoothProgressComplete(false);
     }
   }, [bluetooth.connectionInProgress, bluetooth.isConnected, bluetoothProgress, bluetoothProgressComplete]);
-  
+
+
   // Helper function to parse station list
   const parseStationList = (stationsData) => {
     if (Array.isArray(stationsData)) {
@@ -1037,23 +1042,49 @@ function PianobarPage() {
             {/* Album Art + Song Details Layout */}
             <div className="flex items-start space-x-4">
               {/* Album Art */}
-              <div className={`flex-shrink-0 ${isPlayerOn() ? '' : 'opacity-50'}`}>
-                {trackInfo.coverArt ? (
-                  <img 
-                    src={trackInfo.coverArt} 
-                    alt={`${trackInfo.album || 'Album'} cover`}
-                    className="w-32 h-32 rounded-lg shadow-lg object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-32 h-32 rounded-lg shadow-lg bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
-                    <span className="text-white text-4xl">🎵</span>
+              {/* Album Art Column */}
+              <div className="flex flex-col space-y-3">
+                {/* Album Art */}
+                <div className={`flex-shrink-0 ${isPlayerOn() ? '' : 'opacity-50'}`}>
+                  {trackInfo.coverArt ? (
+                    <img
+                      src={trackInfo.coverArt}
+                      alt={`${trackInfo.album || 'Album'} cover`}
+                      className="w-32 h-32 rounded-lg shadow-lg object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-32 h-32 rounded-lg shadow-lg bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
+                      <span className="text-white text-4xl">🎵</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Station Mode Button */}
+                <button
+                  onClick={() => setShowModeSelector(true)}
+                  disabled={!isPlayerOn()}
+                  className={`w-32 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    isPlayerOn()
+                      ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600 shadow-md'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                  }`}
+                  title={isPlayerOn() ? 'Customize your station mode' : 'Start pianobar to change modes'}
+                >
+                  <div className="flex flex-col items-center justify-center space-y-1">
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-[12px] opacity-75">Mode</span>
+                      <svg className="w-4 h-4 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                      </svg>
+                    </div>
+                    <span className="leading-tight text-[14px] font-semibold">Tune Your Station</span>
                   </div>
-                )}
+                </button>
               </div>
-              
+
               {/* Song Details */}
               <div className="flex-grow min-w-0">
                 {/* Title */}
@@ -1254,9 +1285,17 @@ function PianobarPage() {
           <li>Use the playback controls to skip songs or pause music</li>
           <li>Heart a song to tell Pandora you like it</li>
           <li>Change stations using the selector</li>
+          <li>Change station mode to customize your listening experience</li>
           <li>Turn off the player when done</li>
         </ol>
       </div>
+
+      {/* Mode Selector Modal */}
+      <ModeSelector
+        isOpen={showModeSelector}
+        onClose={() => setShowModeSelector(false)}
+        stationName={trackInfo.stationName || station}
+      />
     </div>
   );
 }

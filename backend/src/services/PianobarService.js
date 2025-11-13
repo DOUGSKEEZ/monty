@@ -1484,7 +1484,261 @@ class PianobarService extends IPianobarService {
   }
   
   // No more complex state management methods needed
-  
+
+  /**
+   * Parse station modes from pianobar stdout log
+   * @param {string} logContent - The log content to parse
+   * @returns {Array} Array of mode objects
+   * @private
+   */
+  _parseModesFromLog(logContent) {
+    const modes = [];
+    const lines = logContent.split('\n');
+
+    // Find the LAST "Fetching modes... Ok." to get the most recent mode list
+    let lastModesSectionStart = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const cleanLine = lines[i].replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\[2K/g, '');
+      if (cleanLine.includes('Fetching modes... Ok.')) {
+        lastModesSectionStart = i;
+        break;
+      }
+    }
+
+    if (lastModesSectionStart === -1) {
+      return modes; // No modes section found
+    }
+
+    // Parse from the last modes section forward
+    let inModeSection = false;
+    for (let i = lastModesSectionStart; i < lines.length; i++) {
+      const line = lines[i];
+      // Remove ALL ANSI escape codes for consistent matching (including \u001b[2K)
+      const cleanLine = line.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\[2K/g, '');
+
+      // Detect start of modes section
+      if (cleanLine.includes('Fetching modes... Ok.')) {
+        inModeSection = true;
+        continue;
+      }
+
+      // Detect end of modes section
+      if (inModeSection && cleanLine.includes('[?] Pick a new mode:')) {
+        // We've reached the end of the mode list
+        break;
+      }
+
+      // Parse mode lines (format: "	 0) Mode Name: Description (active)")
+      // Note: pianobar uses TAB characters before mode numbers
+      if (inModeSection) {
+        // Match pattern: optional whitespace/tabs, number, ), mode name, :, description, optional (active)
+        const modeMatch = cleanLine.match(/^\s*(\d+)\)\s+([^:]+):\s+(.+?)(\s+\(active\))?\s*$/);
+
+        if (modeMatch) {
+          modes.push({
+            id: parseInt(modeMatch[1]),
+            name: modeMatch[2].trim(),
+            description: modeMatch[3].trim(),
+            active: !!modeMatch[4]
+          });
+        }
+      }
+    }
+
+    return modes;
+  }
+
+  /**
+   * Get available station modes for the currently playing station
+   * Always fetches fresh data from pianobar
+   * @param {boolean} silent - Suppress logging
+   * @returns {Promise<Object>} Object with success, modes array, active mode, and station info
+   */
+  async getStationModes(silent = false) {
+    try {
+      // Check if pianobar is running
+      if (!this.isPianobarRunning) {
+        logger.warn('Cannot fetch modes - pianobar is not running');
+        return {
+          success: false,
+          message: 'Pianobar is not running',
+          modes: [],
+          activeMode: null,
+          stationId: null,
+          stationName: null
+        };
+      }
+
+      if (!silent) {
+        logger.info('Fetching station modes from pianobar');
+      }
+
+      // Send command to show modes (=m)
+      fs.writeFileSync(this.pianobarCtl, '=m', { encoding: 'utf8' });
+
+      // Give pianobar time to fetch and display modes (1.5 seconds)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Exit menu gracefully with info command
+      fs.writeFileSync(this.pianobarCtl, 'i\n', { encoding: 'utf8' });
+
+      // Wait a moment for the log to be written
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Read and parse the log file
+      const pianobarStdoutLog = '/tmp/pianobar_stdout.log';
+
+      if (!fs.existsSync(pianobarStdoutLog)) {
+        logger.error('Pianobar stdout log not found');
+        return {
+          success: false,
+          message: 'Pianobar log file not found',
+          modes: [],
+          activeMode: null,
+          stationId: null,
+          stationName: null
+        };
+      }
+
+      // Read last 2000 lines to ensure we catch the modes section
+      const logContent = fs.readFileSync(pianobarStdoutLog, 'utf8');
+      const lines = logContent.split('\n');
+      const recentLog = lines.slice(-2000).join('\n');
+
+      // Extract current station ID and name from log
+      // Format: |>  Station "Jazz Fruits Radio 🍉" (128737420597291214)
+      let stationId = null;
+      let stationName = null;
+      const stationMatch = recentLog.match(/\|>\s+Station\s+"([^"]+)"\s+\((\d+)\)/);
+      if (stationMatch) {
+        stationName = stationMatch[1];
+        stationId = stationMatch[2];
+      }
+
+      // Parse modes from log
+      const modes = this._parseModesFromLog(recentLog);
+
+      if (modes.length === 0) {
+        logger.warn('No modes found in pianobar log');
+        return {
+          success: false,
+          message: 'No modes found in log',
+          modes: [],
+          activeMode: null,
+          stationId,
+          stationName
+        };
+      }
+
+      // Find active mode
+      const activeMode = modes.find(m => m.active);
+
+      if (!silent) {
+        logger.info(`Found ${modes.length} station modes for "${stationName}" (${stationId}), active: ${activeMode ? activeMode.name : 'none'}`);
+      }
+
+      // Record metrics
+      if (prometheusMetrics) {
+        prometheusMetrics.recordOperation('get-station-modes', true);
+      }
+
+      return {
+        success: true,
+        modes,
+        activeMode: activeMode || null,
+        stationId,
+        stationName
+      };
+    } catch (error) {
+      logger.error(`Error getting station modes: ${error.message}`);
+
+      // Record metrics
+      if (prometheusMetrics) {
+        prometheusMetrics.recordOperation('get-station-modes', false);
+      }
+
+      return {
+        success: false,
+        message: `Error getting modes: ${error.message}`,
+        error: error.message,
+        modes: [],
+        activeMode: null,
+        stationId: null,
+        stationName: null
+      };
+    }
+  }
+
+  /**
+   * Select a station mode
+   * @param {number} modeId - The mode ID to select (0-6)
+   * @param {boolean} silent - Suppress logging
+   * @returns {Promise<Object>} Result of the mode selection
+   */
+  async selectMode(modeId, silent = false) {
+    try {
+      // Check if pianobar is running
+      if (!this.isPianobarRunning) {
+        logger.warn('Cannot select mode - pianobar is not running');
+        return {
+          success: false,
+          message: 'Pianobar is not running'
+        };
+      }
+
+      // Validate mode ID
+      if (typeof modeId !== 'number' || modeId < 0 || modeId > 6) {
+        logger.warn(`Invalid mode ID: ${modeId}`);
+        return {
+          success: false,
+          message: `Invalid mode ID: ${modeId}. Must be between 0 and 6.`
+        };
+      }
+
+      if (!silent) {
+        logger.info(`Selecting station mode ${modeId}`);
+      }
+
+      // Send atomic command: =m{modeId}\n
+      const command = `=m${modeId}\n`;
+      fs.writeFileSync(this.pianobarCtl, command, { encoding: 'utf8' });
+
+      // Wait for pianobar to process the mode change
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Safety cleanup: send info command to exit any lingering menu state
+      fs.writeFileSync(this.pianobarCtl, 'i\n', { encoding: 'utf8' });
+
+      if (!silent) {
+        logger.info(`Mode ${modeId} selected successfully`);
+      }
+
+      // Record metrics
+      if (prometheusMetrics) {
+        prometheusMetrics.recordOperation('select-mode', true);
+      }
+
+      return {
+        success: true,
+        message: `Mode ${modeId} selected successfully`,
+        modeId
+      };
+    } catch (error) {
+      logger.error(`Error selecting mode: ${error.message}`);
+
+      // Record metrics
+      if (prometheusMetrics) {
+        prometheusMetrics.recordOperation('select-mode', false);
+      }
+
+      return {
+        success: false,
+        message: `Error selecting mode: ${error.message}`,
+        error: error.message
+      };
+    }
+  }
+
   /**
    * Clean up orphaned pianobar processes
    */

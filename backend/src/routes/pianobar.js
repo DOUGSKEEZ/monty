@@ -1302,4 +1302,111 @@ router.post('/sync-state', (req, res) => {
   }
 });
 
+// Get station modes - ALWAYS fetches fresh from pianobar (modes are station-specific!)
+router.get('/modes', async (req, res) => {
+  try {
+    const pianobarService = getActualPianobarService();
+
+    if (!pianobarService || typeof pianobarService.getStationModes !== 'function') {
+      logger.error('PianobarService not available or missing getStationModes method');
+      return res.status(500).json({
+        success: false,
+        message: 'Pianobar service not available',
+        modes: [],
+        activeMode: null,
+        stationId: null,
+        stationName: null
+      });
+    }
+
+    // Always fetch fresh modes from pianobar (modes vary by station!)
+    logger.info('Fetching fresh station modes from pianobar');
+    const result = await pianobarService.getStationModes();
+
+    if (!result.success) {
+      logger.warn(`Failed to get station modes: ${result.message}`);
+      return res.json({
+        success: false,
+        message: result.message || 'Failed to fetch modes',
+        modes: [],
+        activeMode: null,
+        stationId: result.stationId,
+        stationName: result.stationName
+      });
+    }
+
+    logger.info(`Successfully fetched ${result.modes.length} modes for "${result.stationName}", active: ${result.activeMode?.name || 'none'}`);
+
+    res.json({
+      success: true,
+      modes: result.modes,
+      activeMode: result.activeMode,
+      stationId: result.stationId,
+      stationName: result.stationName
+    });
+  } catch (error) {
+    logger.error(`Error in /modes endpoint: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error fetching station modes',
+      modes: [],
+      activeMode: null,
+      stationId: null,
+      stationName: null
+    });
+  }
+});
+
+// Select a station mode
+router.post('/mode', async (req, res) => {
+  try {
+    const { modeId } = req.body;
+
+    // Validate modeId
+    if (typeof modeId !== 'number') {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing or invalid modeId parameter'
+      });
+    }
+
+    const pianobarService = getActualPianobarService();
+
+    if (!pianobarService || typeof pianobarService.selectMode !== 'function') {
+      logger.error('PianobarService not available or missing selectMode method');
+      return res.status(500).json({
+        success: false,
+        message: 'Pianobar service not available'
+      });
+    }
+
+    logger.info(`Selecting station mode ${modeId}`);
+    const result = await pianobarService.selectMode(modeId);
+
+    if (!result.success) {
+      logger.warn(`Failed to select mode: ${result.message}`);
+      return res.json({
+        success: false,
+        message: result.message || 'Failed to select mode'
+      });
+    }
+
+    logger.info(`Successfully selected mode ${modeId}`);
+
+    res.json({
+      success: true,
+      message: `Mode selected successfully`,
+      modeId: modeId
+    });
+  } catch (error) {
+    logger.error(`Error in /mode endpoint: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error selecting station mode'
+    });
+  }
+});
+
 module.exports = router;
