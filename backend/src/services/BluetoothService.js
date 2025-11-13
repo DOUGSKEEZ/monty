@@ -231,14 +231,26 @@ class BluetoothService extends IBluetoothService {
           }
         } catch (error) {
           logger.error(`Error connecting to Bluetooth: ${error.message}`);
+          // Log stdout and stderr for debugging
+          if (error.stdout) {
+            logger.error(`Bluetooth connect stdout: ${error.stdout.trim()}`);
+          }
+          if (error.stderr) {
+            logger.error(`Bluetooth connect stderr: ${error.stderr.trim()}`);
+          }
+
           prometheusMetrics.recordOperation('bluetooth-connect', false);
           prometheusMetrics.setServiceHealth('BluetoothService', 'error');
-          
+
           this.connectionInProgress = false;
           return {
             success: false,
             message: 'Error connecting to Bluetooth speakers',
-            error: error.message
+            error: error.message,
+            details: {
+              stdout: error.stdout?.trim() || '',
+              stderr: error.stderr?.trim() || ''
+            }
           };
         }
       },

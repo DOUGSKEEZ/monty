@@ -641,37 +641,47 @@ class SchedulerService {
    */
   async startMusicIfSafe(triggerSource) {
     try {
+      logger.info(`🎵 ${triggerSource} initiating music startup sequence...`);
+
       // 1. Check if pianobar already running (right of way protection)
+      logger.info(`🎵 ${triggerSource} checking if pianobar is already running...`);
       const pianobarRunning = await this.checkPianobarStatus();
       if (pianobarRunning) {
         logger.info(`🎵 ${triggerSource} skipped - pianobar already running (respecting existing session)`);
         return { skipped: true, reason: "pianobar_running" };
       }
-      
+      logger.info(`🎵 ${triggerSource} pianobar not running, proceeding...`);
+
       // 2. Check Bluetooth status quickly using bt-connect.sh
-      logger.debug(`🔊 ${triggerSource} checking Bluetooth status...`);
+      logger.info(`🔊 ${triggerSource} checking Bluetooth status...`);
       const btStatus = await this.checkBluetoothStatus();
-      
+      logger.info(`🔊 ${triggerSource} Bluetooth status: connected=${btStatus.connected}, device=${btStatus.device || 'N/A'}`);
+
       if (btStatus.connected) {
         // Already connected and ready - just start pianobar
         logger.info(`🎵 ${triggerSource} starting pianobar - Bluetooth already connected (${btStatus.device})`);
-        return await this.startPianobarDirect();
+        const pianobarResult = await this.startPianobarDirect();
+        logger.info(`🎵 ${triggerSource} pianobar start result: success=${pianobarResult.success}`);
+        return pianobarResult;
       }
-      
+
       // 3. Need full Bluetooth connection sequence
-      logger.info(`🔊 ${triggerSource} connecting Bluetooth then starting pianobar`);
+      logger.info(`🔊 ${triggerSource} Bluetooth not connected, initiating connection...`);
       const btConnectResult = await this.connectBluetoothDirect();
-      
+
       if (!btConnectResult.success) {
         logger.error(`🔊 ${triggerSource} Bluetooth connection failed: ${btConnectResult.message}`);
         return { success: false, reason: "bluetooth_connection_failed", error: btConnectResult.message };
       }
-      
-      logger.info(`🔊 ${triggerSource} Bluetooth connected successfully, starting pianobar`);
-      return await this.startPianobarDirect();
-      
+
+      logger.info(`🔊 ${triggerSource} Bluetooth connected successfully, starting pianobar...`);
+      const pianobarResult = await this.startPianobarDirect();
+      logger.info(`🎵 ${triggerSource} final result: success=${pianobarResult.success}`);
+      return pianobarResult;
+
     } catch (error) {
-      logger.error(`🎵 ${triggerSource} music startup failed: ${error.message}`);
+      logger.error(`🎵 ${triggerSource} music startup failed with exception: ${error.message}`);
+      logger.error(`🎵 ${triggerSource} error stack: ${error.stack}`);
       return { success: false, error: error.message };
     }
   }
@@ -686,16 +696,16 @@ class SchedulerService {
       const bluetoothService = createBluetoothService();
       
       const statusResult = await bluetoothService.getStatus();
-      
+
       if (statusResult.success) {
         // Parse the status result from BluetoothService
-        const statusData = statusResult.data;
-        logger.debug(`🔊 Bluetooth status check via BluetoothService: connected=${statusData.isConnected}, audioReady=${statusData.isAudioReady}`);
-        
+        // Note: BluetoothService.getStatus() returns isConnected/isAudioReady at top level, not under 'data'
+        logger.debug(`🔊 Bluetooth status check via BluetoothService: connected=${statusResult.isConnected}, audioReady=${statusResult.isAudioReady}`);
+
         return {
-          connected: statusData.isConnected && statusData.isAudioReady,
-          device: statusData.device || 'Bluetooth Speaker',
-          message: statusData.message || 'Connected via BluetoothService'
+          connected: statusResult.isConnected && statusResult.isAudioReady,
+          device: statusResult.details?.deviceName || 'Bluetooth Speaker',
+          message: statusResult.message || 'Connected via BluetoothService'
         };
       } else {
         logger.debug(`🔊 Bluetooth not connected via BluetoothService: ${statusResult.message}`);
@@ -733,6 +743,15 @@ class SchedulerService {
         };
       } else {
         logger.error(`🔊 Bluetooth connection failed via BluetoothService: ${connectResult.message}`);
+        // Log additional details if available
+        if (connectResult.details) {
+          if (connectResult.details.stdout) {
+            logger.error(`🔊 Bluetooth stdout: ${connectResult.details.stdout}`);
+          }
+          if (connectResult.details.stderr) {
+            logger.error(`🔊 Bluetooth stderr: ${connectResult.details.stderr}`);
+          }
+        }
         return {
           success: false,
           message: connectResult.message
@@ -752,21 +771,26 @@ class SchedulerService {
    */
   async startPianobarDirect() {
     try {
+      logger.info('🎵 Attempting to start Pianobar via PianobarService...');
       // Use the PianobarService endpoint, not the legacy music service
       const url = `http://localhost:3001/api/pianobar/start`;
-      
+
       const response = await this.makeHttpRequest(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      
+
       logger.info('🎵 Pianobar started successfully via PianobarService');
+      logger.info(`🎵 Pianobar response: ${JSON.stringify(response)}`);
       return { success: true, message: 'Pianobar started successfully' };
-      
+
     } catch (error) {
       logger.error(`🎵 Failed to start pianobar via PianobarService: ${error.message}`);
+      if (error.response) {
+        logger.error(`🎵 Pianobar error response: ${JSON.stringify(error.response)}`);
+      }
       return { success: false, error: error.message };
     }
   }
