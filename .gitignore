@@ -68,6 +68,7 @@ shades/commander/newrelic.ini
 # Configuration files with sensitive data
 config/config.json
 config/config.json.backup
+frontend/public/config/birthdays.json
 
 # Cache files
 **/cache/api_usage.json

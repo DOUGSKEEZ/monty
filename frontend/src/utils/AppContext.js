@@ -68,6 +68,108 @@ export const AppProvider = ({ children }) => {
 
   // Removed complex currentSong state - now managed locally in components
 
+  // Theme state - controls navbar seasonal themes
+  const [theme, setTheme] = useState(() => {
+    // Load from localStorage or default to festive mode enabled
+    const savedMode = localStorage.getItem('montyThemeMode'); // 'festive' or 'manual'
+    const savedManualTheme = localStorage.getItem('montyManualTheme');
+
+    return {
+      mode: savedMode || 'festive', // 'festive' or 'manual'
+      festiveEnabled: savedMode !== 'manual', // Deprecated but kept for compatibility
+      manualTheme: savedManualTheme || 'default',
+      currentTheme: 'default', // Will be calculated based on mode
+    };
+  });
+
+  // Birthday dates - loaded from config file
+  const [birthdayDates, setBirthdayDates] = useState([]);
+
+  // Load birthday dates from config file
+  useEffect(() => {
+    fetch('/config/birthdays.json')
+      .then(response => response.json())
+      .then(data => {
+        setBirthdayDates(data.dates || []);
+      })
+      .catch(error => {
+        console.error('Error loading birthday dates:', error);
+        // Fallback to empty array if file doesn't exist
+        setBirthdayDates([]);
+      });
+  }, []);
+
+  // Calculate current seasonal theme based on date
+  const calculateSeasonalTheme = (festiveEnabled) => {
+    if (!festiveEnabled) {
+      return 'default';
+    }
+
+    const now = new Date();
+    const month = now.getMonth() + 1; // 1-12
+    const day = now.getDate();
+
+    // Check birthday dates from config
+    const isBirthday = birthdayDates.some(
+      date => date.month === month && date.day === day
+    );
+    if (isBirthday) {
+      return 'birthday';
+    }
+
+    // New Year's fireworks: January 1
+    if (month === 1 && day === 1) {
+      return 'fireworks';
+    }
+
+    // Patriotic fireworks: July 3-4
+    if (month === 7 && (day === 3 || day === 4)) {
+      return 'fireworks-patriotic';
+    }
+
+    // Sept 1 - Oct 23: autumn
+    if ((month === 9) || (month === 10 && day <= 23)) {
+      return 'autumn';
+    }
+
+    // Oct 24 - Oct 31: halloween
+    if (month === 10 && day >= 24) {
+      return 'halloween';
+    }
+
+    // Nov 1 - Jan 7: xmas
+    if ((month === 11) || (month === 12) || (month === 1 && day <= 7)) {
+      return 'xmas';
+    }
+
+    // Jan 8 - April 30: winter
+    if ((month === 1 && day >= 8) || (month === 2) || (month === 3) || (month === 4)) {
+      return 'winter';
+    }
+
+    // May 1 - Aug 31: summer
+    if ((month === 5) || (month === 6) || (month === 7) || (month === 8)) {
+      return 'summer';
+    }
+
+    // Fallback (shouldn't happen with full year coverage)
+    return 'default';
+  };
+
+  // Update theme when mode changes
+  useEffect(() => {
+    let newTheme;
+    if (theme.mode === 'manual') {
+      newTheme = theme.manualTheme;
+    } else {
+      newTheme = calculateSeasonalTheme(true);
+    }
+
+    if (newTheme !== theme.currentTheme) {
+      setTheme(prev => ({ ...prev, currentTheme: newTheme }));
+    }
+  }, [theme.mode, theme.manualTheme]);
+
   // Persistent state management
   const [lastSyncTime, setLastSyncTime] = useState(Date.now());
 
@@ -966,8 +1068,37 @@ export const AppProvider = ({ children }) => {
   // Removed song clearing logic
   
   // Removed backend state loading
-  
+
   // Removed backend sync logic
+
+  // Set theme mode (festive or manual)
+  const setThemeMode = (mode) => {
+    localStorage.setItem('montyThemeMode', mode);
+    setTheme(prev => ({
+      ...prev,
+      mode: mode,
+      festiveEnabled: mode === 'festive',
+      currentTheme: mode === 'festive' ? calculateSeasonalTheme(true) : prev.manualTheme,
+    }));
+  };
+
+  // Set manual theme selection
+  const setManualTheme = (themeName) => {
+    localStorage.setItem('montyManualTheme', themeName);
+    setTheme(prev => ({
+      ...prev,
+      mode: 'manual',
+      manualTheme: themeName,
+      currentTheme: themeName,
+      festiveEnabled: false,
+    }));
+    localStorage.setItem('montyThemeMode', 'manual');
+  };
+
+  // Legacy function for compatibility
+  const toggleFestiveMode = (enabled) => {
+    setThemeMode(enabled ? 'festive' : 'manual');
+  };
 
   // Memoize actions to prevent infinite re-renders
   const actions = useMemo(() => ({
@@ -989,6 +1120,9 @@ export const AppProvider = ({ children }) => {
     disconnectBluetooth,
     updatePianobarStatus,
     updatePianobarStations,
+    toggleFestiveMode,
+    setThemeMode,
+    setManualTheme,
     // Removed song management actions
   }), []); // Empty dependency array - functions are stable
 
@@ -1000,6 +1134,7 @@ export const AppProvider = ({ children }) => {
     music,
     bluetooth,
     pianobar,
+    theme,
     // Removed currentSong from context
     actions,
   };

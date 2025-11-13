@@ -7,7 +7,7 @@ import AwayPeriodsList from '../components/AwayPeriodsList';
 
 function SettingsPage() {
   // Get state and actions from context
-  const { scheduler, weather, actions } = useAppContext();
+  const { scheduler, weather, theme, actions } = useAppContext();
   
   // Component state
   const [saving, setSaving] = useState(false);
@@ -741,6 +741,213 @@ function SettingsPage() {
         </div>
       </div>
 
+      {/* Theme Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+          <span className="mr-2">🎨</span>
+          Theme
+        </h2>
+
+        {/* Mode Selection and Current Theme */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left: Mode Selection */}
+          <div>
+            <h3 className="font-semibold text-gray-700 mb-1">Mode:</h3>
+            <div className="space-y-2">
+              <label className="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="themeMode"
+                  checked={theme.mode === 'festive'}
+                  onChange={() => actions.setThemeMode('festive')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-medium">🎉 Auto Seasonal</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="themeMode"
+                  checked={theme.mode === 'manual'}
+                  onChange={() => actions.setThemeMode('manual')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🎯 Manual Select</span>
+              </label>
+            </div>
+
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
+              <p className="font-medium mb-1">Current:</p>
+              <p className="text-gray-700">
+                {theme.currentTheme === 'default' ? '🔵 Default' :
+                 theme.currentTheme === 'xmas' ? (theme.mode === 'festive' ? '🎉 Christmas' : '🎄 Christmas') :
+                 theme.currentTheme === 'northern-lights' ? (theme.mode === 'festive' ? '🎉 Northern Lights' : '🌌 Northern Lights') :
+                 theme.currentTheme === 'fireworks-patriotic' ? (theme.mode === 'festive' ? '🎉 Patriotic' : '🇺🇸 Patriotic') :
+                 theme.mode === 'festive' ? `🎉 ${theme.currentTheme.charAt(0).toUpperCase() + theme.currentTheme.slice(1)}` :
+                 theme.currentTheme.charAt(0).toUpperCase() + theme.currentTheme.slice(1)}
+              </p>
+            </div>
+          </div>
+
+          <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Seasonal/Image Themes */}
+          <div>
+            <h3 className="font-semibold text-gray-700 mb-2">🌍 Seasonal (Image)</h3>
+            <div className="space-y-0">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'default'}
+                  onChange={() => actions.setManualTheme('default')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🔵 Default</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'summer'}
+                  onChange={() => actions.setManualTheme('summer')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">☀️ Summer</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'autumn'}
+                  onChange={() => actions.setManualTheme('autumn')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🍂 Autumn</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'halloween'}
+                  onChange={() => actions.setManualTheme('halloween')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🎃 Halloween</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'winter'}
+                  onChange={() => actions.setManualTheme('winter')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">❄️ Winter</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'xmas'}
+                  onChange={() => actions.setManualTheme('xmas')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🎄 Christmas</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Animated Themes */}
+          <div>
+            <h3 className="font-semibold text-gray-700 mb-2">✨ Animated (CSS)</h3>
+            <div className="space-y-0">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'birthday'}
+                  onChange={() => actions.setManualTheme('birthday')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🎂 Birthday</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'northern-lights'}
+                  onChange={() => actions.setManualTheme('northern-lights')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🌌 Northern Lights</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'fireworks'}
+                  onChange={() => actions.setManualTheme('fireworks')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🎆 Fireworks</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'fireworks-patriotic'}
+                  onChange={() => actions.setManualTheme('fireworks-patriotic')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🇺🇸 Patriotic</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'starfield'}
+                  onChange={() => actions.setManualTheme('starfield')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">⭐ Starfield</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'matrix'}
+                  onChange={() => actions.setManualTheme('matrix')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">🟢 Matrix</span>
+              </label>
+
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="manualTheme"
+                  checked={theme.currentTheme === 'neon'}
+                  onChange={() => actions.setManualTheme('neon')}
+                  className="mr-2 w-4 h-4"
+                />
+                <span className="text-sm">💡 Neon</span>
+              </label>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
 
       {/* System Controls Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">

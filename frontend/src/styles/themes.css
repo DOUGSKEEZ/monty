@@ -1,0 +1,406 @@
+/* ===================================
+   MONTY ANIMATED NAVBAR THEMES
+   CSS-only animations for navbar backgrounds
+   =================================== */
+
+/* Birthday Theme - Confetti and celebratory emojis */
+.theme-birthday {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Confetti dots layer */
+.theme-birthday::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  right: -50%;
+  bottom: -50%;
+  background-image:
+    radial-gradient(circle, #ff6b6b 3px, transparent 3px),
+    radial-gradient(circle, #4ecdc4 3px, transparent 3px),
+    radial-gradient(circle, #ffe66d 3px, transparent 3px),
+    radial-gradient(circle, #ff6b9d 3px, transparent 3px),
+    radial-gradient(circle, #95e1d3 2px, transparent 2px),
+    radial-gradient(circle, #ffa07a 2px, transparent 2px);
+  background-size: 60px 60px, 90px 90px, 110px 110px, 140px 140px, 75px 75px, 100px 100px;
+  background-position: 0 0, 25px 25px, 50px 50px, 75px 75px, 35px 10px, 60px 40px;
+  animation: confetti-fall 20s linear infinite;
+  opacity: 0.7;
+}
+
+/* Emoji celebration layer - Floating and bouncing */
+.theme-birthday::after {
+  content: 'Happy Birthday!\A🎉 🎂 🎈 🥳 🎁';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  font-size: 28px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 0 30px;
+  opacity: 0.9;
+  animation: emoji-float 6s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  white-space: pre;
+  text-align: center;
+  font-weight: bold;
+  letter-spacing: 5px;
+  z-index: 1;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    transform: translateY(100%) rotate(360deg);
+  }
+}
+
+@keyframes emoji-float {
+  0%, 100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-8px) scale(1.15) rotate(5deg);
+  }
+  50% {
+    transform: translateY(5px) scale(0.95) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-5px) scale(1.08) rotate(3deg);
+  }
+}
+
+/* Northern Lights Theme - Aurora Borealis */
+.theme-northern-lights {
+  background: linear-gradient(180deg, #0a1128 0%, #001f54 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-northern-lights::before {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: -100%;
+  right: -100%;
+  bottom: 0;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(0, 255, 136, 0.3) 25%,
+      rgba(0, 200, 255, 0.3) 50%,
+      rgba(138, 43, 226, 0.3) 75%,
+      transparent 100%
+    );
+  animation: aurora-wave 15s ease-in-out infinite;
+  filter: blur(40px);
+}
+
+.theme-northern-lights::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  right: -50%;
+  bottom: 0;
+  background:
+    linear-gradient(120deg,
+      transparent 0%,
+      rgba(0, 255, 200, 0.2) 30%,
+      rgba(100, 150, 255, 0.2) 60%,
+      transparent 100%
+    );
+  animation: aurora-wave 20s ease-in-out infinite reverse;
+  filter: blur(50px);
+}
+
+@keyframes aurora-wave {
+  0%, 100% {
+    transform: translateX(0) translateY(0) scaleY(1);
+  }
+  33% {
+    transform: translateX(30%) translateY(-20%) scaleY(1.2);
+  }
+  66% {
+    transform: translateX(-30%) translateY(-10%) scaleY(0.8);
+  }
+}
+
+/* Fireworks Theme - Burst effects (Colorful) */
+.theme-fireworks {
+  background: linear-gradient(180deg, #000428 0%, #004e92 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-fireworks::before,
+.theme-fireworks::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  box-shadow:
+    0 0 20px 10px rgba(255, 100, 100, 0.8),
+    50px 30px 20px 10px rgba(100, 255, 100, 0.8),
+    -40px 60px 20px 10px rgba(100, 100, 255, 0.8),
+    80px -20px 20px 10px rgba(255, 255, 100, 0.8),
+    -70px -30px 20px 10px rgba(255, 100, 255, 0.8),
+    120px 80px 20px 10px rgba(100, 255, 255, 0.8),
+    -100px 40px 20px 10px rgba(255, 150, 100, 0.8);
+  animation: fireworks-burst 3s ease-out infinite;
+}
+
+.theme-fireworks::after {
+  animation-delay: 1.5s;
+  left: 60%;
+}
+
+@keyframes fireworks-burst {
+  0% {
+    transform: scale(0) translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5) translateY(-20px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(3) translateY(-40px);
+    opacity: 0;
+  }
+}
+
+/* Animation for ::after showing center firework (at 1s), then right firework (at 2s) */
+@keyframes fireworks-burst-center-right {
+  /* Center firework - 0% to 33% */
+  0% {
+    transform: scale(0) translateY(0);
+    opacity: 1;
+  }
+  16.5% {
+    transform: scale(1.5) translateY(-20px);
+    opacity: 0.8;
+  }
+  33% {
+    transform: scale(3) translateY(-40px);
+    opacity: 0;
+  }
+  /* Wait/transition period - 33% to 66% */
+  33.1%, 65.9% {
+    transform: scale(0) translateY(0);
+    opacity: 0;
+  }
+  /* Right firework - 66% to 100% */
+  66% {
+    transform: scale(0) translateY(0);
+    opacity: 1;
+  }
+  82.5% {
+    transform: scale(1.5) translateY(-20px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(3) translateY(-40px);
+    opacity: 0;
+  }
+}
+
+/* Fireworks Patriotic Theme - Red, White, Blue burst effects */
+.theme-fireworks-patriotic {
+  background: linear-gradient(180deg, #001845 0%, #000d29 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* First firework - left side (bursts at 0s) */
+.theme-fireworks-patriotic::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  left: 25%;
+  box-shadow:
+    0 0 25px 12px rgba(220, 38, 38, 0.9),
+    60px 40px 25px 12px rgba(255, 255, 255, 0.9),
+    -50px 70px 25px 12px rgba(37, 99, 235, 0.9),
+    90px -10px 25px 12px rgba(220, 38, 38, 0.9),
+    -80px -20px 25px 12px rgba(255, 255, 255, 0.9),
+    130px 90px 25px 12px rgba(37, 99, 235, 0.9),
+    -110px 50px 25px 12px rgba(220, 38, 38, 0.9),
+    40px 10px 20px 10px rgba(255, 255, 255, 0.8);
+  animation: fireworks-burst 3s ease-out infinite;
+}
+
+/* Second and third fireworks - center and right (starts at 1s delay) */
+.theme-fireworks-patriotic::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  left: 50%;
+  box-shadow:
+    /* Center firework bursts */
+    10px 30px 25px 12px rgba(255, 255, 255, 0.9),
+    -40px 60px 25px 12px rgba(37, 99, 235, 0.9),
+    80px 0px 25px 12px rgba(220, 38, 38, 0.9),
+    -70px -15px 25px 12px rgba(255, 255, 255, 0.9),
+    120px 85px 25px 12px rgba(37, 99, 235, 0.9),
+    -100px 45px 25px 12px rgba(220, 38, 38, 0.9),
+    50px 15px 20px 10px rgba(255, 255, 255, 0.8),
+    /* Right firework bursts (offset 200px to the right from center) */
+    210px 25px 25px 12px rgba(220, 38, 38, 0.9),
+    260px 55px 25px 12px rgba(255, 255, 255, 0.9),
+    180px -20px 25px 12px rgba(37, 99, 235, 0.9),
+    290px 10px 25px 12px rgba(220, 38, 38, 0.9),
+    230px 80px 25px 12px rgba(255, 255, 255, 0.9),
+    320px 70px 25px 12px rgba(37, 99, 235, 0.9),
+    250px 40px 20px 10px rgba(220, 38, 38, 0.8);
+  animation: fireworks-burst-center-right 3s ease-out infinite 1s;
+}
+
+/* Starfield Theme - Twinkling stars */
+.theme-starfield {
+  background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-starfield::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(2px 2px at 20px 30px, white, transparent),
+    radial-gradient(2px 2px at 60px 70px, white, transparent),
+    radial-gradient(1px 1px at 50px 50px, white, transparent),
+    radial-gradient(1px 1px at 130px 80px, white, transparent),
+    radial-gradient(2px 2px at 90px 10px, white, transparent),
+    radial-gradient(1px 1px at 200px 60px, white, transparent),
+    radial-gradient(2px 2px at 170px 30px, white, transparent),
+    radial-gradient(1px 1px at 110px 90px, white, transparent);
+  background-size: 250px 150px;
+  background-repeat: repeat;
+  animation: starfield-twinkle 4s ease-in-out infinite;
+}
+
+.theme-starfield::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(1px 1px at 40px 20px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 100px 40px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 160px 10px, rgba(255,255,255,0.8), transparent);
+  background-size: 200px 100px;
+  background-repeat: repeat;
+  animation: starfield-twinkle 3s ease-in-out infinite reverse;
+}
+
+@keyframes starfield-twinkle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Matrix Theme - Green 3D grid */
+.theme-matrix {
+  background: linear-gradient(180deg, #001a00 0%, #003300 50%, #004d00 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-matrix::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 35px,
+      rgba(0, 255, 65, 0.4) 35px,
+      rgba(0, 255, 65, 0.4) 37px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 35px,
+      rgba(0, 255, 65, 0.4) 35px,
+      rgba(0, 255, 65, 0.4) 37px
+    );
+  perspective: 500px;
+  animation: matrix-grid 20s linear infinite;
+}
+
+@keyframes matrix-grid {
+  0% {
+    transform: perspective(500px) rotateX(60deg) translateY(0);
+  }
+  100% {
+    transform: perspective(500px) rotateX(60deg) translateY(35px);
+  }
+}
+
+/* Neon Glow Theme - Pulsing neon */
+.theme-neon {
+  background: #0a0a0a;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-neon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 0, 255, 0.3) 25%,
+      rgba(0, 255, 255, 0.3) 50%,
+      rgba(255, 255, 0, 0.3) 75%,
+      transparent 100%
+    );
+  animation: neon-pulse 4s ease-in-out infinite;
+  filter: blur(20px);
+}
+
+@keyframes neon-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAppContext } from '../utils/AppContext';
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { theme } = useAppContext();
   
   // Helper to determine if a link is active
   const isActive = (path) => {
@@ -54,16 +56,73 @@ function Navbar() {
 
   const pageInfo = getPageInfo();
 
+  // Define theme types
+  const imageThemes = ['autumn', 'halloween', 'xmas', 'winter', 'summer'];
+  const cssThemes = ['birthday', 'northern-lights', 'fireworks', 'fireworks-patriotic', 'starfield',
+                     'matrix', 'neon'];
+
+  // Themes that should hide the page title on mobile
+  const hideTitleOnMobileThemes = ['birthday', 'xmas', 'halloween'];
+
+  // Get theme background styling and className
+  const getNavbarTheme = () => {
+    const currentTheme = theme.currentTheme;
+
+    // Check if it's a CSS animation theme
+    if (cssThemes.includes(currentTheme)) {
+      return {
+        className: `theme-${currentTheme}`,
+        style: null,
+      };
+    }
+
+    // Check if it's an image theme
+    if (imageThemes.includes(currentTheme)) {
+      const themeImages = {
+        autumn: '/images/themes/autumn.png',
+        halloween: '/images/themes/halloween.png',
+        xmas: '/images/themes/xmas.png',
+        winter: '/images/themes/winter.png',
+        summer: '/images/themes/summer.png',
+      };
+
+      return {
+        className: '',
+        style: {
+          backgroundImage: `url(${themeImages[currentTheme]})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        },
+      };
+    }
+
+    // Default blue background
+    return {
+      className: 'bg-blue-600',
+      style: null,
+    };
+  };
+
+  const navbarTheme = getNavbarTheme();
+
+  // Check if we should hide title on mobile for this theme
+  const shouldHideTitleOnMobile = hideTitleOnMobileThemes.includes(theme.currentTheme);
+
   return (
-    <nav className="bg-blue-600 text-white p-4 shadow-md">
-      <div className="container mx-auto flex justify-between items-center">
+    <nav
+      className={`text-white p-4 shadow-md ${navbarTheme.className}`}
+      style={navbarTheme.style || {}}
+    >
+      <div className="container mx-auto flex justify-between items-center relative z-10">
         <Link to="/" className="flex items-center space-x-3">
-          <img 
+          <img
             src={pageInfo.icon}
             alt={pageInfo.alt}
             className="w-16 h-16 transform scale-x-[-1]"
           />
-          <span className="text-3xl font-semibold">{pageInfo.title}</span>
+          <span className={`text-3xl font-semibold ${shouldHideTitleOnMobile ? 'hidden md:block' : ''}`}>
+            {pageInfo.title}
+          </span>
         </Link>
         
         {/* Hamburger menu button */}
@@ -79,52 +138,52 @@ function Navbar() {
         
         {/* Desktop menu */}
         <div className="hidden md:flex space-x-6">
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className={`px-3 py-2 rounded transition ${
-              isActive('/') 
-                ? 'bg-blue-700 text-white' 
-                : 'hover:bg-blue-700 hover:text-white'
+              isActive('/')
+                ? 'bg-black bg-opacity-30 text-white'
+                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
           >
             Dashboard
           </Link>
-          <Link 
-            to="/shades" 
+          <Link
+            to="/shades"
             className={`px-3 py-2 rounded transition ${
-              isActive('/shades') 
-                ? 'bg-blue-700 text-white' 
-                : 'hover:bg-blue-700 hover:text-white'
+              isActive('/shades')
+                ? 'bg-black bg-opacity-30 text-white'
+                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
           >
             Shades
           </Link>
-          <Link 
-            to="/pianobar" 
+          <Link
+            to="/pianobar"
             className={`px-3 py-2 rounded transition ${
-              isActive('/pianobar') 
-                ? 'bg-blue-700 text-white' 
-                : 'hover:bg-blue-700 hover:text-white'
+              isActive('/pianobar')
+                ? 'bg-black bg-opacity-30 text-white'
+                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
           >
             Pianobar
           </Link>
-          <Link 
-            to="/weather" 
+          <Link
+            to="/weather"
             className={`px-3 py-2 rounded transition ${
-              isActive('/weather') 
-                ? 'bg-blue-700 text-white' 
-                : 'hover:bg-blue-700 hover:text-white'
+              isActive('/weather')
+                ? 'bg-black bg-opacity-30 text-white'
+                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
           >
             Weather
           </Link>
-          <Link 
-            to="/settings" 
+          <Link
+            to="/settings"
             className={`px-3 py-2 rounded transition ${
-              isActive('/settings') 
-                ? 'bg-blue-700 text-white' 
-                : 'hover:bg-blue-700 hover:text-white'
+              isActive('/settings')
+                ? 'bg-black bg-opacity-30 text-white'
+                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
           >
             Settings
@@ -134,39 +193,39 @@ function Navbar() {
       
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-blue-700 p-4 mt-2 rounded shadow-lg">
+        <div className="md:hidden bg-black bg-opacity-40 p-4 mt-2 rounded shadow-lg relative z-20">
           <div className="flex flex-col space-y-2">
-            <Link 
-              to="/" 
-              className={`px-4 py-2 rounded ${isActive('/') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
+            <Link
+              to="/"
+              className={`px-4 py-2 rounded ${isActive('/') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
             >
               Dashboard
             </Link>
-            <Link 
-              to="/shades" 
-              className={`px-4 py-2 rounded ${isActive('/shades') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
+            <Link
+              to="/shades"
+              className={`px-4 py-2 rounded ${isActive('/shades') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
             >
               Shades
             </Link>
-            <Link 
-              to="/pianobar" 
-              className={`px-4 py-2 rounded ${isActive('/pianobar') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
+            <Link
+              to="/pianobar"
+              className={`px-4 py-2 rounded ${isActive('/pianobar') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
             >
               Pianobar
             </Link>
-            <Link 
-              to="/weather" 
-              className={`px-4 py-2 rounded ${isActive('/weather') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
+            <Link
+              to="/weather"
+              className={`px-4 py-2 rounded ${isActive('/weather') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
             >
               Weather
             </Link>
-            <Link 
-              to="/settings" 
-              className={`px-4 py-2 rounded ${isActive('/settings') ? 'bg-blue-800' : 'hover:bg-blue-800'}`}
+            <Link
+              to="/settings"
+              className={`px-4 py-2 rounded ${isActive('/settings') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
             >
               Settings
