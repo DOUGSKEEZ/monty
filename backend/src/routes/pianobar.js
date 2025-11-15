@@ -95,7 +95,9 @@ async function updateCentralStateViaService(updates, source) {
       logger.debug(`Central state updated from route: ${source}`);
       return true;
     }
-    logger.warn('Could not update central state: PianobarService not available');
+    // Note: updateCentralState method doesn't exist on PianobarService
+    // This is legacy code that can be safely ignored - state updates happen via WebSocket broadcasts instead
+    logger.debug(`Central state update skipped (method not available) - source: ${source}`);
     return false;
   } catch (error) {
     logger.error(`Error updating central state: ${error.message}`);

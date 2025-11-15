@@ -5,22 +5,22 @@
   },
   "scenes": {
     "good_afternoon_time": "12:45",
-    "good_evening_offset_minutes": -40,
+    "good_evening_offset_minutes": -30,
     "good_night_timing": "civil_twilight_end",
     "good_night_offset_minutes": 0
   },
   "wake_up": {
     "enabled": false,
-    "time": "11:29",
-    "last_triggered": "2025-11-13T18:29:00.035Z",
+    "time": "08:22",
+    "last_triggered": "2025-11-14T15:22:00.029Z",
     "good_morning_delay_minutes": 5
   },
   "music": {
-    "enabled_for_morning": true,
+    "enabled_for_morning": false,
     "enabled_for_evening": false,
     "bluetooth_retry_attempts": 3,
     "bluetooth_retry_delay_seconds": 30,
     "enabled_for_afternoon": false,
-    "enabled_for_night": true
+    "enabled_for_night": false
   }
 }

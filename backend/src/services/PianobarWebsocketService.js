@@ -346,7 +346,7 @@ class PianobarWebsocketService {
    */
   broadcast(data) {
     let badClients = 0;
-    
+
     this.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         try {
@@ -362,7 +362,7 @@ class PianobarWebsocketService {
         client._shouldBeRemoved = true;
       }
     });
-    
+
     // Clean up bad clients
     if (badClients > 0) {
       this.clients.forEach(client => {
@@ -373,12 +373,42 @@ class PianobarWebsocketService {
       });
       logger.debug(`Removed ${badClients} disconnected clients`);
     }
-    
+
     logger.debug(`Broadcast sent to ${this.clients.size} clients`);
   }
-  
+
+  /**
+   * Broadcast current state update to all connected clients
+   * Reads the current status from file and sends it to all clients
+   */
+  broadcastStateUpdate() {
+    try {
+      // Read current status from file or use cached status
+      let statusData = this.currentStatus || { status: 'stopped', isPianobarRunning: false, isPlaying: false };
+
+      if (fs.existsSync(this.statusFile)) {
+        try {
+          statusData = JSON.parse(fs.readFileSync(this.statusFile, 'utf8'));
+          this.currentStatus = statusData;
+        } catch (error) {
+          logger.warn(`Error reading status file for broadcast: ${error.message}`);
+        }
+      }
+
+      // Broadcast to all clients
+      this.broadcast({
+        type: 'status',
+        data: statusData
+      });
+
+      logger.debug('State update broadcasted to all clients');
+    } catch (error) {
+      logger.error(`Error broadcasting state update: ${error.message}`);
+    }
+  }
+
   // No more complex state broadcasting needed
-  
+
   /**
    * Send ping to all clients to keep connections alive
    */
