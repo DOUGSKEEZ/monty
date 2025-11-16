@@ -6,17 +6,48 @@ import logging
 import time
 
 from commander.models.shade import (
-    ShadeCommand, 
-    ShadeResponse, 
-    Shade, 
+    ShadeCommand,
+    ShadeResponse,
+    Shade,
     ShadesListResponse,
     ErrorResponse
 )
 from commander.services.shade_service import shade_service
 from commander.services.async_retry_service import async_retry_service
+from commander.routers.scenes import scene_execution_logs, SceneExecutionLog
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _log_shade_command(shade_id: int, action: str):
+    """Log individual shade command for audit trail"""
+    action_map = {"u": "UP", "d": "DOWN", "s": "STOP"}
+    action_name = action_map.get(action, action.upper())
+
+    log_entry = SceneExecutionLog(
+        scene_name=f"shade_{shade_id}_{action_name}",
+        total_commands=1,
+        successful_commands=1,  # "Fired" successfully
+        failed_commands=0,
+        duration_ms=0,  # Not tracking execution time
+        commands=[{
+            "shade_id": shade_id,
+            "action": action,
+            "success": True,
+            "message": f"Fired: shade {shade_id} {action_name}",
+            "execution_time_ms": 0,
+            "retry_attempt": 0
+        }]
+    )
+
+    scene_execution_logs.append(log_entry)
+
+    # Keep only last 100 executions
+    if len(scene_execution_logs) > 100:
+        scene_execution_logs[:] = scene_execution_logs[-100:]
+
+    logger.info(f"📊 Logged shade command: shade {shade_id} {action_name}")
 
 @router.post(
     "/{shade_id}/command",
@@ -44,13 +75,16 @@ async def control_shade(
     
     try:
         logger.info(f"🚀 Fire-and-forget command for shade {shade_id}: {command.action}")
-        
+
         # Queue complete fire-and-forget sequence (NO synchronous first command)
         task_id = async_retry_service.queue_fire_and_forget_sequence(shade_id, command.action.value)
-        
+
         execution_time_ms = int((time.time() - start_time) * 1000)
-        
+
         logger.info(f"✅ Shade {shade_id} fire-and-forget sequence queued (task: {task_id}) in {execution_time_ms}ms")
+
+        # LOG THE COMMAND (audit trail - what was fired)
+        _log_shade_command(shade_id, command.action.value)
         
         # Return immediately with fire-and-forget response
         return ShadeResponse(

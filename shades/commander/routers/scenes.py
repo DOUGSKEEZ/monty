@@ -336,8 +336,27 @@ async def execute_scene(
             delay_between_commands_ms=scene.commands[0].delay_ms if scene.commands else 750,
             timeout_seconds=timeout_seconds
         )
-        
+
         logger.info(f"✅ Scene '{scene_name}' queued for background execution (task: {task_id})")
+
+        # LOG THE SCENE EXECUTION (audit trail - what was fired)
+        _log_scene_execution(
+            scene_name=scene_name,
+            total_commands=len(scene_commands),
+            successful_commands=len(scene_commands),  # All "fired" successfully
+            duration_ms=0,  # Not tracking execution time, just that it was fired
+            command_results=[
+                SceneExecutionResult(
+                    shade_id=cmd.shade_id,
+                    action=cmd.action,
+                    success=True,
+                    message=f"Fired: shade {cmd.shade_id} {cmd.action}",
+                    execution_time_ms=0,
+                    retry_attempt=0
+                )
+                for cmd in scene.commands
+            ]
+        )
         
         # Return immediately with success (fire-and-forget pattern)
         total_time = int((time.time() - start_time) * 1000)
