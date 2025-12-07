@@ -61,6 +61,12 @@ console.log('[DEBUG] About to load PianobarCommandInterface...');
 const { createPianobarCommandInterface } = require('./services/PianobarCommandInterface');
 console.log('[DEBUG] Loaded PianobarCommandInterface');
 
+// Load Swagger UI for API documentation
+console.log('[DEBUG] Loading Swagger UI...');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('../docs/openapi.json');
+console.log('[DEBUG] Swagger UI loaded');
+
 // Load environment variables
 console.log('[DEBUG] About to load environment variables...');
 dotenv.config();
@@ -132,6 +138,20 @@ if (process.env.NODE_ENV === 'production') {
 
 // Add metrics endpoint
 app.get('/metrics', prometheusMetrics.getMetricsHandler());
+
+// Add Swagger UI for API documentation
+console.log('[DEBUG] Setting up Swagger UI at /api-docs...');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Monty API Documentation',
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    filter: true,
+    tryItOutEnabled: true
+  }
+}));
+console.log('[DEBUG] Swagger UI configured at /api-docs');
 
 // Initialize ServiceFactory container before loading routes
 console.log('[DEBUG] Initializing ServiceFactory...');

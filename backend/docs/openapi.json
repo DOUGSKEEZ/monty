@@ -1,0 +1,1800 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Monty Home Automation Backend API",
+    "description": "Express.js backend API for Monty home automation system. Provides endpoints for shade control, music playback (Pianobar), weather data, scheduling, Bluetooth management, and system monitoring.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Monty Home Automation"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://192.168.10.15:3001",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3001",
+      "description": "Development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Service health and status endpoints"
+    },
+    {
+      "name": "Configuration",
+      "description": "Application configuration management"
+    },
+    {
+      "name": "Weather",
+      "description": "Weather data and forecasts"
+    },
+    {
+      "name": "Scheduler",
+      "description": "Automated scene scheduling and wake-up alarms"
+    },
+    {
+      "name": "Bluetooth",
+      "description": "Bluetooth speaker connectivity"
+    },
+    {
+      "name": "Pianobar",
+      "description": "Music playback via Pianobar (Pandora)"
+    },
+    {
+      "name": "State",
+      "description": "Application state persistence"
+    },
+    {
+      "name": "Monitoring",
+      "description": "System monitoring and metrics"
+    },
+    {
+      "name": "System",
+      "description": "System information and settings"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check endpoint",
+        "description": "Get overall system health status including service registry health checks",
+        "parameters": [
+          {
+            "name": "full",
+            "in": "query",
+            "description": "Perform full health check of all services",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Health status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["ok", "degraded", "error"]
+                    },
+                    "services": {
+                      "type": "object"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ping": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Simple ping endpoint",
+        "description": "Quick ping to verify server is responding",
+        "responses": {
+          "200": {
+            "description": "Pong response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "pong"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Prometheus metrics endpoint",
+        "description": "Get Prometheus-formatted metrics for monitoring",
+        "responses": {
+          "200": {
+            "description": "Prometheus metrics",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "tags": ["Configuration"],
+        "summary": "Get all configuration",
+        "description": "Retrieve complete application configuration including computed home status",
+        "responses": {
+          "200": {
+            "description": "Configuration retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to get configuration"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Update multiple configuration values",
+        "description": "Bulk update multiple configuration settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "updates": {
+                    "type": "object",
+                    "description": "Configuration updates as key-value pairs"
+                  }
+                },
+                "required": ["updates"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration updated successfully"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Update failed"
+          }
+        }
+      }
+    },
+    "/api/config/{path}": {
+      "get": {
+        "tags": ["Configuration"],
+        "summary": "Get specific configuration",
+        "description": "Retrieve configuration value by path (e.g., 'homeStatus')",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Configuration path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration value retrieved"
+          },
+          "404": {
+            "description": "Configuration path not found"
+          },
+          "500": {
+            "description": "Failed to get configuration"
+          }
+        }
+      },
+      "put": {
+        "tags": ["Configuration"],
+        "summary": "Update specific configuration",
+        "description": "Update a single configuration value by path",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "description": "New configuration value"
+                  }
+                },
+                "required": ["value"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration updated"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Update failed"
+          }
+        }
+      }
+    },
+    "/api/config/wake-up-time": {
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Set wake-up time",
+        "description": "Set wake-up alarm time for tomorrow",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "time": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}$",
+                    "example": "07:00",
+                    "description": "Wake-up time in 24-hour format (HH:MM)"
+                  }
+                },
+                "required": ["time"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wake-up time set successfully"
+          },
+          "400": {
+            "description": "Invalid time format"
+          }
+        }
+      }
+    },
+    "/api/config/home-status": {
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Set home/away status",
+        "description": "Set whether user is home or away",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["home", "away"]
+                  }
+                },
+                "required": ["status"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Home status updated"
+          },
+          "400": {
+            "description": "Invalid status value"
+          }
+        }
+      }
+    },
+    "/api/config/away-periods": {
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Add away period",
+        "description": "Add a scheduled away period",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "startDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2025-12-15"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2025-12-20"
+                  }
+                },
+                "required": ["startDate", "endDate"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Away period added"
+          },
+          "400": {
+            "description": "Invalid dates"
+          }
+        }
+      }
+    },
+    "/api/config/away-periods/{index}": {
+      "delete": {
+        "tags": ["Configuration"],
+        "summary": "Remove away period",
+        "description": "Remove an away period by index",
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Away period removed"
+          },
+          "400": {
+            "description": "Invalid index"
+          }
+        }
+      }
+    },
+    "/api/weather/current": {
+      "get": {
+        "tags": ["Weather"],
+        "summary": "Get current weather",
+        "description": "Retrieve current weather data from OpenWeatherMap",
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "description": "Force refresh from API (subject to quota limits)",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current weather data"
+          },
+          "500": {
+            "description": "Failed to get weather"
+          }
+        }
+      }
+    },
+    "/api/weather/forecast": {
+      "get": {
+        "tags": ["Weather"],
+        "summary": "Get weather forecast",
+        "description": "Retrieve weather forecast data",
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Weather forecast data"
+          },
+          "500": {
+            "description": "Failed to get forecast"
+          }
+        }
+      }
+    },
+    "/api/weather/sun-times": {
+      "get": {
+        "tags": ["Weather"],
+        "summary": "Get sunrise/sunset times",
+        "description": "Get sun-related times including civil twilight",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "Date in YYYY-MM-DD format",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sun times data"
+          },
+          "400": {
+            "description": "Invalid date format"
+          },
+          "500": {
+            "description": "Failed to get sun times"
+          }
+        }
+      }
+    },
+    "/api/weather/temperatures": {
+      "get": {
+        "tags": ["Weather"],
+        "summary": "Get all temperatures",
+        "description": "Get outdoor temperature and indoor sensor data (Govee integration pending)",
+        "responses": {
+          "200": {
+            "description": "Temperature data from all sources"
+          }
+        }
+      }
+    },
+    "/api/weather/usage": {
+      "get": {
+        "tags": ["Weather"],
+        "summary": "Get API usage statistics",
+        "description": "Get OpenWeatherMap API usage stats for quota monitoring",
+        "responses": {
+          "200": {
+            "description": "API usage statistics"
+          }
+        }
+      }
+    },
+    "/api/weather/can-refresh": {
+      "get": {
+        "tags": ["Weather"],
+        "summary": "Check if manual refresh allowed",
+        "description": "Check if manual weather refresh is allowed based on quota limits",
+        "responses": {
+          "200": {
+            "description": "Refresh status"
+          }
+        }
+      }
+    },
+    "/api/weather/map-tile/{layer}/{z}/{x}/{y}": {
+      "get": {
+        "tags": ["Weather"],
+        "summary": "Proxy weather map tiles",
+        "description": "Secure proxy for OpenWeatherMap tile layers (hides API key)",
+        "parameters": [
+          {
+            "name": "layer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["precipitation_new", "clouds_new", "pressure_new", "temp_new", "wind_new"]
+            }
+          },
+          {
+            "name": "z",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18
+            },
+            "description": "Zoom level"
+          },
+          {
+            "name": "x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Tile X coordinate"
+          },
+          {
+            "name": "y",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Tile Y coordinate"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map tile image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters"
+          }
+        }
+      }
+    },
+    "/api/scheduler/status": {
+      "get": {
+        "tags": ["Scheduler"],
+        "summary": "Get scheduler status",
+        "description": "Get scheduler health status and next scene times",
+        "responses": {
+          "200": {
+            "description": "Scheduler status"
+          },
+          "500": {
+            "description": "Failed to get status"
+          },
+          "503": {
+            "description": "Scheduler service unavailable"
+          }
+        }
+      }
+    },
+    "/api/scheduler/wake-up": {
+      "post": {
+        "tags": ["Scheduler"],
+        "summary": "Set wake-up time",
+        "description": "Set wake-up alarm time and reschedule",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "time": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}$",
+                    "example": "07:00"
+                  }
+                },
+                "required": ["time"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wake-up time set"
+          },
+          "400": {
+            "description": "Invalid time format"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Scheduler"],
+        "summary": "Disable wake-up alarm",
+        "description": "Disable the wake-up alarm",
+        "responses": {
+          "200": {
+            "description": "Wake-up alarm disabled"
+          }
+        }
+      },
+      "put": {
+        "tags": ["Scheduler"],
+        "summary": "Update wake-up settings",
+        "description": "Update wake-up time and good morning delay",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "time": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}$"
+                  },
+                  "good_morning_delay_minutes": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 60
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wake-up settings updated"
+          }
+        }
+      }
+    },
+    "/api/scheduler/wake-up/status": {
+      "get": {
+        "tags": ["Scheduler"],
+        "summary": "Get wake-up alarm status",
+        "description": "Get detailed wake-up alarm configuration and next trigger time",
+        "responses": {
+          "200": {
+            "description": "Wake-up alarm status"
+          }
+        }
+      }
+    },
+    "/api/scheduler/initialize": {
+      "post": {
+        "tags": ["Scheduler"],
+        "summary": "Initialize scheduler",
+        "description": "Force scheduler service initialization and scheduling",
+        "responses": {
+          "200": {
+            "description": "Scheduler initialized"
+          }
+        }
+      }
+    },
+    "/api/scheduler/trigger": {
+      "post": {
+        "tags": ["Scheduler"],
+        "summary": "Manually trigger scene",
+        "description": "Execute a scene manually",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scene_name": {
+                    "type": "string",
+                    "enum": ["good_afternoon", "good_evening", "good_night", "rise_n_shine", "good_morning"]
+                  }
+                },
+                "required": ["scene_name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scene executed successfully"
+          },
+          "400": {
+            "description": "Scene execution failed"
+          }
+        }
+      }
+    },
+    "/api/scheduler/schedules": {
+      "get": {
+        "tags": ["Scheduler"],
+        "summary": "Get active schedules",
+        "description": "Get all active scheduled jobs and next scene times",
+        "responses": {
+          "200": {
+            "description": "Active schedules"
+          }
+        }
+      }
+    },
+    "/api/scheduler/config": {
+      "get": {
+        "tags": ["Scheduler"],
+        "summary": "Get scheduler configuration",
+        "description": "Get complete scheduler configuration including scene timings",
+        "responses": {
+          "200": {
+            "description": "Scheduler configuration"
+          }
+        }
+      }
+    },
+    "/api/scheduler/scenes": {
+      "put": {
+        "tags": ["Scheduler"],
+        "summary": "Update scene timing settings",
+        "description": "Update scene timing configuration (good afternoon time, evening/night offsets)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "good_afternoon_time": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}$"
+                  },
+                  "good_evening_offset_minutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 180
+                  },
+                  "good_night_offset_minutes": {
+                    "type": "integer",
+                    "minimum": -120,
+                    "maximum": 60
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scene timings updated"
+          }
+        }
+      }
+    },
+    "/api/scheduler/music": {
+      "put": {
+        "tags": ["Scheduler"],
+        "summary": "Update music integration settings",
+        "description": "Configure music playback for different scenes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled_for_morning": {
+                    "type": "boolean"
+                  },
+                  "enabled_for_evening": {
+                    "type": "boolean"
+                  },
+                  "enabled_for_afternoon": {
+                    "type": "boolean"
+                  },
+                  "enabled_for_night": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Music settings updated"
+          }
+        }
+      }
+    },
+    "/api/scheduler/test/{sceneName}": {
+      "post": {
+        "tags": ["Scheduler"],
+        "summary": "Test a scene",
+        "description": "Manually execute a scene for testing",
+        "parameters": [
+          {
+            "name": "sceneName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["good_afternoon", "good_evening", "good_night", "rise_n_shine", "good_morning"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scene executed"
+          },
+          "400": {
+            "description": "Invalid scene name"
+          }
+        }
+      }
+    },
+    "/api/scheduler/alarm-device/status": {
+      "get": {
+        "tags": ["Scheduler"],
+        "summary": "Get alarm device status",
+        "description": "Get connectivity status of external alarm device",
+        "responses": {
+          "200": {
+            "description": "Alarm device status"
+          }
+        }
+      }
+    },
+    "/api/scheduler/alarm-device/sync": {
+      "post": {
+        "tags": ["Scheduler"],
+        "summary": "Sync with alarm device",
+        "description": "Manually sync current schedule with alarm device",
+        "responses": {
+          "200": {
+            "description": "Sync successful"
+          },
+          "400": {
+            "description": "Sync failed"
+          }
+        }
+      }
+    },
+    "/api/scheduler/alarm-device/config": {
+      "put": {
+        "tags": ["Scheduler"],
+        "summary": "Update alarm device config",
+        "description": "Update alarm device notification settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "deviceUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "timeout": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 30000
+                  },
+                  "maxRetries": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Config updated"
+          },
+          "400": {
+            "description": "Invalid configuration"
+          }
+        }
+      }
+    },
+    "/api/scheduler/alarm-device/ping": {
+      "post": {
+        "tags": ["Scheduler"],
+        "summary": "Ping alarm device",
+        "description": "Test alarm device connectivity",
+        "responses": {
+          "200": {
+            "description": "Device reachable"
+          },
+          "503": {
+            "description": "Device unreachable"
+          }
+        }
+      }
+    },
+    "/api/bluetooth/init": {
+      "post": {
+        "tags": ["Bluetooth"],
+        "summary": "Initialize Bluetooth",
+        "description": "Initialize Bluetooth subsystems",
+        "responses": {
+          "200": {
+            "description": "Bluetooth initialized"
+          },
+          "500": {
+            "description": "Initialization failed"
+          }
+        }
+      }
+    },
+    "/api/bluetooth/connect": {
+      "post": {
+        "tags": ["Bluetooth"],
+        "summary": "Connect to Bluetooth speakers",
+        "description": "Connect to configured Bluetooth speakers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "forceWakeup": {
+                    "type": "boolean",
+                    "description": "Force speaker wakeup before connection"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connection successful or already connected"
+          },
+          "500": {
+            "description": "Connection failed"
+          }
+        }
+      }
+    },
+    "/api/bluetooth/disconnect": {
+      "post": {
+        "tags": ["Bluetooth"],
+        "summary": "Disconnect from Bluetooth speakers",
+        "description": "Disconnect from Bluetooth speakers",
+        "responses": {
+          "200": {
+            "description": "Disconnected successfully"
+          },
+          "500": {
+            "description": "Disconnect failed"
+          }
+        }
+      }
+    },
+    "/api/bluetooth/status": {
+      "get": {
+        "tags": ["Bluetooth"],
+        "summary": "Get Bluetooth status",
+        "description": "Get current Bluetooth connection status",
+        "parameters": [
+          {
+            "name": "silent",
+            "in": "query",
+            "description": "Silent mode for background polling",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bluetooth status"
+          }
+        }
+      }
+    },
+    "/api/bluetooth/wakeup": {
+      "post": {
+        "tags": ["Bluetooth"],
+        "summary": "Wake up Bluetooth speakers",
+        "description": "Send wakeup signal to Bluetooth speakers",
+        "responses": {
+          "200": {
+            "description": "Wakeup signal sent"
+          },
+          "500": {
+            "description": "Wakeup failed"
+          }
+        }
+      }
+    },
+    "/api/bluetooth/diagnostics": {
+      "get": {
+        "tags": ["Bluetooth"],
+        "summary": "Get Bluetooth diagnostics",
+        "description": "Get detailed Bluetooth diagnostic information",
+        "responses": {
+          "200": {
+            "description": "Diagnostic information"
+          }
+        }
+      }
+    },
+    "/api/bluetooth/rssi": {
+      "get": {
+        "tags": ["Bluetooth"],
+        "summary": "Get Bluetooth RSSI",
+        "description": "Get Bluetooth signal strength (RSSI)",
+        "parameters": [
+          {
+            "name": "silent",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RSSI value"
+          }
+        }
+      }
+    },
+    "/api/pianobar/initialize": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Initialize Pianobar",
+        "description": "Initialize Pianobar music service",
+        "responses": {
+          "200": {
+            "description": "Pianobar initialized"
+          },
+          "500": {
+            "description": "Initialization failed"
+          }
+        }
+      }
+    },
+    "/api/pianobar/status": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get Pianobar status",
+        "description": "Get current Pianobar process status with stale cache detection",
+        "parameters": [
+          {
+            "name": "silent",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pianobar status"
+          }
+        }
+      }
+    },
+    "/api/pianobar/state": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get Pianobar state",
+        "description": "Get combined Pianobar state including current song and playback status",
+        "responses": {
+          "200": {
+            "description": "Pianobar state"
+          }
+        }
+      }
+    },
+    "/api/pianobar/start": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Start Pianobar",
+        "description": "Start Pianobar process",
+        "responses": {
+          "200": {
+            "description": "Pianobar started"
+          },
+          "500": {
+            "description": "Start failed"
+          }
+        }
+      }
+    },
+    "/api/pianobar/stop": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Stop Pianobar",
+        "description": "Stop Pianobar process gracefully",
+        "responses": {
+          "200": {
+            "description": "Pianobar stopped"
+          }
+        }
+      }
+    },
+    "/api/pianobar/play": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Play/Resume music",
+        "description": "Play or resume music playback",
+        "responses": {
+          "200": {
+            "description": "Playback started/resumed"
+          }
+        }
+      }
+    },
+    "/api/pianobar/pause": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Pause music",
+        "description": "Pause music playback",
+        "responses": {
+          "200": {
+            "description": "Playback paused"
+          }
+        }
+      }
+    },
+    "/api/pianobar/next": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Skip to next song",
+        "description": "Skip to the next song",
+        "responses": {
+          "200": {
+            "description": "Skipped to next song"
+          }
+        }
+      }
+    },
+    "/api/pianobar/love": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Love current song",
+        "description": "Mark current song as loved (thumbs up)",
+        "responses": {
+          "200": {
+            "description": "Song loved"
+          }
+        }
+      }
+    },
+    "/api/pianobar/stations": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get station list",
+        "description": "Get list of available Pandora stations",
+        "responses": {
+          "200": {
+            "description": "Station list"
+          }
+        }
+      }
+    },
+    "/api/pianobar/select-station": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Select station",
+        "description": "Switch to a different Pandora station",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "stationId": {
+                    "type": "string",
+                    "description": "Station ID to switch to"
+                  }
+                },
+                "required": ["stationId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Station selected"
+          }
+        }
+      }
+    },
+    "/api/pianobar/refresh-stations": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Refresh station list",
+        "description": "Refresh the cached station list from Pandora",
+        "responses": {
+          "200": {
+            "description": "Stations refreshed"
+          }
+        }
+      }
+    },
+    "/api/pianobar/kill": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Force kill Pianobar",
+        "description": "Force kill Pianobar process (emergency stop)",
+        "responses": {
+          "200": {
+            "description": "Pianobar killed"
+          }
+        }
+      }
+    },
+    "/api/pianobar/command": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Send raw command",
+        "description": "Send a raw command to Pianobar FIFO",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string",
+                    "description": "Raw Pianobar command"
+                  }
+                },
+                "required": ["command"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command sent"
+          }
+        }
+      }
+    },
+    "/api/pianobar/health": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Pianobar health check",
+        "description": "Get Pianobar service health status",
+        "responses": {
+          "200": {
+            "description": "Health status"
+          }
+        }
+      }
+    },
+    "/api/pianobar/debug-events": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get debug events",
+        "description": "Get recent Pianobar events for debugging",
+        "responses": {
+          "200": {
+            "description": "Debug events"
+          }
+        }
+      }
+    },
+    "/api/pianobar/current-track": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get current track",
+        "description": "Get currently playing track information",
+        "responses": {
+          "200": {
+            "description": "Current track info"
+          }
+        }
+      }
+    },
+    "/api/pianobar/debug-logs": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get debug logs",
+        "description": "Get recent Pianobar debug logs",
+        "responses": {
+          "200": {
+            "description": "Debug logs"
+          }
+        }
+      }
+    },
+    "/api/pianobar/sync-state": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get sync state",
+        "description": "Get synchronized state for cross-device consistency",
+        "responses": {
+          "200": {
+            "description": "Sync state"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Update sync state",
+        "description": "Update synchronized state from external device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "track": {
+                    "type": "object",
+                    "description": "Current track information"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync state updated"
+          }
+        }
+      }
+    },
+    "/api/pianobar/modes": {
+      "get": {
+        "tags": ["Pianobar"],
+        "summary": "Get available station modes",
+        "description": "Get available modes for current Pandora station",
+        "responses": {
+          "200": {
+            "description": "Available modes"
+          }
+        }
+      }
+    },
+    "/api/pianobar/mode": {
+      "post": {
+        "tags": ["Pianobar"],
+        "summary": "Set station mode",
+        "description": "Change station mode (e.g., Artist Only Radio, Song Radio, etc.)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "modeId": {
+                    "type": "string",
+                    "description": "Mode ID to switch to"
+                  }
+                },
+                "required": ["modeId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mode changed"
+          }
+        }
+      }
+    },
+    "/api/state": {
+      "get": {
+        "tags": ["State"],
+        "summary": "Get application state",
+        "description": "Get current application state",
+        "responses": {
+          "200": {
+            "description": "Application state"
+          },
+          "500": {
+            "description": "Failed to read state"
+          }
+        }
+      },
+      "put": {
+        "tags": ["State"],
+        "summary": "Bulk update state",
+        "description": "Update multiple state keys at once",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "State updates as key-value pairs"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "State updated"
+          },
+          "500": {
+            "description": "Update failed"
+          }
+        }
+      }
+    },
+    "/api/state/{key}": {
+      "put": {
+        "tags": ["State"],
+        "summary": "Update specific state key",
+        "description": "Update a single state value",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "description": "New state value"
+                  }
+                },
+                "required": ["value"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "State key updated"
+          },
+          "500": {
+            "description": "Update failed"
+          }
+        }
+      }
+    },
+    "/api/monitoring/status": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Get monitoring provider status",
+        "description": "Get status of all monitoring providers (Prometheus, New Relic, Splunk, etc.)",
+        "responses": {
+          "200": {
+            "description": "Monitoring status"
+          }
+        }
+      }
+    },
+    "/api/monitoring/shadecommander-health": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "ShadeCommander health check",
+        "description": "Deep health check of ShadeCommander microservice",
+        "responses": {
+          "200": {
+            "description": "Health check result"
+          }
+        }
+      }
+    },
+    "/api/monitoring/shadecommander-stats": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "ShadeCommander statistics",
+        "description": "Get ShadeCommander monitoring statistics and history",
+        "responses": {
+          "200": {
+            "description": "Statistics"
+          }
+        }
+      }
+    },
+    "/api/monitoring/notifications/status": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Notification service status",
+        "description": "Get notification service status",
+        "responses": {
+          "200": {
+            "description": "Notification status"
+          }
+        }
+      }
+    },
+    "/api/monitoring/notifications/test": {
+      "post": {
+        "tags": ["Monitoring"],
+        "summary": "Test notification",
+        "description": "Send a test notification",
+        "responses": {
+          "200": {
+            "description": "Test notification sent"
+          }
+        }
+      }
+    },
+    "/api/monitoring/metrics-stats": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Get metrics statistics",
+        "description": "Get metrics collection statistics",
+        "responses": {
+          "200": {
+            "description": "Metrics statistics"
+          }
+        }
+      }
+    },
+    "/api/monitoring/test-metric": {
+      "post": {
+        "tags": ["Monitoring"],
+        "summary": "Send test metric",
+        "description": "Send a test metric to all providers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "default": "test_metric"
+                  },
+                  "value": {
+                    "type": "number",
+                    "default": 1
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["gauge", "counter", "histogram"],
+                    "default": "gauge"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test metric sent"
+          }
+        }
+      }
+    },
+    "/api/monitoring/test-event": {
+      "post": {
+        "tags": ["Monitoring"],
+        "summary": "Send test event",
+        "description": "Send a test event to all providers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "default": "Test Event"
+                  },
+                  "text": {
+                    "type": "string",
+                    "default": "This is a test event from the monitoring API"
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": ["info", "warning", "error"],
+                    "default": "info"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test event sent"
+          }
+        }
+      }
+    },
+    "/api/monitoring/config": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Get monitoring configuration",
+        "description": "Get current monitoring configuration and enabled providers",
+        "responses": {
+          "200": {
+            "description": "Monitoring configuration"
+          }
+        }
+      }
+    },
+    "/api/monitoring/business-event": {
+      "post": {
+        "tags": ["Monitoring"],
+        "summary": "Record business event",
+        "description": "Record an important business/automation event",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event_type": {
+                    "type": "string",
+                    "description": "Type of event (e.g., 'scene_executed', 'shade_failure')"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": ["info", "warning", "error"],
+                    "default": "info"
+                  }
+                },
+                "required": ["event_type"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event recorded"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        }
+      }
+    },
+    "/api/monitoring/dashboard": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Get monitoring dashboard data",
+        "description": "Get comprehensive dashboard data for all monitoring providers",
+        "responses": {
+          "200": {
+            "description": "Dashboard data"
+          }
+        }
+      }
+    },
+    "/api/system/timezone": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Get system timezone",
+        "description": "Get current system timezone (read-only, changes must be done via SSH)",
+        "responses": {
+          "200": {
+            "description": "System timezone"
+          },
+          "500": {
+            "description": "Failed to get timezone"
+          }
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get dashboard data",
+        "description": "Get comprehensive dashboard data for frontend",
+        "responses": {
+          "200": {
+            "description": "Dashboard data"
+          }
+        }
+      }
+    },
+    "/api/debug/services": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get service debug info",
+        "description": "Get debug information about all registered services",
+        "responses": {
+          "200": {
+            "description": "Service debug information"
+          }
+        }
+      }
+    },
+    "/api/shade-commander/reconnect": {
+      "post": {
+        "tags": ["Health"],
+        "summary": "Reconnect to ShadeCommander",
+        "description": "Force reconnection to ShadeCommander microservice",
+        "responses": {
+          "200": {
+            "description": "Reconnection initiated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ConfigResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object",
+            "description": "Complete application configuration"
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string"
+          },
+          "details": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
