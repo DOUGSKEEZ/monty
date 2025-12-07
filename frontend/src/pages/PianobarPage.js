@@ -146,47 +146,15 @@ function PianobarPage() {
     }
   };
   
-  const syncTrackInfo = async (trackData) => {
-    try {
-      await fetch('/api/pianobar/sync-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track: trackData })
-      });
-    } catch (error) {
-      console.warn('Failed to sync track info:', error);
-    }
-  };
-  
   // Debounced sync to prevent spam
   const debouncedSyncSharedState = useMemo(() => {
     let timeout;
-    return (state) => {
+    return () => {
       clearTimeout(timeout);
       timeout = setTimeout(() => syncSharedState(), 2000);
     };
-  }, []);
-  
-  const debouncedSyncTrackInfo = useMemo(() => {
-    let timeout;
-    return (trackData) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => syncTrackInfo(trackData), 1000);
-    };
-  }, []);
-  
-  // Immediate sync functions (for refresh button)
-  const syncTrackInfoNow = async (trackData) => {
-    try {
-      await fetch('/api/pianobar/sync-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track: trackData })
-      });
-    } catch (error) {
-      console.warn('Failed to sync track info immediately:', error);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // syncSharedState is stable - intentionally omitted to prevent re-creation
 
   // Format time in MM:SS format
   const formatTime = (seconds) => {
@@ -205,7 +173,7 @@ function PianobarPage() {
   // Real-time progress tracking - increment songPlayed every second while playing
   useEffect(() => {
     let progressInterval = null;
-    
+
     if (isPlayerOn() && isPlaying() && trackInfo.songDuration > 0) {
       progressInterval = setInterval(() => {
         setTrackInfo(prev => ({
@@ -214,13 +182,14 @@ function PianobarPage() {
         }));
       }, 1000);
     }
-    
+
     return () => {
       if (progressInterval) {
         clearInterval(progressInterval);
       }
     };
-  }, [isPlayerOn(), isPlaying(), trackInfo.songDuration]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlayerOn(), isPlaying(), trackInfo.songDuration]); // Function calls evaluated at render time
   
   // Persist trackInfo to localStorage
   useEffect(() => {
@@ -264,9 +233,10 @@ function PianobarPage() {
     const syncInterval = setInterval(() => {
       syncSharedState();
     }, 10000);
-    
+
     return () => clearInterval(syncInterval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount-only: intentionally run once to initialize page state
   
   // Setup WebSocket connection for real-time updates
   useEffect(() => {
@@ -363,7 +333,7 @@ function PianobarPage() {
           }
         };
         
-        websocket.onerror = (error) => {
+        websocket.onerror = () => {
           setWsConnected(false);
         };
         
@@ -390,8 +360,9 @@ function PianobarPage() {
         websocket.close();
       }
     };
-  }, []);
-  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount-only: WebSocket connection lifecycle managed internally
+
   // Bluetooth Progress Bar Animation
   useEffect(() => {
     // "System Startup" realistic progress function with checkpoint pauses

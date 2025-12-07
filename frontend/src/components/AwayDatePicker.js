@@ -40,14 +40,16 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
         flatpickrInstance.current.destroy();
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount-only: flatpickr callbacks capture values from separate validation useEffect
 
   // Update selected range when flatpickr changes
   useEffect(() => {
     if (selectedRange.length === 2) {
       validateDateRange(selectedRange[0], selectedRange[1]);
     }
-  }, [selectedRange, awayContext.awayPeriods]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRange, awayContext.awayPeriods]); // validateDateRange uses awayPeriods internally
 
   // Validate the selected date range
   const validateDateRange = (startDate, endDate) => {

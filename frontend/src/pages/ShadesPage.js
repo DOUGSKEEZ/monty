@@ -119,23 +119,7 @@ function ShadesPage() {
     
     return rooms;
   };
-  
-  // Get unique locations for the active room
-  const getLocations = (room) => {
-    if (shades.loading || !shades.config || !shades.config.shades) {
-      return [];
-    }
-    
-    // Extract unique locations for the given room
-    const roomShades = shades.config.shades.filter(shade => shade.room === room);
-    const locations = roomShades
-      .map(shade => shade.location)
-      .filter(location => location && location !== 'All'); // Filter out 'All' and null/undefined
-    
-    // Get unique locations
-    return [...new Set(locations)];
-  };
-  
+
   // Handle scene triggers via ShadeCommander
   const triggerScene = async (sceneName) => {
     try {

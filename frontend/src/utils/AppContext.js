@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarApi, stateApi } from './api';
+import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarApi } from './api';
 
 // Create context
 const AppContext = createContext();
@@ -168,10 +168,8 @@ export const AppProvider = ({ children }) => {
     if (newTheme !== theme.currentTheme) {
       setTheme(prev => ({ ...prev, currentTheme: newTheme }));
     }
-  }, [theme.mode, theme.manualTheme]);
-
-  // Persistent state management
-  const [lastSyncTime, setLastSyncTime] = useState(Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme.mode, theme.manualTheme]); // calculateSeasonalTheme is stable, currentTheme check prevents loops
 
   // Load initial data
   useEffect(() => {
@@ -207,7 +205,8 @@ export const AppProvider = ({ children }) => {
       clearInterval(musicInterval);
       // Removed sync interval cleanup
     };
-  }, []); // CRITICAL: Remove the dependency array that was causing re-renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount-only: CRITICAL - prevents re-render loops
   
   // Separate effect for Bluetooth polling to avoid render loops
   useEffect(() => {
@@ -231,7 +230,8 @@ export const AppProvider = ({ children }) => {
         bluetoothInterval = null;
       }
     };
-  }, [bluetooth.connectionInProgress, bluetooth.disconnecting]); // Only depend on these two flags
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bluetooth.connectionInProgress, bluetooth.disconnecting]); // Only depend on operation flags
 
   // Load weather data
   const loadWeatherData = async (forceRefresh = false, showLoading = true) => {
@@ -1123,8 +1123,8 @@ export const AppProvider = ({ children }) => {
     toggleFestiveMode,
     setThemeMode,
     setManualTheme,
-    // Removed song management actions
-  }), []); // Empty dependency array - functions are stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []); // Functions are stable - intentionally omitted to prevent re-creation
 
   // Context value
   const value = {

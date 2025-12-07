@@ -96,7 +96,8 @@ function SettingsPage() {
     actions.refreshScheduler();
     loadArduinoStatus();
     loadSystemTimezone();
-  }, []); // Empty dependency array - only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount-only: intentionally run once to initialize page
 
   // Load Arduino status
   const loadArduinoStatus = async () => {
@@ -277,11 +278,6 @@ function SettingsPage() {
     }
   };
 
-  // Helper functions
-  const formatSceneName = (sceneName) => {
-    return sceneName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
   // Timezone helper function for display
   const getTimezoneDisplay = (timezone) => {
     const timezoneMap = {
@@ -297,28 +293,11 @@ function SettingsPage() {
     return `${timezone} (${name})`;
   };
 
-  const formatDateTime = (timestamp) => {
-    if (!timestamp) return 'Never';
-    return new Date(timestamp).toLocaleString();
-  };
-
-  const formatWakeUpTime = (time) => {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    const hour12 = hours === '00' ? 12 : (hours > 12 ? hours - 12 : parseInt(hours));
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
   // Calculate time until alarm
   const calculateTimeUntilAlarm = (alarmTime) => {
     if (!alarmTime) return '';
     
     try {
-      // Get current time in user's timezone
-      const timezoneInfo = scheduler.wakeUpStatus?.timezone || 'America/Denver (Mountain Time)';
-      const timezone = timezoneInfo.split(' ')[0];
-      
       const now = new Date();
       const [hours, minutes] = alarmTime.split(':').map(Number);
       
@@ -1025,7 +1004,6 @@ function SettingsPage() {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                       });
-                      const result = await response.json();
                       if (response.ok) {
                         showSuccess('Arduino reconnected successfully');
                         // Refresh status after reconnection
