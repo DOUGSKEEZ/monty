@@ -1,0 +1,12 @@
+{
+    "name": "Main Interrupt",
+    "description": "Interrupt main level solar/privacy shades!",
+    "commands": [
+      {"shade_id": 14, "action": "s", "delay_ms": 1000},
+      {"shade_id": 28, "action": "s", "delay_ms": 1000},
+      {"shade_id": 33, "action": "s", "delay_ms": 1000},
+      {"shade_id": 36, "action": "s", "delay_ms": 1000}
+    ],
+    "retry_count": 1,
+    "timeout_seconds": 15
+  }

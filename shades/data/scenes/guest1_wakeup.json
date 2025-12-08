@@ -1,0 +1,9 @@
+{
+    "name": "Guestroom 1 Wakeup",
+    "description": "Raise guestroom 1 shades to Rise 'N' Shine!",
+    "commands": [
+      {"shade_id": 49, "action": "u", "delay_ms": 1000}
+    ],
+    "retry_count": 2,
+    "timeout_seconds": 5
+  }

@@ -70,6 +70,16 @@ function ShadesPage() {
         blackoutShades: [
           { id: 48, name: 'Loft Blackout', type: 'Blackout', room: 'Loft', location: 'All' }
         ]
+      },
+      'Downstairs': {
+        solarShades: [
+          { id: 51, name: 'Workshop', type: 'Solar', room: 'Downstairs', location: 'Workshop' }
+        ],
+        privacyShades: [],
+        blackoutShades: [
+          { id: 49, name: 'Guestroom 1', type: 'Blackout', room: 'Downstairs', location: 'Guestroom 1' },
+          { id: 50, name: 'Guestroom 2', type: 'Blackout', room: 'Downstairs', location: 'Guestroom 2' }
+        ]
       }
     };
     
@@ -100,8 +110,8 @@ function ShadesPage() {
   // Get the room list from shade config
   const getRooms = () => {
     if (shades.loading || !shades.config || !shades.config.shades) {
-      // Return all four room types even if config isn't loaded yet
-      return ['Main Level', 'Office', 'Bedroom', 'Loft'];
+      // Return all room types even if config isn't loaded yet
+      return ['Main Level', 'Office', 'Bedroom', 'Loft', 'Downstairs'];
     }
     
     // Extract unique room names
@@ -109,7 +119,7 @@ function ShadesPage() {
     
     // If any of the main rooms are missing from the config, ensure they are added
     const rooms = Array.from(roomSet);
-    const requiredRooms = ['Main Level', 'Office', 'Bedroom', 'Loft'];
+    const requiredRooms = ['Main Level', 'Office', 'Bedroom', 'Loft', 'Downstairs'];
     
     for (const required of requiredRooms) {
       if (!rooms.includes(required)) {
@@ -385,41 +395,6 @@ function ShadesPage() {
               </div>
             )}
             
-            {/* If no specific type controls, show a single ALL control */}
-            {activeRoom === 'Loft' && (
-              <div className="p-3 border rounded flex flex-col items-center bg-white shadow-sm w-36">
-                <span className="font-medium mb-2 text-gray-800">ALL Loft ⚪⚫</span>
-                <div className="flex flex-col items-center space-y-4">
-                  <button 
-                    onClick={() => handleShadeCommand(48, 'u')}
-                    title={`Raise all ${activeRoom} shades`}
-                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                  </button>
-                  <button 
-                    onClick={() => handleShadeCommand(48, 's')}
-                    title={`Stop all ${activeRoom} shades`}
-                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                    </svg>
-                  </button>
-                  <button 
-                    onClick={() => handleShadeCommand(48, 'd')}
-                    title={`Lower all ${activeRoom} shades`}
-                    className="w-16 h-16 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
         
@@ -1355,110 +1330,252 @@ function ShadesPage() {
             </div>
           )}
           
-          {/* Loft Windows - Individual window controls */}
+          {/* Loft Windows - Bedroom-style layout */}
           {activeRoom === 'Loft' && (
             <div className="bg-gray-50 p-3 rounded shadow">
               <h3 className="text-md font-semibold mb-2">Loft Windows</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Loft Deskside (Dimming)</h4>
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => handleShadeCommand(45, 'u')}
-                      title="Raise Loft Deskside dimming shade"
-                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(45, 's')}
-                      title="Stop Loft Deskside dimming shade"
-                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(45, 'd')}
-                      title="Lower Loft Deskside dimming shade"
-                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-1">
+                {/* Deskside Window - Dual shades */}
+                <div className="border rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5">Deskside</h4>
+                  <div className="flex justify-center gap-1">
+                    {/* Dimming shade controls */}
+                    <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-gray-800">Dimming</p>
+                      <div className="flex flex-col items-center space-y-3">
+                        <button
+                          onClick={() => handleShadeCommand(45, 'u')}
+                          title="Raise Deskside Dimming Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(45, 's')}
+                          title="Stop Deskside Dimming Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(45, 'd')}
+                          title="Lower Deskside Dimming Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Blackout shade controls */}
+                    <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-white">Blackout</p>
+                      <div className="flex flex-col items-center space-y-3">
+                        <button
+                          onClick={() => handleShadeCommand(46, 'u')}
+                          title="Raise Deskside Blackout Shade"
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(46, 's')}
+                          title="Stop Deskside Blackout Shade"
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(46, 'd')}
+                          title="Lower Deskside Blackout Shade"
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Loft Deskside (Blackout)</h4>
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => handleShadeCommand(46, 'u')}
-                      title="Raise Loft Deskside blackout shade"
-                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(46, 's')}
-                      title="Stop Loft Deskside blackout shade"
-                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(46, 'd')}
-                      title="Lower Loft Deskside blackout shade"
-                      className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="border rounded p-2">
-                  <h4 className="font-medium text-center text-sm mb-1">Loft Back Window (Dimming)</h4>
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => handleShadeCommand(47, 'u')}
-                      title="Raise Loft Back Window dimming shade"
-                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(47, 's')}
-                      title="Stop Loft Back Window dimming shade"
-                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => handleShadeCommand(47, 'd')}
-                      title="Lower Loft Back Window dimming shade"
-                      className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+
+                {/* Back Window - Single shade */}
+                <div className="border rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5">Back Window</h4>
+                  <div className="flex justify-center gap-1">
+                    {/* Dimming shade controls only */}
+                    <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-gray-800">Dimming</p>
+                      <div className="flex flex-col items-center space-y-3">
+                        <button
+                          onClick={() => handleShadeCommand(47, 'u')}
+                          title="Raise Back Window Dimming Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(47, 's')}
+                          title="Stop Back Window Dimming Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(47, 'd')}
+                          title="Lower Back Window Dimming Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
-          
+
+          {/* Downstairs Rooms - Bedroom-style layout */}
+          {activeRoom === 'Downstairs' && (
+            <div className="bg-gray-50 p-3 rounded shadow">
+              <h3 className="text-md font-semibold mb-2">Downstairs Rooms</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                {/* Guestroom 1 - Single blackout shade (white) */}
+                <div className="border rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5">Guestroom 1<br/><span className="text-xl">🦌</span></h4>
+                  <div className="flex justify-center gap-1">
+                    <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-gray-800">Blackout</p>
+                      <div className="flex flex-col items-center space-y-3">
+                        <button
+                          onClick={() => handleShadeCommand(49, 'u')}
+                          title="Raise Guestroom 1 Blackout Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(49, 's')}
+                          title="Stop Guestroom 1 Blackout Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(49, 'd')}
+                          title="Lower Guestroom 1 Blackout Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Guestroom 2 - Single blackout shade (white) */}
+                <div className="border rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5">Guestroom 2<br/><span className="text-xl">🏋️</span></h4>
+                  <div className="flex justify-center gap-1">
+                    <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-gray-800">Blackout</p>
+                      <div className="flex flex-col items-center space-y-3">
+                        <button
+                          onClick={() => handleShadeCommand(50, 'u')}
+                          title="Raise Guestroom 2 Blackout Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(50, 's')}
+                          title="Stop Guestroom 2 Blackout Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(50, 'd')}
+                          title="Lower Guestroom 2 Blackout Shade"
+                          className="w-10 h-10 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Workshop - Single solar shade */}
+                <div className="border rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5">Workshop<br/><span className="text-xl">🛠️</span></h4>
+                  <div className="flex justify-center gap-1">
+                    <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
+                      <p className="text-xs mb-0.5 text-center text-white">Solar</p>
+                      <div className="flex flex-col items-center space-y-3">
+                        <button
+                          onClick={() => handleShadeCommand(51, 'u')}
+                          title="Raise Workshop Solar Shade"
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(51, 's')}
+                          title="Stop Workshop Solar Shade"
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10h14v4H5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleShadeCommand(51, 'd')}
+                          title="Lower Workshop Solar Shade"
+                          className="w-10 h-10 bg-gray-500 hover:bg-gray-400 text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 4px 6px -1px rgba(255, 255, 255, 0.2), 0 2px 4px -1px rgba(255, 255, 255, 0.1)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>
