@@ -222,10 +222,21 @@ export const schedulerApi = {
    * @param {Object} settings - Music settings
    * @returns {Promise<Object>} - Result
    */
-  updateMusic: (settings) => 
+  updateMusic: (settings) =>
     fetchApi('/scheduler/music', {
       method: 'PUT',
       body: JSON.stringify(settings),
+    }),
+
+  /**
+   * Update skip solar shades setting for today
+   * @param {boolean} skipSolarToday - Whether to skip solar shades
+   * @returns {Promise<Object>} - Result
+   */
+  updateSkipSolar: (skipSolarToday) =>
+    fetchApi('/scheduler/skip-solar', {
+      method: 'PUT',
+      body: JSON.stringify({ skip_solar_today: skipSolarToday }),
     }),
 
   /**
@@ -233,7 +244,7 @@ export const schedulerApi = {
    * @param {string} sceneName - Scene name to test
    * @returns {Promise<Object>} - Result
    */
-  testScene: (sceneName) => 
+  testScene: (sceneName) =>
     fetchApi(`/scheduler/test/${sceneName}`, {
       method: 'POST',
     }),

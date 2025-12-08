@@ -501,6 +501,9 @@ export const AppProvider = ({ children }) => {
         case 'music':
           result = await schedulerApi.updateMusic(settings);
           break;
+        case 'skipSolar':
+          result = await schedulerApi.updateSkipSolar(settings.skip_solar_today);
+          break;
         default:
           throw new Error(`Unknown config type: ${configType}`);
       }

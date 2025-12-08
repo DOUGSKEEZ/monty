@@ -48,6 +48,7 @@ function SettingsPage() {
     enabled_for_afternoon: false,
     enabled_for_night: false
   });
+  const [skipSolarToday, setSkipSolarToday] = useState(false);
   const [timezoneSettings, setTimezoneSettings] = useState({
     current: 'America/Denver',
     display: 'America/Denver (Mountain Time)',
@@ -87,6 +88,9 @@ function SettingsPage() {
         enabled_for_afternoon: config.music?.enabled_for_afternoon !== undefined ? config.music.enabled_for_afternoon : false,
         enabled_for_night: config.music?.enabled_for_night !== undefined ? config.music.enabled_for_night : false
       });
+
+      // Load skip solar setting
+      setSkipSolarToday(config.scenes?.skip_solar_today || false);
     }
   }, [scheduler.config]);
 
@@ -236,9 +240,9 @@ function SettingsPage() {
   const updateMusicSettings = async (updatedSettings) => {
     try {
       setSaving(true);
-      
+
       const result = await actions.updateSchedulerConfig('music', updatedSettings);
-      
+
       if (result.success) {
         setMusicSettings(prev => ({ ...prev, ...updatedSettings }));
         showSuccess('Music settings updated successfully');
@@ -247,6 +251,30 @@ function SettingsPage() {
       }
     } catch (err) {
       showError(`Error updating music settings: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Update skip solar setting for today
+  const updateSkipSolar = async (skip) => {
+    try {
+      setSaving(true);
+
+      const result = await actions.updateSchedulerConfig('skipSolar', { skip_solar_today: skip });
+
+      if (result.success) {
+        setSkipSolarToday(skip);
+        showSuccess(skip
+          ? 'Solar shades will be skipped for Good Afternoon today'
+          : 'Solar shades will run normally for Good Afternoon today');
+        // Refresh to update Next Scene display
+        actions.refreshScheduler();
+      } else {
+        showError(`Failed to update skip solar setting: ${result.error}`);
+      }
+    } catch (err) {
+      showError(`Error updating skip solar setting: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -411,18 +439,31 @@ function SettingsPage() {
                     return `${hour12}:${minuteStr} ${ampm}`;
                   };
 
+                  // Get Good Afternoon time/status (considering skip solar flag)
+                  const getGoodAfternoonDisplay = () => {
+                    if (skipSolarToday) {
+                      return { time: 'Skipping shades today', isSkipping: true };
+                    }
+                    return { time: scheduler.schedules.good_afternoon || 'Not scheduled', isSkipping: false };
+                  };
+
+                  const goodAfternoonStatus = getGoodAfternoonDisplay();
+
                   // Create ordered events array
                   const orderedEvents = [
                     { name: 'Wake Up (Alarm)', time: getWakeUpTime() },
                     { name: 'Good Morning', time: getGoodMorningTime() },
-                    { name: 'Good Afternoon', time: scheduler.schedules.good_afternoon || 'Not scheduled' },
+                    { name: 'Good Afternoon', time: goodAfternoonStatus.time, isSkipping: goodAfternoonStatus.isSkipping },
                     { name: 'Good Evening', time: scheduler.schedules.good_evening || 'Not scheduled' },
                     { name: 'Good Night', time: scheduler.schedules.good_night || 'Not scheduled' }
                   ];
 
                   return orderedEvents.map((event, index) => (
                     <li key={index} className="text-base font-semibold text-gray-800">
-                      • <span className="font-bold">{event.name}:</span> <span className="text-blue-600">{event.time}</span>
+                      • <span className="font-bold">{event.name}:</span>{' '}
+                      <span className={event.isSkipping ? 'text-orange-500 italic' : 'text-blue-600'}>
+                        {event.time}
+                      </span>
                     </li>
                   ));
                 })()
@@ -624,8 +665,19 @@ function SettingsPage() {
               />
               <span className="text-gray-600">🎵 Start music automatically</span>
             </label>
+            <label className="flex items-center text-sm mt-2">
+              <input
+                type="checkbox"
+                checked={skipSolarToday}
+                onChange={(e) => {
+                  updateSkipSolar(e.target.checked);
+                }}
+                className="mr-2"
+              />
+              <span className="text-gray-600">☁️ Skip solar shades today (cloudy/rainy)</span>
+            </label>
           </div>
-          
+
           <div>
             {/* Sunset Time Display */}
             {weather.sunTimes?.sunsetTime && (

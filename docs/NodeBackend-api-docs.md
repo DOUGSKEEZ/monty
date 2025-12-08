@@ -607,13 +607,13 @@ Get all active scheduled jobs and next scene times
 ### [GET] /api/scheduler/config
 **Get scheduler configuration**
 
-Get complete scheduler configuration including scene timings
+Get complete scheduler configuration including scene timings, music settings, wake-up settings, and skip solar status
 
 #### Responses
 
-| Code | Description |
-| ---- | ----------- |
-| 200 | Scheduler configuration |
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Scheduler configuration | **application/json**: { **"success"**: boolean, **"data"**: { **"scenes"**: { **"good_afternoon_time"**: string, **"good_evening_offset_minutes"**: integer, **"good_night_offset_minutes"**: integer, **"skip_solar_today"**: boolean }, **"wake_up"**: object, **"music"**: object, **"nextSceneTimes"**: object, **"serviceHealth"**: { **"status"**: string, **"message"**: string } } }<br> |
 
 ### [PUT] /api/scheduler/scenes
 **Update scene timing settings**
@@ -648,6 +648,24 @@ Configure music playback for different scenes
 | Code | Description |
 | ---- | ----------- |
 | 200 | Music settings updated |
+
+### [PUT] /api/scheduler/skip-solar
+**Skip solar shades for today**
+
+Toggle whether solar shade commands should be skipped for the Good Afternoon scene today. Useful for cloudy, rainy, or overcast days when lowering solar shades is unnecessary. The flag resets automatically at midnight. Note: When enabled, the Good Afternoon scene still triggers (including music if configured), but the ShadeCommander shade commands are skipped.
+
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  Yes | **application/json**: { **"skip_solar_today"**: boolean }<br> |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Skip solar setting updated | **application/json**: { **"success"**: boolean, **"message"**: string, **"data"**: { **"skip_solar_today"**: boolean } }<br> |
+| 500 | Failed to update skip solar setting |  |
 
 ### [POST] /api/scheduler/test/{sceneName}
 **Test a scene**

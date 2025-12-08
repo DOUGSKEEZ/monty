@@ -741,10 +741,44 @@
       "get": {
         "tags": ["Scheduler"],
         "summary": "Get scheduler configuration",
-        "description": "Get complete scheduler configuration including scene timings",
+        "description": "Get complete scheduler configuration including scene timings, music settings, wake-up settings, and skip solar status",
         "responses": {
           "200": {
-            "description": "Scheduler configuration"
+            "description": "Scheduler configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "scenes": {
+                          "type": "object",
+                          "properties": {
+                            "good_afternoon_time": { "type": "string", "example": "12:45" },
+                            "good_evening_offset_minutes": { "type": "integer", "example": 30 },
+                            "good_night_offset_minutes": { "type": "integer", "example": 0 },
+                            "skip_solar_today": { "type": "boolean", "description": "Whether solar shades are being skipped for Good Afternoon today" }
+                          }
+                        },
+                        "wake_up": { "type": "object" },
+                        "music": { "type": "object" },
+                        "nextSceneTimes": { "type": "object" },
+                        "serviceHealth": {
+                          "type": "object",
+                          "properties": {
+                            "status": { "type": "string" },
+                            "message": { "type": "string", "description": "Includes next scheduled scene" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -817,6 +851,61 @@
         "responses": {
           "200": {
             "description": "Music settings updated"
+          }
+        }
+      }
+    },
+    "/api/scheduler/skip-solar": {
+      "put": {
+        "tags": ["Scheduler"],
+        "summary": "Skip solar shades for today",
+        "description": "Toggle whether solar shade commands should be skipped for the Good Afternoon scene today. Useful for cloudy, rainy, or overcast days when lowering solar shades is unnecessary. The flag resets automatically at midnight. Note: When enabled, the Good Afternoon scene still triggers (including music if configured), but the ShadeCommander shade commands are skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["skip_solar_today"],
+                "properties": {
+                  "skip_solar_today": {
+                    "type": "boolean",
+                    "description": "Whether to skip solar shade commands for Good Afternoon today"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Skip solar setting updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "skip_solar_today": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update skip solar setting"
           }
         }
       }

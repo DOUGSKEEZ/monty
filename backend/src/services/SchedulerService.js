@@ -40,6 +40,7 @@ class SchedulerService {
     this.lastError = null;
     this.lastExecutedScene = null;
     this.nextSceneTimes = {};
+    this.skipSolarToday = false; // Skip solar shade commands for good_afternoon (resets at midnight)
     
     // File watching
     this.configWatcher = null;
@@ -483,6 +484,12 @@ class SchedulerService {
   async calculateAndScheduleDynamicScenes() {
     try {
       logger.info('Recalculating sunset-based scene times for new day');
+
+      // Reset skipSolarToday flag at the start of each new day
+      if (this.skipSolarToday) {
+        logger.info('Resetting skipSolarToday flag for new day');
+        this.skipSolarToday = false;
+      }
       
       // Clear existing dynamic schedules
       if (this.scheduledJobs.has('good_evening_today')) {
@@ -514,16 +521,36 @@ class SchedulerService {
   async executeScene(sceneName) {
     try {
       logger.info(`Executing scene: ${sceneName}`);
-      
+
       // Check home/away status
       if (!this.isHomeStatusActive()) {
         logger.info(`Skipping scene '${sceneName}' - status is away`);
         return { success: false, reason: 'away_status' };
       }
-      
+
       // Check if music should be started for this scene
       await this.handleSceneMusic(sceneName);
-      
+
+      // Check if solar shades should be skipped for good_afternoon
+      if (sceneName === 'good_afternoon' && this.skipSolarToday) {
+        logger.info(`Skipping solar shade commands for 'good_afternoon' - skipSolarToday is enabled`);
+
+        this.lastExecutedScene = {
+          name: sceneName,
+          timestamp: new Date(),
+          success: true,
+          message: 'Scene triggered (solar shades skipped for today)',
+          skippedShades: true
+        };
+
+        // Still recalculate scene times to update "Next Scene" display
+        this.calculateSceneTimes().catch(() => {
+          logger.warn(`Failed to recalculate scene times after ${sceneName} execution`);
+        });
+
+        return { success: true, message: 'Solar shades skipped for today', skippedShades: true };
+      }
+
       // Call ShadeCommander API
       const result = await this.callShadeCommander(sceneName);
       
@@ -1463,7 +1490,8 @@ class SchedulerService {
       const sceneTimes = [];
       
       // Check Good Afternoon - daily recurring job with name 'good_afternoon'
-      if (times.good_afternoon && this.scheduledJobs.has('good_afternoon')) {
+      // Skip if skipSolarToday is enabled (user wants to skip solar shades today)
+      if (times.good_afternoon && this.scheduledJobs.has('good_afternoon') && !this.skipSolarToday) {
         sceneTimes.push({ name: 'Good Afternoon', time: times.good_afternoon });
       }
       

@@ -7,7 +7,7 @@
     "good_afternoon_time": "12:45",
     "good_evening_offset_minutes": -30,
     "good_night_timing": "civil_twilight_end",
-    "good_night_offset_minutes": 0
+    "good_night_offset_minutes": -3
   },
   "wake_up": {
     "enabled": false,

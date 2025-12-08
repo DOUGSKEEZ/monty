@@ -423,22 +423,24 @@ router.get('/config', async (req, res) => {
       const schedulerService = await getSchedulerService();
       const config = schedulerService.schedulerConfig;
       const health = await schedulerService.healthCheck();
-      return { config, health };
+      const skipSolarToday = schedulerService.skipSolarToday || false;
+      return { config, health, skipSolarToday };
     }, 'get-config');
-    
+
     if (result.fallback) {
       return res.status(503).json(result);
     }
-    
-    const { config, health } = result;
-    
+
+    const { config, health, skipSolarToday } = result;
+
     res.json({
       success: true,
       data: {
         scenes: {
           good_afternoon_time: config.scenes.good_afternoon_time || '14:30',
           good_evening_offset_minutes: Math.abs(config.scenes.good_evening_offset_minutes || 60),
-          good_night_offset_minutes: config.scenes.good_night_offset_minutes || 0
+          good_night_offset_minutes: config.scenes.good_night_offset_minutes || 0,
+          skip_solar_today: skipSolarToday
         },
         wake_up: {
           enabled: config.wake_up.enabled || false,
@@ -678,6 +680,49 @@ router.put('/music', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update music settings'
+    });
+  }
+});
+
+/**
+ * Toggle skip solar shades for today
+ * When enabled, Good Afternoon scene will still trigger (including music)
+ * but solar shade commands will be skipped (useful for cloudy/rainy days)
+ */
+router.put('/skip-solar', async (req, res) => {
+  try {
+    const { skip_solar_today } = req.body;
+
+    const { createSchedulerService } = require('../utils/ServiceFactory');
+    const schedulerService = createSchedulerService();
+
+    if (!schedulerService) {
+      return res.status(503).json({
+        success: false,
+        error: 'SchedulerService not available'
+      });
+    }
+
+    // Update the in-memory flag
+    schedulerService.skipSolarToday = Boolean(skip_solar_today);
+
+    logger.info(`Skip solar shades for today: ${schedulerService.skipSolarToday}`);
+
+    res.json({
+      success: true,
+      message: schedulerService.skipSolarToday
+        ? 'Solar shades will be skipped for Good Afternoon today'
+        : 'Solar shades will run normally for Good Afternoon today',
+      data: {
+        skip_solar_today: schedulerService.skipSolarToday
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error updating skip solar setting: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update skip solar setting'
     });
   }
 });
