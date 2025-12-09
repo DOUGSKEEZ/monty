@@ -11,9 +11,21 @@
   },
   "wake_up": {
     "enabled": false,
-    "time": "08:00",
-    "last_triggered": "2025-12-08T15:00:00.051Z",
+    "time": "08:15",
+    "last_triggered": null,
     "good_morning_delay_minutes": 15
+  },
+  "guest_alarms": {
+    "guestroom1": {
+      "enabled": false,
+      "time": "08:00",
+      "last_triggered": null
+    },
+    "guestroom2": {
+      "enabled": false,
+      "time": "19:00",
+      "last_triggered": null
+    }
   },
   "music": {
     "enabled_for_morning": false,

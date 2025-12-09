@@ -274,6 +274,252 @@ router.get('/wake-up/status', async (req, res) => {
   }
 });
 
+// ============================================
+// GUEST ALARM ENDPOINTS
+// ============================================
+
+// Track guest alarm cron jobs
+const guestAlarmJobs = new Map();
+
+// Valid guest rooms
+const VALID_GUEST_ROOMS = ['guestroom1', 'guestroom2'];
+
+// Guest room metadata for display
+const GUEST_ROOM_META = {
+  guestroom1: { label: 'Guestroom 1', emoji: '🦌', scene: 'guest1_wakeup' },
+  guestroom2: { label: 'Guestroom 2', emoji: '🏋️', scene: 'guest2_wakeup' }
+};
+
+/**
+ * Get guest alarm status for a specific room
+ */
+router.get('/guest-alarm/:room/status', async (req, res) => {
+  try {
+    const { room } = req.params;
+
+    // Validate room
+    if (!VALID_GUEST_ROOMS.includes(room)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid room. Must be one of: ${VALID_GUEST_ROOMS.join(', ')}`
+      });
+    }
+
+    const { createSchedulerService } = require('../utils/ServiceFactory');
+    const schedulerService = createSchedulerService();
+    const timezoneManager = getTimezoneManager();
+
+    // Get guest alarm config
+    const guestAlarms = schedulerService.schedulerConfig.guest_alarms || {};
+    const roomConfig = guestAlarms[room] || { enabled: false, time: null, last_triggered: null };
+    const roomMeta = GUEST_ROOM_META[room];
+
+    // Calculate next alarm date/time if enabled
+    let nextAlarmDateTime = null;
+    if (roomConfig.enabled && roomConfig.time) {
+      const [hours, minutes] = roomConfig.time.split(':').map(Number);
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+
+      const alarmMinutesFromMidnight = hours * 60 + minutes;
+      const currentMinutesFromMidnight = currentHour * 60 + currentMinute;
+
+      const targetDate = new Date();
+      if (alarmMinutesFromMidnight <= currentMinutesFromMidnight) {
+        targetDate.setDate(targetDate.getDate() + 1);
+      }
+
+      const hour12 = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const minuteStr = minutes.toString().padStart(2, '0');
+
+      const dateStr = targetDate.toLocaleDateString('en-US', {
+        timeZone: timezoneManager.getCronTimezone(),
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      nextAlarmDateTime = `${dateStr}, ${hour12}:${minuteStr} ${ampm}`;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        room: room,
+        label: roomMeta.label,
+        emoji: roomMeta.emoji,
+        enabled: roomConfig.enabled,
+        time: roomConfig.time,
+        nextAlarmDateTime: nextAlarmDateTime,
+        lastTriggered: roomConfig.last_triggered,
+        scene: roomMeta.scene
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error getting guest alarm status: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get guest alarm status'
+    });
+  }
+});
+
+/**
+ * Set guest alarm time for a specific room
+ */
+router.post('/guest-alarm/:room', async (req, res) => {
+  try {
+    const { room } = req.params;
+    const { time } = req.body;
+
+    // Validate room
+    if (!VALID_GUEST_ROOMS.includes(room)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid room. Must be one of: ${VALID_GUEST_ROOMS.join(', ')}`
+      });
+    }
+
+    // Validate time format
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid time required in 24-hour format (HH:MM)'
+      });
+    }
+
+    const { createSchedulerService } = require('../utils/ServiceFactory');
+    const schedulerService = createSchedulerService();
+    const roomMeta = GUEST_ROOM_META[room];
+
+    // Initialize guest_alarms if it doesn't exist
+    if (!schedulerService.schedulerConfig.guest_alarms) {
+      schedulerService.schedulerConfig.guest_alarms = {};
+    }
+
+    // Update guest alarm config
+    schedulerService.schedulerConfig.guest_alarms[room] = {
+      enabled: true,
+      time: time,
+      last_triggered: null
+    };
+
+    // Save configuration
+    schedulerService.saveSchedulerConfig();
+
+    // Clear existing cron job for this room
+    if (guestAlarmJobs.has(room)) {
+      guestAlarmJobs.get(room).stop();
+      guestAlarmJobs.delete(room);
+    }
+
+    // Schedule new cron job
+    const cron = require('node-cron');
+    const [hours, minutes] = time.split(':').map(Number);
+    const cronExpression = `${minutes} ${hours} * * *`;
+
+    const job = cron.schedule(cronExpression, async () => {
+      logger.info(`Guest alarm triggered for ${room} - executing ${roomMeta.scene}`);
+
+      try {
+        // Update last_triggered
+        schedulerService.schedulerConfig.guest_alarms[room].last_triggered = new Date().toISOString();
+        schedulerService.saveSchedulerConfig();
+
+        // Execute the guest wake-up scene
+        await schedulerService.executeScene(roomMeta.scene);
+
+        logger.info(`Guest alarm scene ${roomMeta.scene} executed successfully`);
+      } catch (err) {
+        logger.error(`Failed to execute guest alarm scene: ${err.message}`);
+      }
+    }, {
+      scheduled: true
+    });
+
+    guestAlarmJobs.set(room, job);
+
+    logger.info(`Guest alarm set for ${room} at ${time}`);
+
+    res.json({
+      success: true,
+      message: `${roomMeta.emoji} ${roomMeta.label} alarm set to ${time}`,
+      data: {
+        room: room,
+        label: roomMeta.label,
+        emoji: roomMeta.emoji,
+        time: time,
+        enabled: true,
+        scene: roomMeta.scene
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error setting guest alarm: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to set guest alarm'
+    });
+  }
+});
+
+/**
+ * Disable guest alarm for a specific room
+ */
+router.delete('/guest-alarm/:room', async (req, res) => {
+  try {
+    const { room } = req.params;
+
+    // Validate room
+    if (!VALID_GUEST_ROOMS.includes(room)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid room. Must be one of: ${VALID_GUEST_ROOMS.join(', ')}`
+      });
+    }
+
+    const { createSchedulerService } = require('../utils/ServiceFactory');
+    const schedulerService = createSchedulerService();
+    const roomMeta = GUEST_ROOM_META[room];
+
+    // Update guest alarm config
+    if (schedulerService.schedulerConfig.guest_alarms &&
+        schedulerService.schedulerConfig.guest_alarms[room]) {
+      schedulerService.schedulerConfig.guest_alarms[room].enabled = false;
+      schedulerService.saveSchedulerConfig();
+    }
+
+    // Stop and remove cron job
+    if (guestAlarmJobs.has(room)) {
+      guestAlarmJobs.get(room).stop();
+      guestAlarmJobs.delete(room);
+    }
+
+    logger.info(`Guest alarm disabled for ${room}`);
+
+    res.json({
+      success: true,
+      message: `${roomMeta.emoji} ${roomMeta.label} alarm disabled`,
+      data: {
+        room: room,
+        label: roomMeta.label,
+        emoji: roomMeta.emoji,
+        enabled: false
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error disabling guest alarm: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to disable guest alarm'
+    });
+  }
+});
+
 /**
  * Force SchedulerService initialization and scheduling
  */

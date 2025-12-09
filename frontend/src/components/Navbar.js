@@ -5,7 +5,7 @@ import { useAppContext } from '../utils/AppContext';
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const { theme } = useAppContext();
+  const { theme, guest } = useAppContext();
   
   // Helper to determine if a link is active
   const isActive = (path) => {
@@ -178,16 +178,25 @@ function Navbar() {
           >
             Weather
           </Link>
-          <Link
-            to="/settings"
-            className={`px-3 py-2 rounded transition ${
-              isActive('/settings')
-                ? 'bg-black bg-opacity-30 text-white'
-                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
-            }`}
-          >
-            Settings
-          </Link>
+          {/* Hide Settings for guests */}
+          {!guest.isGuest && (
+            <Link
+              to="/settings"
+              className={`px-3 py-2 rounded transition ${
+                isActive('/settings')
+                  ? 'bg-black bg-opacity-30 text-white'
+                  : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
+              }`}
+            >
+              Settings
+            </Link>
+          )}
+          {/* Show guest indicator */}
+          {guest.isGuest && (
+            <span className="px-3 py-2 bg-black bg-opacity-20 rounded text-sm">
+              {guest.roomEmoji} Guest
+            </span>
+          )}
         </div>
       </div>
       
@@ -223,13 +232,22 @@ function Navbar() {
             >
               Weather
             </Link>
-            <Link
-              to="/settings"
-              className={`px-4 py-2 rounded ${isActive('/settings') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Settings
-            </Link>
+            {/* Hide Settings for guests */}
+            {!guest.isGuest && (
+              <Link
+                to="/settings"
+                className={`px-4 py-2 rounded ${isActive('/settings') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Settings
+              </Link>
+            )}
+            {/* Show guest indicator on mobile */}
+            {guest.isGuest && (
+              <span className="px-4 py-2 bg-black bg-opacity-20 rounded text-sm text-center">
+                {guest.roomEmoji} {guest.roomLabel}
+              </span>
+            )}
           </div>
         </div>
       )}

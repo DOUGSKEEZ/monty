@@ -17,6 +17,12 @@ function SettingsPage() {
   const [operationMessage, setOperationMessage] = useState('');
   const [arduinoStatus, setArduinoStatus] = useState({ connected: false, loading: true });
 
+  // Guest alarm status
+  const [guestAlarms, setGuestAlarms] = useState({
+    guestroom1: { loading: true, enabled: false, time: null, nextAlarmDateTime: null },
+    guestroom2: { loading: true, enabled: false, time: null, nextAlarmDateTime: null }
+  });
+
   // Form states (initialized from context)
   const [sceneSettings, setSceneSettings] = useState({
     good_afternoon_time: '14:30',
@@ -100,6 +106,7 @@ function SettingsPage() {
     actions.refreshScheduler();
     loadArduinoStatus();
     loadSystemTimezone();
+    loadGuestAlarms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Mount-only: intentionally run once to initialize page
 
@@ -117,6 +124,43 @@ function SettingsPage() {
     } catch (error) {
       console.error('Error loading Arduino status:', error);
       setArduinoStatus({ connected: false, loading: false, error: true });
+    }
+  };
+
+  // Load guest alarm status
+  const loadGuestAlarms = async () => {
+    const rooms = ['guestroom1', 'guestroom2'];
+
+    for (const room of rooms) {
+      try {
+        const response = await fetch(`http://192.168.10.15:3001/api/scheduler/guest-alarm/${room}/status`);
+        const data = await response.json();
+
+        if (data.success) {
+          setGuestAlarms(prev => ({
+            ...prev,
+            [room]: {
+              loading: false,
+              enabled: data.data.enabled,
+              time: data.data.time,
+              nextAlarmDateTime: data.data.nextAlarmDateTime,
+              emoji: data.data.emoji,
+              label: data.data.label
+            }
+          }));
+        } else {
+          setGuestAlarms(prev => ({
+            ...prev,
+            [room]: { ...prev[room], loading: false, error: data.error }
+          }));
+        }
+      } catch (error) {
+        console.error(`Error loading ${room} alarm:`, error);
+        setGuestAlarms(prev => ({
+          ...prev,
+          [room]: { ...prev[room], loading: false, error: 'Failed to load' }
+        }));
+      }
     }
   };
 
@@ -319,6 +363,38 @@ function SettingsPage() {
     };
     const name = timezoneMap[timezone] || timezone;
     return `${timezone} (${name})`;
+  };
+
+  // Format 24-hour time to 12-hour format
+  const formatTime12Hour = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
+    const hour12 = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
+
+  // Clear a guest alarm
+  const clearGuestAlarm = async (room) => {
+    try {
+      setSaving(true);
+      const response = await fetch(`http://192.168.10.15:3001/api/scheduler/guest-alarm/${room}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        showSuccess(`${room === 'guestroom1' ? 'Guestroom 1' : 'Guestroom 2'} alarm cleared`);
+        // Refresh guest alarms
+        loadGuestAlarms();
+      } else {
+        showError(`Failed to clear alarm: ${result.error}`);
+      }
+    } catch (error) {
+      showError(`Error clearing alarm: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Calculate time until alarm
@@ -612,6 +688,84 @@ function SettingsPage() {
               </p>
             </div>
           )}
+
+          {/* Guest Alarm Status */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-600 mb-3">Guest Room Alarms</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Guestroom 1 */}
+              <div className={`rounded p-3 ${
+                guestAlarms.guestroom1.loading ? 'bg-gray-50 border border-gray-200' :
+                guestAlarms.guestroom1.enabled ? 'bg-green-50 border border-green-200' :
+                'bg-gray-50 border border-gray-200'
+              }`}>
+                {guestAlarms.guestroom1.loading ? (
+                  <p className="text-gray-500 text-sm">Loading Guestroom 1...</p>
+                ) : guestAlarms.guestroom1.enabled ? (
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-green-700 font-medium">
+                        🦌 Guestroom 1: {formatTime12Hour(guestAlarms.guestroom1.time)}
+                      </p>
+                      {guestAlarms.guestroom1.nextAlarmDateTime && (
+                        <p className="text-green-600 text-xs mt-1">
+                          {guestAlarms.guestroom1.nextAlarmDateTime}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => clearGuestAlarm('guestroom1')}
+                      disabled={saving}
+                      className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                      title="Clear alarm"
+                    >
+                      {saving ? '...' : 'Clear'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">
+                    🦌 Guestroom 1: No alarm set
+                  </p>
+                )}
+              </div>
+
+              {/* Guestroom 2 */}
+              <div className={`rounded p-3 ${
+                guestAlarms.guestroom2.loading ? 'bg-gray-50 border border-gray-200' :
+                guestAlarms.guestroom2.enabled ? 'bg-green-50 border border-green-200' :
+                'bg-gray-50 border border-gray-200'
+              }`}>
+                {guestAlarms.guestroom2.loading ? (
+                  <p className="text-gray-500 text-sm">Loading Guestroom 2...</p>
+                ) : guestAlarms.guestroom2.enabled ? (
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-green-700 font-medium">
+                        🏋️ Guestroom 2: {formatTime12Hour(guestAlarms.guestroom2.time)}
+                      </p>
+                      {guestAlarms.guestroom2.nextAlarmDateTime && (
+                        <p className="text-green-600 text-xs mt-1">
+                          {guestAlarms.guestroom2.nextAlarmDateTime}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => clearGuestAlarm('guestroom2')}
+                      disabled={saving}
+                      className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                      title="Clear alarm"
+                    >
+                      {saving ? '...' : 'Clear'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">
+                    🏋️ Guestroom 2: No alarm set
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

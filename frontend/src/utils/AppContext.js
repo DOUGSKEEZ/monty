@@ -7,8 +7,43 @@ const AppContext = createContext();
 // Custom hook for using the context
 export const useAppContext = () => useContext(AppContext);
 
+// Guest room metadata
+const GUEST_ROOM_META = {
+  guestroom1: { label: 'Guestroom 1', emoji: '🦌' },
+  guestroom2: { label: 'Guestroom 2', emoji: '🏋️' }
+};
+
 // Provider component
 export const AppProvider = ({ children }) => {
+  // Guest state - loaded from localStorage
+  const [guest, setGuest] = useState(() => {
+    try {
+      const stored = localStorage.getItem('montyGuestMode');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const meta = GUEST_ROOM_META[parsed.room];
+        if (meta) {
+          return {
+            isGuest: true,
+            room: parsed.room,
+            roomEmoji: meta.emoji,
+            roomLabel: meta.label,
+            registeredAt: parsed.registeredAt
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Error loading guest mode from localStorage:', e);
+    }
+    return {
+      isGuest: false,
+      room: null,
+      roomEmoji: null,
+      roomLabel: null,
+      registeredAt: null
+    };
+  });
+
   // Weather state
   const [weather, setWeather] = useState({
     current: null,
@@ -1103,6 +1138,46 @@ export const AppProvider = ({ children }) => {
     setThemeMode(enabled ? 'festive' : 'manual');
   };
 
+  // Set guest mode (called by GuestRegisterPage)
+  const setGuestMode = (room) => {
+    const meta = GUEST_ROOM_META[room];
+    if (!meta) {
+      console.error('Invalid guest room:', room);
+      return false;
+    }
+
+    const guestData = {
+      room: room,
+      registeredAt: new Date().toISOString()
+    };
+
+    localStorage.setItem('montyGuestMode', JSON.stringify(guestData));
+
+    setGuest({
+      isGuest: true,
+      room: room,
+      roomEmoji: meta.emoji,
+      roomLabel: meta.label,
+      registeredAt: guestData.registeredAt
+    });
+
+    console.log(`Guest mode enabled for ${meta.label} ${meta.emoji}`);
+    return true;
+  };
+
+  // Clear guest mode (for debugging or when guest leaves)
+  const clearGuestMode = () => {
+    localStorage.removeItem('montyGuestMode');
+    setGuest({
+      isGuest: false,
+      room: null,
+      roomEmoji: null,
+      roomLabel: null,
+      registeredAt: null
+    });
+    console.log('Guest mode cleared');
+  };
+
   // Memoize actions to prevent infinite re-renders
   const actions = useMemo(() => ({
     refreshWeather: loadWeatherData,
@@ -1126,11 +1201,14 @@ export const AppProvider = ({ children }) => {
     toggleFestiveMode,
     setThemeMode,
     setManualTheme,
+    setGuestMode,
+    clearGuestMode,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []); // Functions are stable - intentionally omitted to prevent re-creation
 
   // Context value
   const value = {
+    guest,
     weather,
     shades,
     scheduler,

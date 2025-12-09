@@ -5,7 +5,8 @@
     {"shade_id": 14, "action": "u", "delay_ms": 1000},
     {"shade_id": 33, "action": "u", "delay_ms": 1000},
     {"shade_id": 35, "action": "d", "delay_ms": 1000},
-    {"shade_id": 44, "action": "u", "delay_ms": 1000}, 
+    {"shade_id": 44, "action": "u", "delay_ms": 1000},
+    {"shade_id": 45, "action": "u", "delay_ms": 1000},
     {"shade_id": 46, "action": "u", "delay_ms": 1000} 
   ],
   "retry_count": 2,
