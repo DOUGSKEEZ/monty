@@ -1,0 +1,29 @@
+[Unit]
+Description=Prometheus Monitoring System
+Documentation=https://prometheus.io/docs/introduction/overview/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=monty
+Group=monty
+WorkingDirectory=/home/monty/prometheus-2.40.0.linux-amd64
+ExecStart=/home/monty/prometheus-2.40.0.linux-amd64/prometheus \
+    --config.file=/home/monty/prometheus-2.40.0.linux-amd64/prometheus.yml \
+    --storage.tsdb.path=/home/monty/prometheus-2.40.0.linux-amd64/data \
+    --storage.tsdb.retention.time=90d \
+    --web.listen-address=0.0.0.0:9090 \
+    --web.enable-lifecycle
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/monty/prometheus-2.40.0.linux-amd64/data
+
+[Install]
+WantedBy=multi-user.target

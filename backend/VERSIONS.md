@@ -1,69 +1,53 @@
-# Version History for Monty Backend
+# Monty Backend Architecture
 
-This document tracks the versions of key services and files in the Monty backend system.
+This document describes the current backend service architecture.
 
-## Service Versions
+## Active Server
 
-### Weather Service
+- **Server**: `server.js` - Main Express server with service registry, dependency injection, and health monitoring
+- **Startup**: `dev.sh` (development with nodemon + New Relic) or systemd service (production)
 
-| Version | File | Description |
+## Core Services
+
+| Service | File | Description |
 |---------|------|-------------|
-| v1.0    | weatherService.js | Original implementation with basic caching |
-| v2.0    | weatherService.fixed.js | Enhanced version with resilient error handling, exponential backoff, and improved caching |
-| v3.0    | weatherService.di.js | Dependency injection version for better testability and improved architecture |
+| SchedulerService | `SchedulerService.js` | Shade scene automation with sunset-based timing, wake-up alarms |
+| WeatherService | `WeatherService.js` | OpenWeatherMap integration with caching and quota management |
+| PianobarService | `PianobarService.js` | Pianobar process lifecycle management with circuit breakers |
+| PianobarWebsocketService | `PianobarWebsocketService.js` | Real-time music updates via WebSocket |
+| BluetoothService | `BluetoothService.js` | Bluetooth speaker connection management |
 
-### Scheduler Service
+## Supporting Services
 
-| Version | File | Description |
+| Service | File | Description |
 |---------|------|-------------|
-| v1.0    | schedulerService.js | Original implementation with basic scheduling functionality |
-| v2.0    | schedulerService.fixed.js | Enhanced version with circuit breakers, self-healing, and missed schedule recovery |
-| v3.0    | schedulerService.di.js | Dependency injection version for better testability |
-
-### Server Implementations
-
-| Version | File | Description |
-|---------|------|-------------|
-| v1.0    | server.js | Original implementation |
-| v1.1    | server-debug.js | Debug version with extensive logging |
-| v1.2    | minimal-server.js | Minimal implementation for testing |
-| v1.3    | simplified-server.js | Simplified implementation for testing |
-| v2.0    | modular-server.js | Modular implementation with better initialization sequence, service registry, and self-healing |
+| PrometheusMetricsService | `PrometheusMetricsService.js` | Prometheus metrics collection |
+| AlarmNotificationService | `AlarmNotificationService.js` | Wake-up alarm notifications |
+| NotificationService | `NotificationService.js` | General notification handling |
+| ShadeCommanderMonitorService | `ShadeCommanderMonitorService.js` | Monitors ShadeCommander (FastAPI) health |
 
 ## Utility Classes
 
-| Version | File | Description |
+| Utility | File | Description |
 |---------|------|-------------|
-| v1.0    | logger.js | Basic logger utility |
-| v1.0    | config.js | Configuration management utility |
-| v1.0    | CircuitBreaker.js | Circuit breaker pattern implementation |
-| v1.0    | RetryHelper.js | Retry logic with exponential backoff |
-| v1.0    | ServiceWatchdog.js | Service health monitoring and recovery |
-| v1.0    | ServiceRegistry.js | Central registry for service status |
-| v1.0    | DependencyContainer.js | Dependency injection container |
-| v1.0    | TestContainer.js | Testing extensions for DI container |
+| ServiceRegistry | `ServiceRegistry.js` | Central registry for service health status |
+| ServiceWatchdog | `ServiceWatchdog.js` | Service health monitoring and self-healing |
+| CircuitBreaker | `CircuitBreaker.js` | Circuit breaker pattern for fault tolerance |
+| RetryHelper | `RetryHelper.js` | Retry logic with exponential backoff |
+| ServiceFactory | `ServiceFactory.js` | Dependency injection factory |
+| DependencyContainer | `DependencyContainer.js` | DI container implementation |
 
-## Active Files
+## External Services
 
-The currently active files are:
+| Service | Port | Description |
+|---------|------|-------------|
+| ShadeCommander | 8000 | FastAPI microservice for RF shade control |
+| Prometheus | 9090 | Metrics collection (optional) |
+| Grafana | 3000 | Metrics visualization (optional) |
 
-- **Server**: modular-server.js
-- **Weather Service**: weatherService.di.js (preferred) or weatherService.fixed.js
-- **Scheduler Service**: schedulerService.di.js (preferred) or schedulerService.fixed.js
+## Cleanup History
 
-## Startup Scripts
-
-- **Production**: start-fixed.js (runs modular-server.js)
-- **Development**: start-with-nodemon.sh (runs modular-server.js with hot reloading)
-
-## Archived Files
-
-Files that have been moved to the archive directory:
-
-- direct-server.js
-- start-direct.js
-- src/server-debug.js
-- src/minimal-server.js
-- src/simplified-server.js
-- src/services/musicService.js.bak
-- src/services/musicService.js.updated
+The following legacy files were removed during production preparation (December 2024):
+- `modular-server.js` - Obsolete alternate server implementation
+- `start-with-metrics.sh` - Referenced deleted modular-server
+- Various `.fixed.js` and `.di.js` versions consolidated into main service files

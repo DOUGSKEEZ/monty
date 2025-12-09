@@ -8,6 +8,7 @@ import WeatherPage from './pages/WeatherPage';
 import PianobarPage from './pages/PianobarPage';
 import SettingsPage from './pages/SettingsPage';
 import GuestRegisterPage from './pages/GuestRegisterPage';
+import NotFoundPage from './pages/NotFoundPage';
 import { AppProvider } from './utils/AppContext';
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
               <Route path="/weather" element={<WeatherPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/guest/:roomId" element={<GuestRegisterPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </main>
           <Footer />

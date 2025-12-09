@@ -1,0 +1,38 @@
+[Unit]
+Description=ShadeCommander FastAPI Shade Control Service
+Documentation=http://192.168.10.15:8000/docs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=monty
+Group=monty
+WorkingDirectory=/home/monty/monty/shades/commander
+
+# Python environment
+Environment=PYTHONPATH=/home/monty/monty/shades
+Environment=NEW_RELIC_CONFIG_FILE=/home/monty/monty/shades/commander/newrelic.ini
+
+# Start ShadeCommander with New Relic
+ExecStart=/home/monty/monty/shades/commander/venv/bin/newrelic-admin run-program \
+    /home/monty/monty/shades/commander/venv/bin/uvicorn main:app \
+    --host 0.0.0.0 \
+    --port 8000
+
+# Restart configuration
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shadecommander
+
+# Security hardening
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

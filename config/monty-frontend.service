@@ -1,18 +1,35 @@
 [Unit]
 Description=Monty Home Automation Frontend Service
-After=network.target monty-backend.service
+Documentation=https://github.com/your-repo/monty
+After=network-online.target monty-backend.service
+Wants=network-online.target
+Requires=monty-backend.service
 
 [Service]
 Type=simple
 User=monty
+Group=monty
 WorkingDirectory=/home/monty/monty/frontend
-ExecStart=/usr/local/bin/serve -s build -l 3000
+
+# Production environment
+Environment=NODE_ENV=production
+# Serve the built React app
+ExecStart=/usr/bin/npx serve -s build -l 80
+
+# Restart configuration
 Restart=on-failure
 RestartSec=10
-StandardOutput=syslog
-StandardError=syslog
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
 SyslogIdentifier=monty-frontend
-Environment=NODE_ENV=production
+
+# Allow binding to port 80
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target

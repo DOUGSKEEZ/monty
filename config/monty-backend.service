@@ -1,19 +1,39 @@
 [Unit]
 Description=Monty Home Automation Backend Service
-After=network.target
+Documentation=https://github.com/your-repo/monty
+After=network-online.target prometheus.service
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=monty
+Group=monty
 WorkingDirectory=/home/monty/monty/backend
-ExecStart=/usr/bin/node /home/monty/monty/backend/src/server.js
-Restart=on-failure
-RestartSec=10
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=monty-backend
+
+# Load New Relic and monitoring environment
+EnvironmentFile=/home/monty/monty/backend/.env.monitoring
+
+# Production environment
 Environment=NODE_ENV=production
 Environment=PORT=3001
+Environment=HOST=0.0.0.0
+
+# Start with New Relic monitoring (same as dev.sh)
+ExecStart=/usr/bin/node -r ./src/monitoring/index.js src/server.js
+
+# Restart configuration
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=monty-backend
+
+# Security hardening
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target

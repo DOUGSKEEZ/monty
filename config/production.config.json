@@ -33,7 +33,7 @@
     "logLevel": "info",
     "maxLogFiles": 14,
     "enableCors": true,
-    "corsOrigins": ["http://localhost:3000", "http://192.168.10.15:3000"],
+    "corsOrigins": ["http://localhost", "http://192.168.10.15", "http://monty.local"],
     "apiRateLimits": {
       "windowMs": 60000,
       "maxRequests": 100

@@ -86,8 +86,13 @@ console.log('[DEBUG] Configuring CORS...');
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'http://localhost',
     'http://127.0.0.1:3000',
-    'http://192.168.10.15:3000'
+    'http://127.0.0.1',
+    'http://192.168.10.15:3000',
+    'http://192.168.10.15',
+    'http://monty.local:3000',
+    'http://monty.local'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -752,26 +757,8 @@ serviceRegistry.register('weather-api-usage', {
   }
 });
 
-serviceRegistry.register('scheduler-service', {
-  isCore: false,
-  status: 'ready',
-  checkHealth: async () => {
-    try {
-      const { createSchedulerService } = require('./utils/ServiceFactory');
-      const schedulerService = createSchedulerService();
-      
-      // Initialize the service if not already done
-      if (!schedulerService.isInitialized) {
-        await schedulerService.initialize();
-      }
-      
-      return await schedulerService.healthCheck();
-    } catch (error) {
-      logger.logger.error(`Scheduler service health check failed: ${error.message}`);
-      return { status: 'error', message: error.message };
-    }
-  }
-});
+// Note: SchedulerService self-registers as 'SchedulerService' via ServiceFactory
+// (Removed redundant 'scheduler-service' registration - was causing duplicate dashboard entries)
 
 // Note: Legacy MusicService removed - PianobarService handles music functionality
 
@@ -936,8 +923,9 @@ app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/system', systemRoutes);
 
 // Catch-all route for client-side routing (production only)
+// Note: Express 5.x requires '{*path}' syntax instead of '*' for wildcards
 if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
+  app.get('{*path}', (req, res) => {
     res.sendFile(path.join(__dirname, '../../frontend/build', 'index.html'));
   });
 }

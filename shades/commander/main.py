@@ -95,10 +95,11 @@ async def timeout_middleware(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3001",        # Node.js backend server
+        "http://localhost:3001",         # Node.js backend server
         "http://192.168.10.15:3001",     # Node.js backend server (IP)
-        "http://localhost:3000",        # React frontend (localhost)
-        "http://192.168.10.15:3000",     # React frontend (IP)
+        "http://localhost",              # React frontend (port 80)
+        "http://192.168.10.15",          # React frontend (port 80 via IP)
+        "http://monty.local",            # React frontend (mDNS hostname)
     ],
     allow_credentials=True,
     allow_methods=["*"],
