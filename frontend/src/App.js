@@ -12,23 +12,21 @@ import NotFoundPage from './pages/NotFoundPage';
 import { AppProvider } from './utils/AppContext';
 
 function App() {
-  // Clear stale cache on app initialization (preserve guest mode and theme settings)
+  // Clear stale cache on app initialization (preserve theme settings)
   useEffect(() => {
     if (localStorage.getItem('pianobar_cache_version') !== '2.0') {
-      // Preserve important settings before clearing
-      const guestMode = localStorage.getItem('montyGuestMode');
+      // Preserve theme settings before clearing
       const themeMode = localStorage.getItem('montyThemeMode');
       const manualTheme = localStorage.getItem('montyManualTheme');
 
       localStorage.clear();
 
       // Restore preserved settings
-      if (guestMode) localStorage.setItem('montyGuestMode', guestMode);
       if (themeMode) localStorage.setItem('montyThemeMode', themeMode);
       if (manualTheme) localStorage.setItem('montyManualTheme', manualTheme);
 
       localStorage.setItem('pianobar_cache_version', '2.0');
-      console.log('🚫👻 Cleared stale pianobar cache - cache version upgraded to 2.0 (preserved guest/theme settings)');
+      console.log('🚫👻 Cleared stale pianobar cache - cache version upgraded to 2.0 (preserved theme settings)');
     }
   }, []);
   return (

@@ -4,6 +4,25 @@ import { useAppContext } from '../utils/AppContext';
 import { triggerShadeCommanderScene, checkShadeCommanderHealth } from '../utils/api';
 import AnimatedWeatherIcon from '../components/AnimatedWeatherIcon';
 
+// Detect if user is on iOS or Android
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+const isAndroid = () => {
+  return /Android/.test(navigator.userAgent);
+};
+
+// iOS Share icon (the box with arrow pointing up)
+const IOSShareIcon = () => (
+  <svg className="inline-block w-4 h-4 align-text-bottom mx-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <polyline points="16 6 12 2 8 6" />
+    <line x1="12" y1="2" x2="12" y2="15" />
+  </svg>
+);
+
 function HomePage() {
   const { weather, scheduler, actions, guest } = useAppContext();
   const [showWakeUpModal, setShowWakeUpModal] = useState(false);
@@ -28,6 +47,7 @@ function HomePage() {
     if (guest.isGuest && guest.room) {
       loadGuestAlarmStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guest.isGuest, guest.room]);
 
   // Fetch guest alarm status from backend
@@ -596,48 +616,67 @@ function HomePage() {
           </div>
         </div>
         
-        {/* Shade Status Widget (Homeowner) OR PWA Instructions (Guest) */}
+        {/* Shade Status Widget (Homeowner) OR Guest Alarm (Guest) - 2nd position */}
         {guest.isGuest ? (
-          // PWA Instructions Card for Guests
+          // Guest Alarm Widget - NOW IN 2ND POSITION
           <div className="bg-white p-4 rounded shadow">
             <h2 className="text-xl font-semibold mb-4 flex items-center">
-              <span className="mr-2">📱</span> Add to Home Screen
+              <span className="text-2xl mr-2">{guest.roomEmoji}</span> Your Wake Up Alarm
             </h2>
 
-            <p className="text-gray-600 mb-4">
-              For the best experience, add Monty to your phone's home screen:
-            </p>
+            <div className="mb-4">
+              <p className="text-sm mb-2 text-gray-600">{guest.roomLabel} Alarm:</p>
 
-            <div className="space-y-4">
-              {/* iPhone Instructions */}
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <h3 className="font-semibold text-sm mb-2 flex items-center">
-                  <span className="mr-2">🍎</span> iPhone / iPad
-                </h3>
-                <ol className="text-sm text-gray-600 list-decimal pl-5 space-y-1">
-                  <li>Tap the <strong>Share</strong> button <span className="inline-block px-1 bg-gray-200 rounded text-xs">□↑</span></li>
-                  <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
-                  <li>Tap <strong>"Add"</strong> in the top right</li>
-                </ol>
-              </div>
-
-              {/* Android Instructions */}
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <h3 className="font-semibold text-sm mb-2 flex items-center">
-                  <span className="mr-2">🤖</span> Android
-                </h3>
-                <ol className="text-sm text-gray-600 list-decimal pl-5 space-y-1">
-                  <li>Tap the <strong>menu</strong> button <span className="inline-block px-1 bg-gray-200 rounded text-xs">⋮</span></li>
-                  <li>Tap <strong>"Add to Home Screen"</strong> or <strong>"Install App"</strong></li>
-                  <li>Tap <strong>"Add"</strong> to confirm</li>
-                </ol>
-              </div>
+              {guestAlarm.loading ? (
+                <p className="text-xl font-bold text-gray-400">Loading...</p>
+              ) : guestAlarm.error ? (
+                <p className="text-sm text-red-500">{guestAlarm.error}</p>
+              ) : !guestAlarm.enabled ? (
+                <p className="text-xl font-bold text-gray-500">Not Set</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-3xl font-bold text-green-600">
+                    {(() => {
+                      // Convert 24h to 12h format
+                      const [hours, minutes] = guestAlarm.time.split(':').map(Number);
+                      const hour12 = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+                      const ampm = hours >= 12 ? 'PM' : 'AM';
+                      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+                    })()}
+                  </div>
+                  {guestAlarm.nextAlarmDateTime && (
+                    <div className="text-sm text-gray-500 italic">
+                      Next alarm: {guestAlarm.nextAlarmDateTime}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
-                Welcome to {guest.roomLabel}! {guest.roomEmoji}
-              </p>
+            <div className="text-sm text-gray-600 mb-4">
+              <p className="mb-2">Your wake-up alarm will:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Raise your room's blackout shade</li>
+                <li>Let natural light wake you gently</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowWakeUpModal(true)}
+                className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+              >
+                {guestAlarm.enabled ? 'Change Wake Up Time' : 'Set Wake Up Time'}
+              </button>
+
+              {guestAlarm.enabled && (
+                <button
+                  onClick={handleClearGuestAlarm}
+                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm"
+                >
+                  Clear Alarm
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -717,67 +756,77 @@ function HomePage() {
           </div>
         )}
 
-        {/* Wake Up Widget (Homeowner) OR Guest Alarm (Guest) */}
+        {/* Wake Up Widget (Homeowner) OR PWA Instructions (Guest) - 3rd position */}
         {guest.isGuest ? (
-          // Guest Alarm Widget
+          // PWA Instructions Card for Guests - NOW IN 3RD POSITION
           <div className="bg-white p-4 rounded shadow">
             <h2 className="text-xl font-semibold mb-4 flex items-center">
-              <span className="text-2xl mr-2">{guest.roomEmoji}</span> Your Wake Up Alarm
+              <span className="mr-2">📱</span> Add to Home Screen
             </h2>
 
-            <div className="mb-4">
-              <p className="text-sm mb-2 text-gray-600">{guest.roomLabel} Alarm:</p>
+            <p className="text-gray-600 mb-4">
+              For the best experience, add Monty to your phone's home screen:
+            </p>
 
-              {guestAlarm.loading ? (
-                <p className="text-xl font-bold text-gray-400">Loading...</p>
-              ) : guestAlarm.error ? (
-                <p className="text-sm text-red-500">{guestAlarm.error}</p>
-              ) : !guestAlarm.enabled ? (
-                <p className="text-xl font-bold text-gray-500">Not Set</p>
-              ) : (
-                <div className="space-y-2">
-                  <div className="text-3xl font-bold text-green-600">
-                    {(() => {
-                      // Convert 24h to 12h format
-                      const [hours, minutes] = guestAlarm.time.split(':').map(Number);
-                      const hour12 = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
-                      const ampm = hours >= 12 ? 'PM' : 'AM';
-                      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-                    })()}
-                  </div>
-                  {guestAlarm.nextAlarmDateTime && (
-                    <div className="text-sm text-gray-500 italic">
-                      Next alarm: {guestAlarm.nextAlarmDateTime}
-                    </div>
-                  )}
+            {/* Platform-specific instructions */}
+            {isIOS() ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                <div className="flex items-center gap-2 mb-2">
+                  <img src="/images/icons/ios.svg" alt="iOS" className="w-5 h-5" />
+                  <p className="text-blue-800 font-semibold">iPhone / iPad</p>
                 </div>
-              )}
-            </div>
+                <ol className="text-blue-700 text-sm list-decimal list-inside space-y-1">
+                  <li>Tap "<span className="font-semibold">⋯</span>" then the <span className="font-semibold">Share</span> button <IOSShareIcon /></li>
+                  <li>Scroll down and tap <span className="font-semibold">"Add to Home Screen"</span></li>
+                  <li>Tap <span className="font-semibold">"Add"</span> to confirm</li>
+                </ol>
+              </div>
+            ) : isAndroid() ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                <div className="flex items-center gap-2 mb-2">
+                  <img src="/images/icons/android.svg" alt="Android" className="w-5 h-5" />
+                  <p className="text-blue-800 font-semibold">Android</p>
+                </div>
+                <ol className="text-blue-700 text-sm list-decimal list-inside space-y-1">
+                  <li>Tap the <span className="font-semibold">⋮</span> menu (top right)</li>
+                  <li>Tap <span className="font-semibold">"Add to Home screen"</span></li>
+                  <li>Tap <span className="font-semibold">"Add"</span> to confirm</li>
+                </ol>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* iPhone Instructions */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <h3 className="font-semibold text-sm mb-2 flex items-center">
+                    <img src="/images/icons/ios.svg" alt="iOS" className="w-4 h-4 mr-2" />
+                    iPhone / iPad
+                  </h3>
+                  <ol className="text-sm text-gray-600 list-decimal pl-5 space-y-1">
+                    <li>Tap "<strong>⋯</strong>" then the <strong>Share</strong> button <IOSShareIcon /></li>
+                    <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+                    <li>Tap <strong>"Add"</strong> to confirm</li>
+                  </ol>
+                </div>
 
-            <div className="text-sm text-gray-600 mb-4">
-              <p className="mb-2">Your wake-up alarm will:</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Raise your room's blackout shade</li>
-                <li>Let natural light wake you gently</li>
-              </ul>
-            </div>
+                {/* Android Instructions */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <h3 className="font-semibold text-sm mb-2 flex items-center">
+                    <img src="/images/icons/android.svg" alt="Android" className="w-4 h-4 mr-2" />
+                    Android
+                  </h3>
+                  <ol className="text-sm text-gray-600 list-decimal pl-5 space-y-1">
+                    <li>Tap the <strong>⋮</strong> menu (top right)</li>
+                    <li>Tap <strong>"Add to Home screen"</strong></li>
+                    <li>Tap <strong>"Add"</strong> to confirm</li>
+                  </ol>
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <button
-                onClick={() => setShowWakeUpModal(true)}
-                className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-              >
-                {guestAlarm.enabled ? 'Change Wake Up Time' : 'Set Wake Up Time'}
-              </button>
-
-              {guestAlarm.enabled && (
-                <button
-                  onClick={handleClearGuestAlarm}
-                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm"
-                >
-                  Clear Alarm
-                </button>
-              )}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-xs text-gray-500 text-center">
+                Welcome to {guest.roomLabel}! {guest.roomEmoji}
+              </p>
             </div>
           </div>
         ) : (

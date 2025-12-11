@@ -13,34 +13,52 @@ const GUEST_ROOM_META = {
   guestroom2: { label: 'Guestroom 2', emoji: '🏋️' }
 };
 
+// Subdomain to room mapping
+const SUBDOMAIN_TO_ROOM = {
+  'guest1': 'guestroom1',
+  'guest2': 'guestroom2'
+};
+
+// Detect guest mode from subdomain (e.g., guest1.monty.home -> guestroom1)
+const detectGuestFromSubdomain = () => {
+  try {
+    const hostname = window.location.hostname;
+    // Extract subdomain (first part before the first dot)
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      const subdomain = parts[0].toLowerCase();
+      const roomId = SUBDOMAIN_TO_ROOM[subdomain];
+      if (roomId && GUEST_ROOM_META[roomId]) {
+        return roomId;
+      }
+    }
+  } catch (e) {
+    console.error('Error detecting guest subdomain:', e);
+  }
+  return null;
+};
+
 // Provider component
 export const AppProvider = ({ children }) => {
-  // Guest state - loaded from localStorage
-  const [guest, setGuest] = useState(() => {
-    try {
-      const stored = localStorage.getItem('montyGuestMode');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const meta = GUEST_ROOM_META[parsed.room];
-        if (meta) {
-          return {
-            isGuest: true,
-            room: parsed.room,
-            roomEmoji: meta.emoji,
-            roomLabel: meta.label,
-            registeredAt: parsed.registeredAt
-          };
-        }
-      }
-    } catch (e) {
-      console.error('Error loading guest mode from localStorage:', e);
+  // Guest state - determined entirely by subdomain (e.g., guest1.monty.home)
+  const [guest] = useState(() => {
+    const subdomainRoom = detectGuestFromSubdomain();
+    if (subdomainRoom) {
+      const meta = GUEST_ROOM_META[subdomainRoom];
+      console.log(`🏠 Guest mode detected from subdomain: ${subdomainRoom}`);
+      return {
+        isGuest: true,
+        room: subdomainRoom,
+        roomEmoji: meta.emoji,
+        roomLabel: meta.label
+      };
     }
+
     return {
       isGuest: false,
       room: null,
       roomEmoji: null,
-      roomLabel: null,
-      registeredAt: null
+      roomLabel: null
     };
   });
 
@@ -1138,45 +1156,9 @@ export const AppProvider = ({ children }) => {
     setThemeMode(enabled ? 'festive' : 'manual');
   };
 
-  // Set guest mode (called by GuestRegisterPage)
-  const setGuestMode = (room) => {
-    const meta = GUEST_ROOM_META[room];
-    if (!meta) {
-      console.error('Invalid guest room:', room);
-      return false;
-    }
-
-    const guestData = {
-      room: room,
-      registeredAt: new Date().toISOString()
-    };
-
-    localStorage.setItem('montyGuestMode', JSON.stringify(guestData));
-
-    setGuest({
-      isGuest: true,
-      room: room,
-      roomEmoji: meta.emoji,
-      roomLabel: meta.label,
-      registeredAt: guestData.registeredAt
-    });
-
-    console.log(`Guest mode enabled for ${meta.label} ${meta.emoji}`);
-    return true;
-  };
-
-  // Clear guest mode (for debugging or when guest leaves)
-  const clearGuestMode = () => {
-    localStorage.removeItem('montyGuestMode');
-    setGuest({
-      isGuest: false,
-      room: null,
-      roomEmoji: null,
-      roomLabel: null,
-      registeredAt: null
-    });
-    console.log('Guest mode cleared');
-  };
+  // Note: Guest mode is now determined by subdomain (e.g., guest1.monty.home)
+  // See detectGuestFromSubdomain() at the top of this file
+  // No setGuestMode/clearGuestMode needed - subdomain is the source of truth
 
   // Memoize actions to prevent infinite re-renders
   const actions = useMemo(() => ({
@@ -1201,8 +1183,6 @@ export const AppProvider = ({ children }) => {
     toggleFestiveMode,
     setThemeMode,
     setManualTheme,
-    setGuestMode,
-    clearGuestMode,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []); // Functions are stable - intentionally omitted to prevent re-creation
 

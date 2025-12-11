@@ -91,8 +91,10 @@ app.use(cors({
     'http://127.0.0.1',
     'http://192.168.10.15:3000',
     'http://192.168.10.15',
-    'http://monty.local:3000',
-    'http://monty.local'
+    'http://monty.home:3000',
+    'http://monty.home',
+    'http://guest1.monty.home',
+    'http://guest2.monty.home'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

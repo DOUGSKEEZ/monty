@@ -248,7 +248,8 @@ function PianobarPage() {
     
     const connectWebSocket = () => {
       try {
-        websocket = new WebSocket(`ws://${window.location.hostname}:3001/api/pianobar/ws`);
+        // Use fixed backend IP - guest subdomains don't have DNS for port 3001
+        websocket = new WebSocket('ws://192.168.10.15:3001/api/pianobar/ws');
         
         websocket.onopen = () => {
           setWsConnected(true);

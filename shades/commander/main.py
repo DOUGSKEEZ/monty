@@ -99,7 +99,9 @@ app.add_middleware(
         "http://192.168.10.15:3001",     # Node.js backend server (IP)
         "http://localhost",              # React frontend (port 80)
         "http://192.168.10.15",          # React frontend (port 80 via IP)
-        "http://monty.local",            # React frontend (mDNS hostname)
+        "http://monty.home",             # React frontend (UniFi DNS hostname)
+        "http://guest1.monty.home",      # Guest 1 subdomain
+        "http://guest2.monty.home",      # Guest 2 subdomain
     ],
     allow_credentials=True,
     allow_methods=["*"],
