@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
+// Backend API base URL (same as api.js)
+const API_BASE_URL = 'http://192.168.10.15:3001/api';
+
 /**
  * BluetoothSignalStrength Component
  *
@@ -23,7 +26,7 @@ let isVisible = true;
 // Fetch RSSI from backend
 const fetchRSSI = async () => {
   try {
-    const response = await fetch('/api/bluetooth/rssi?silent=true');
+    const response = await fetch(`${API_BASE_URL}/bluetooth/rssi?silent=true`);
     if (response.ok) {
       const data = await response.json();
 
