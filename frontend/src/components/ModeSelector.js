@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
+// Backend API base URL (same as api.js)
+const API_BASE_URL = 'http://192.168.10.15:3001/api';
+
 /**
  * ModeSelector Modal Component
  *
@@ -30,7 +33,7 @@ function ModeSelector({ isOpen, onClose, stationName }) {
     setError(null);
 
     try {
-      const response = await fetch('/api/pianobar/modes');
+      const response = await fetch(`${API_BASE_URL}/pianobar/modes`);
       const data = await response.json();
 
       if (data.success) {
@@ -54,7 +57,7 @@ function ModeSelector({ isOpen, onClose, stationName }) {
     setError(null);
 
     try {
-      const response = await fetch('/api/pianobar/mode', {
+      const response = await fetch(`${API_BASE_URL}/pianobar/mode`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -3,6 +3,9 @@ import { useAppContext } from '../utils/AppContext';
 import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
 import ModeSelector from '../components/ModeSelector';
 
+// Backend API base URL (same as api.js)
+const API_BASE_URL = 'http://192.168.10.15:3001/api';
+
 function PianobarPage() {
   // Get state from context
   const { pianobar, bluetooth, actions } = useAppContext();
@@ -101,7 +104,7 @@ function PianobarPage() {
   const loadSharedState = async () => {
     try {
       console.log('🔍 [SYNC-STATE] Calling /api/pianobar/sync-state...');
-      const response = await fetch('/api/pianobar/sync-state');
+      const response = await fetch(`${API_BASE_URL}/pianobar/sync-state`);
       console.log('🔍 [SYNC-STATE] Response status:', response.status);
       
       if (response.ok) {
@@ -136,7 +139,7 @@ function PianobarPage() {
         bluetoothConnected: bluetooth.isConnected
       };
       
-      await fetch('/api/pianobar/sync-state', {
+      await fetch(`${API_BASE_URL}/pianobar/sync-state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shared: currentState })

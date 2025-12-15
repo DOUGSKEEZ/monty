@@ -5,6 +5,9 @@ import AwayDatePicker from '../components/AwayDatePicker';
 import AwayCalendarDisplay from '../components/AwayCalendarDisplay';
 import AwayPeriodsList from '../components/AwayPeriodsList';
 
+// Backend API base URL (same as api.js)
+const API_BASE_URL = 'http://192.168.10.15:3001/api';
+
 function SettingsPage() {
   // Get state and actions from context
   const { scheduler, weather, theme, actions } = useAppContext();
@@ -167,7 +170,7 @@ function SettingsPage() {
   // Load system timezone
   const loadSystemTimezone = async () => {
     try {
-      const response = await fetch('/api/system/timezone');
+      const response = await fetch(`${API_BASE_URL}/system/timezone`);
       const result = await response.json();
       
       if (result.success) {
