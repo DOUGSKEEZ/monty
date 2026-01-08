@@ -396,10 +396,9 @@ class ConfigManager {
       
       // Check if currently in an away period
       const awayPeriods = this.get('homeStatus.awayPeriods', []);
-      
-      // Use local timezone - get current date in the configured timezone
-      // For now, use UTC but this should be updated to use TimezoneManager when available
-      const currentDateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      // Use local timezone - toLocaleDateString('en-CA') returns YYYY-MM-DD in system timezone
+      const currentDateStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format in local time
       
       for (const period of awayPeriods) {
         if (currentDateStr >= period.start && currentDateStr <= period.end) {

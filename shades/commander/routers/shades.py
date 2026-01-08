@@ -14,6 +14,7 @@ from commander.models.shade import (
 )
 from commander.services.shade_service import shade_service
 from commander.services.async_retry_service import async_retry_service
+from commander.interface.arduino_whisperer import _get_shade_data
 from commander.routers.scenes import scene_execution_logs, SceneExecutionLog
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,23 @@ async def control_shade(
 ):
     """Send a command to a specific shade (fire-and-forget)"""
     start_time = time.time()
-    
+
+    # INSTANT VALIDATION: Check if shade exists before queueing (fast DB lookup ~0.3ms)
+    shade_data = _get_shade_data(shade_id)
+    if not shade_data:
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        logger.warning(f"⚠️ Shade {shade_id} not found in database (validated in {execution_time_ms}ms)")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "success": False,
+                "error": "ShadeNotFound",
+                "message": f"Shade {shade_id} not found in database",
+                "shade_id": shade_id,
+                "execution_time_ms": execution_time_ms
+            }
+        )
+
     try:
         logger.info(f"🚀 Fire-and-forget command for shade {shade_id}: {command.action}")
 

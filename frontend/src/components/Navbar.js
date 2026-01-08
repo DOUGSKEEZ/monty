@@ -105,6 +105,9 @@ function Navbar() {
 
   const navbarTheme = getNavbarTheme();
 
+  // Shared text shadow style for readability on light backgrounds
+  const textShadowStyle = { textShadow: '1px 1px 3px rgba(0, 0, 0, 0.6)' };
+
   // Check if we should hide title on mobile for this theme
   const shouldHideTitleOnMobile = hideTitleOnMobileThemes.includes(theme.currentTheme);
 
@@ -120,7 +123,10 @@ function Navbar() {
             alt={pageInfo.alt}
             className="w-16 h-16 transform scale-x-[-1]"
           />
-          <span className={`text-3xl font-semibold ${shouldHideTitleOnMobile ? 'hidden md:block' : ''}`}>
+          <span
+            className={`text-3xl font-semibold ${shouldHideTitleOnMobile ? 'hidden md:block' : ''}`}
+            style={textShadowStyle}
+          >
             {pageInfo.title}
           </span>
         </Link>
@@ -145,6 +151,7 @@ function Navbar() {
                 ? 'bg-black bg-opacity-30 text-white'
                 : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
+            style={textShadowStyle}
           >
             Dashboard
           </Link>
@@ -155,6 +162,7 @@ function Navbar() {
                 ? 'bg-black bg-opacity-30 text-white'
                 : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
+            style={textShadowStyle}
           >
             Shades
           </Link>
@@ -165,6 +173,7 @@ function Navbar() {
                 ? 'bg-black bg-opacity-30 text-white'
                 : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
+            style={textShadowStyle}
           >
             Pianobar
           </Link>
@@ -175,6 +184,7 @@ function Navbar() {
                 ? 'bg-black bg-opacity-30 text-white'
                 : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
             }`}
+            style={textShadowStyle}
           >
             Weather
           </Link>
@@ -187,13 +197,14 @@ function Navbar() {
                   ? 'bg-black bg-opacity-30 text-white'
                   : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
               }`}
+              style={textShadowStyle}
             >
               Settings
             </Link>
           )}
           {/* Show guest indicator */}
           {guest.isGuest && (
-            <span className="px-3 py-2 bg-black bg-opacity-20 rounded text-sm">
+            <span className="px-3 py-2 bg-black bg-opacity-20 rounded text-sm" style={textShadowStyle}>
               {guest.roomEmoji} Guest
             </span>
           )}
@@ -208,6 +219,7 @@ function Navbar() {
               to="/"
               className={`px-4 py-2 rounded ${isActive('/') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
+              style={textShadowStyle}
             >
               Dashboard
             </Link>
@@ -215,6 +227,7 @@ function Navbar() {
               to="/shades"
               className={`px-4 py-2 rounded ${isActive('/shades') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
+              style={textShadowStyle}
             >
               Shades
             </Link>
@@ -222,6 +235,7 @@ function Navbar() {
               to="/pianobar"
               className={`px-4 py-2 rounded ${isActive('/pianobar') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
+              style={textShadowStyle}
             >
               Pianobar
             </Link>
@@ -229,6 +243,7 @@ function Navbar() {
               to="/weather"
               className={`px-4 py-2 rounded ${isActive('/weather') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
               onClick={() => setIsMenuOpen(false)}
+              style={textShadowStyle}
             >
               Weather
             </Link>
@@ -238,13 +253,14 @@ function Navbar() {
                 to="/settings"
                 className={`px-4 py-2 rounded ${isActive('/settings') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
                 onClick={() => setIsMenuOpen(false)}
+                style={textShadowStyle}
               >
                 Settings
               </Link>
             )}
             {/* Show guest indicator on mobile */}
             {guest.isGuest && (
-              <span className="px-4 py-2 bg-black bg-opacity-20 rounded text-sm text-center">
+              <span className="px-4 py-2 bg-black bg-opacity-20 rounded text-sm text-center" style={textShadowStyle}>
                 {guest.roomEmoji} {guest.roomLabel}
               </span>
             )}

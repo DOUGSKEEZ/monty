@@ -4,7 +4,7 @@ The Monty API Dashboard provides a comprehensive real-time monitoring interface 
 
 ## Overview
 
-**Dashboard URL**: `http://192.168.0.15:3001/api/dashboard`
+**Dashboard URL**: `http://192.168.10.15:3001/api/dashboard`
 
 The dashboard is a self-contained HTML page that displays:
 - Service health status with color-coded indicators
@@ -48,9 +48,9 @@ The dashboard is a self-contained HTML page that displays:
 
 ### Monitoring Endpoints
 The dashboard monitors ShadeCommander via these endpoints:
-- `GET http://192.168.0.15:8000/health` - Service health check
-- `GET http://192.168.0.15:8000/arduino/status` - Arduino connection details
-- `GET http://192.168.0.15:8000/retries` - Active background task monitoring
+- `GET http://192.168.10.15:8000/health` - Service health check
+- `GET http://192.168.10.15:8000/arduino/status` - Arduino connection details
+- `GET http://192.168.10.15:8000/retries` - Active background task monitoring
 
 ### Status Logic
 - **Service Status**: Green when ShadeCommander API is responding (regardless of Arduino)
@@ -72,7 +72,7 @@ The dashboard includes a "🔌 Reconnect Arduino" button for ShadeCommander.
 
 **Implementation**: Uses a backend proxy to avoid CORS issues
 - **Frontend**: `POST /api/shade-commander/reconnect`
-- **Backend Proxy**: `POST http://192.168.0.15:8000/arduino/reconnect`
+- **Backend Proxy**: `POST http://192.168.10.15:8000/arduino/reconnect`
 
 **Button States**:
 - Default: "🔌 Reconnect Arduino"
@@ -85,7 +85,7 @@ The dashboard includes a "🔌 Reconnect Arduino" button for ShadeCommander.
 ### `/api/shade-commander/reconnect`
 **Method**: POST  
 **Purpose**: Proxy Arduino reconnection requests to avoid CORS  
-**Target**: `http://192.168.0.15:8000/arduino/reconnect`  
+**Target**: `http://192.168.10.15:8000/arduino/reconnect`  
 **Timeout**: 15 seconds (Arduino detection can take 5-10 seconds)
 
 **Response Format**:
@@ -134,13 +134,13 @@ checkHealth: async () => {
 ```javascript
 checkHealth: async () => {
   // Check ShadeCommander API health
-  const healthResponse = await axios.get('http://192.168.0.15:8000/health');
+  const healthResponse = await axios.get('http://192.168.10.15:8000/health');
   
   // Get Arduino status separately
-  const arduinoResponse = await axios.get('http://192.168.0.15:8000/arduino/status');
+  const arduinoResponse = await axios.get('http://192.168.10.15:8000/arduino/status');
   
   // Get background task stats
-  const retryResponse = await axios.get('http://192.168.0.15:8000/retries');
+  const retryResponse = await axios.get('http://192.168.10.15:8000/retries');
   
   // Return combined status
   return {
@@ -232,7 +232,7 @@ Processes: 373 (total running processes)
 Memory Usage: 18% (RAM utilization)
 Swap Usage: 0% (swap file utilization) 
 Users Logged In: 5 (active SSH sessions)
-IPv4 Address: 192.168.0.15 (primary network interface)
+IPv4 Address: 192.168.10.15 (primary network interface)
 ```
 
 #### Historical Chart
@@ -330,7 +330,7 @@ These fixes enable **ANY service** (internal Node.js, external APIs, IoT devices
 
 **ShadeCommander shows as "error"**
 - Check if ShadeCommander is running on port 8000
-- Verify network connectivity: `curl http://192.168.0.15:8000/health`
+- Verify network connectivity: `curl http://192.168.10.15:8000/health`
 - Check backend logs for connection errors
 
 **Arduino Reconnect button fails**

@@ -14,8 +14,9 @@ class ShadeAction(str, Enum):
 class ShadeCommand(BaseModel):
     """Command to send to a shade (stateless - just transmit the signal!)"""
     action: ShadeAction = Field(..., description="Action to perform: u=up, d=down, s=stop")
-    
+
     class Config:
+        extra = 'forbid'  # Reject unknown fields like 'position' with 422
         json_schema_extra = {
             "example": {
                 "action": "u"
