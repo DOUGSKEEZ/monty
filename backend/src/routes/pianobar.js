@@ -10,7 +10,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger').getModuleLogger('pianobar-routes');
-const fetch = require('node-fetch');
+// Node 22+ has native fetch - no need for node-fetch package
 const PORT = process.env.PORT || 3001;
 
 let cachedWebSocketService = null;
