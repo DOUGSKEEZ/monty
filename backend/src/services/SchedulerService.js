@@ -1596,7 +1596,7 @@ class SchedulerService {
       uptime: Math.floor(uptime),
       metrics: {
         scheduledJobs: this.scheduledJobs.size,
-        homeAwayStatus: this.configManager.get('homeStatus.status', 'home'),
+        homeAwayStatus: this.configManager.getCurrentHomeStatus(),  // Use computed status (considers away periods)
         lastExecutedScene: this.lastExecutedScene,
         nextSceneTimes: Object.keys(this.nextSceneTimes).reduce((acc, key) => {
           if (key === 'good_afternoon_display') {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 
-const AwayPeriodsList = ({ awayContext }) => {
+const AwayPeriodsList = ({ awayContext, onSuccess }) => {
   const [deletingIndex, setDeletingIndex] = useState(null);
 
   // Format date for display
@@ -26,13 +26,18 @@ const AwayPeriodsList = ({ awayContext }) => {
   };
 
   // Handle period deletion
-  const handleDelete = async (index) => {
+  const handleDelete = async (index, onSuccess) => {
     setDeletingIndex(index);
-    
+
     try {
       const result = await awayContext.removeAwayPeriod(index);
-      
-      if (!result.success) {
+
+      if (result.success) {
+        // Call success callback if provided
+        if (onSuccess) {
+          onSuccess('Away period removed successfully');
+        }
+      } else {
         console.error('Failed to remove period:', result.error);
       }
     } catch (error) {
@@ -115,7 +120,7 @@ const AwayPeriodsList = ({ awayContext }) => {
                   </div>
                   
                   <button
-                    onClick={() => handleDelete(index)}
+                    onClick={() => handleDelete(index, onSuccess)}
                     disabled={isDeleting || awayContext.loading}
                     className="ml-3 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                     title="Delete this away period"
@@ -180,6 +185,7 @@ AwayPeriodsList.propTypes = {
     error: PropTypes.string,
     removeAwayPeriod: PropTypes.func.isRequired,
   }).isRequired,
+  onSuccess: PropTypes.func,
 };
 
 export default AwayPeriodsList;

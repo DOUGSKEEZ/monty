@@ -9,25 +9,18 @@ const AwayCalendarDisplay = ({ awayContext }) => {
   // Create a set of away dates for fast lookup
   const awayDatesSet = useMemo(() => {
     const datesSet = new Set();
-    
-    console.log('🔍 Calendar: Processing away periods:', awayContext.awayPeriods);
-    
+
     awayContext.awayPeriods.forEach(period => {
-      console.log('🔍 Calendar: Processing period:', period);
       const startDate = new Date(period.startDate);
       const endDate = new Date(period.endDate);
-      
-      console.log('🔍 Calendar: Date range:', startDate, 'to', endDate);
-      
+
       // Add all dates in the range
       for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
         const dateStr = date.toISOString().split('T')[0];
         datesSet.add(dateStr);
-        console.log('🔍 Calendar: Added away date:', dateStr);
       }
     });
-    
-    console.log('🔍 Calendar: Final away dates set:', Array.from(datesSet));
+
     return datesSet;
   }, [awayContext.awayPeriods]);
 
@@ -43,18 +36,12 @@ const AwayCalendarDisplay = ({ awayContext }) => {
   // Custom tile styling for away days
   const getTileClassName = ({ date, view }) => {
     if (view !== 'month') return '';
-    
+
     const dateStr = date.toISOString().split('T')[0];
     const isAway = awayDatesSet.has(dateStr);
     const isToday = date.toDateString() === new Date().toDateString();
     const isPast = date < new Date().setHours(0, 0, 0, 0);
-    
-    // Debug logging for weekend days that are showing as away
-    const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-    if ((dayOfWeek === 0 || dayOfWeek === 6) && isAway) {
-      console.log('🔍 Weekend marked as away:', dateStr, 'dayOfWeek:', dayOfWeek, 'isAway:', isAway);
-    }
-    
+
     let classes = [];
     
     if (isAway) {
@@ -80,10 +67,9 @@ const AwayCalendarDisplay = ({ awayContext }) => {
   // Handle date click to show period details
   const handleDateClick = (date) => {
     const periods = getPeriodsForDate(date);
-    
+
     if (periods.length > 0) {
-      // Could show a tooltip or modal with period details
-      console.log('Away periods for', date.toDateString(), periods);
+      // Could show a tooltip or modal with period details in the future
     }
   };
 

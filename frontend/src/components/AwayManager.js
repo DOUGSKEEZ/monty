@@ -19,19 +19,16 @@ const AwayManager = ({ children }) => {
       setError(null);
       
       const data = await configApi.getAwayPeriods();
-      console.log('🔍 Raw API response:', data);
-      
+
       // The backend returns the value directly for config keys
       const periods = Array.isArray(data.data) ? data.data : [];
-      console.log('🔍 Extracted periods:', periods);
-      
+
       // Transform backend format (start/end) to frontend format (startDate/endDate)
       const transformedPeriods = periods.map(period => ({
         startDate: period.start || period.startDate,
         endDate: period.end || period.endDate
       }));
-      console.log('🔍 Transformed periods:', transformedPeriods);
-      
+
       setAwayPeriods(transformedPeriods);
     } catch (err) {
       console.error('Error loading away periods:', err);

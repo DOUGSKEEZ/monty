@@ -10,6 +10,17 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [validationError, setValidationError] = useState('');
 
+  // Force update mechanism - sometimes React's scheduler needs a kick
+  const [renderKey, setRenderKey] = useState(0);
+  const forceRenderRef = useRef(() => setRenderKey(k => k + 1));
+
+
+  // Ref to hold latest awayPeriods for use in flatpickr callbacks (avoids stale closure)
+  const awayPeriodsRef = useRef(awayContext.awayPeriods);
+  useEffect(() => {
+    awayPeriodsRef.current = awayContext.awayPeriods;
+  }, [awayContext.awayPeriods]);
+
   // Initialize Flatpickr on mount
   useEffect(() => {
     if (flatpickrRef.current) {
@@ -18,18 +29,43 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
         dateFormat: 'Y-m-d',
         minDate: 'today',
         showMonths: 1,
-        static: true,
+        inline: true,  // Changed from static:true - inline renders in DOM flow and repaints properly
         allowInput: false,
-        position: 'below',
         onChange: (selectedDates) => {
-          setSelectedRange(selectedDates);
-          setValidationError(''); // Clear validation errors when dates change
-        },
-        onClose: () => {
-          // Validate range when picker closes
-          if (selectedRange.length === 2) {
-            validateDateRange(selectedRange[0], selectedRange[1]);
-          }
+          // Use setTimeout(0) to escape flatpickr's call stack
+          setTimeout(() => {
+            setSelectedRange(selectedDates);
+
+            // When both dates are selected, validate
+            if (selectedDates.length === 2) {
+              const [startDate, endDate] = selectedDates;
+
+              if (startDate > endDate) {
+                setValidationError('End date cannot be before start date');
+                forceRenderRef.current();
+                return;
+              }
+
+              // Check for overlaps using ref (always has current awayPeriods)
+              const startDateStr = startDate.toISOString().split('T')[0];
+              const endDateStr = endDate.toISOString().split('T')[0];
+
+              const hasOverlap = awayPeriodsRef.current.some(period => {
+                return (startDateStr <= period.endDate && endDateStr >= period.startDate);
+              });
+
+              if (hasOverlap) {
+                setValidationError('This date range overlaps with an existing away period');
+              } else {
+                setValidationError('');
+              }
+            } else {
+              setValidationError('');
+            }
+
+            // Force re-render (React 18 concurrent mode workaround for third-party callbacks)
+            forceRenderRef.current();
+          }, 0);
         }
       });
     }
@@ -40,16 +76,7 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
         flatpickrInstance.current.destroy();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Mount-only: flatpickr callbacks capture values from separate validation useEffect
-
-  // Update selected range when flatpickr changes
-  useEffect(() => {
-    if (selectedRange.length === 2) {
-      validateDateRange(selectedRange[0], selectedRange[1]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRange, awayContext.awayPeriods]); // validateDateRange uses awayPeriods internally
+  }, []);
 
   // Validate the selected date range
   const validateDateRange = (startDate, endDate) => {
@@ -60,9 +87,9 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
       return false;
     }
 
-    // Check if start date is before end date
-    if (startDate >= endDate) {
-      setValidationError('End date must be after start date');
+    // Check if start date is before end date (allow same day for single-day periods)
+    if (startDate > endDate) {
+      setValidationError('End date cannot be before start date');
       return false;
     }
 

@@ -475,7 +475,20 @@ function SettingsPage() {
           <span className="mr-2">📊</span>
           Scheduler Status
         </h2>
-        
+
+        {/* Away Mode Banner */}
+        {scheduler.status?.homeAwayStatus === 'away' && (
+          <div className="mb-4 p-4 bg-orange-100 border border-orange-300 rounded-lg">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">🏖️</span>
+              <div>
+                <p className="font-bold text-orange-800">Away Mode Active</p>
+                <p className="text-sm text-orange-700">All scheduled scenes are paused. Scenes will resume when you return home.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h3 className="font-semibold text-gray-700 mb-2">Events Summary:</h3>
@@ -537,12 +550,18 @@ function SettingsPage() {
                     { name: 'Good Night', time: scheduler.schedules.good_night || 'Not scheduled' }
                   ];
 
+                  const isAway = scheduler.status?.homeAwayStatus === 'away';
+
                   return orderedEvents.map((event, index) => (
                     <li key={index} className="text-base font-semibold text-gray-800">
                       • <span className="font-bold">{event.name}:</span>{' '}
-                      <span className={event.isSkipping ? 'text-orange-500 italic' : 'text-blue-600'}>
-                        {event.time}
-                      </span>
+                      {isAway ? (
+                        <span className="text-orange-500 italic">Paused - Away</span>
+                      ) : (
+                        <span className={event.isSkipping ? 'text-orange-500 italic' : 'text-blue-600'}>
+                          {event.time}
+                        </span>
+                      )}
                     </li>
                   ));
                 })()
@@ -555,6 +574,21 @@ function SettingsPage() {
           <div>
             <h3 className="font-semibold text-gray-700 mb-3">System Status:</h3>
             <div className="space-y-2">
+              {/* Home/Away Status */}
+              <div className="flex items-center">
+                <span className={`inline-block w-3 h-3 rounded-full mr-3 ${
+                  scheduler.status?.homeAwayStatus === 'away' ? 'bg-orange-500' : 'bg-blue-500'
+                }`}></span>
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Home/Away:</span>
+                  <span className={`ml-2 text-sm font-semibold ${
+                    scheduler.status?.homeAwayStatus === 'away' ? 'text-orange-600' : 'text-blue-600'
+                  }`}>
+                    {scheduler.status?.homeAwayStatus === 'away' ? '🏖️ Away' : '🏠 Home'}
+                  </span>
+                </div>
+              </div>
+
               {/* Scheduler Status */}
               <div className="flex items-center">
                 <span className="inline-block w-3 h-3 rounded-full mr-3 bg-green-500"></span>
@@ -563,16 +597,20 @@ function SettingsPage() {
                   <span className="ml-2 text-sm font-semibold text-green-600">Active</span>
                 </div>
               </div>
-              
+
               {/* Next Scene Display - Make it prominent */}
-              {scheduler.config?.serviceHealth?.message && (
-                <div className="mt-2">
-                  <p className="text-xs text-gray-500 mb-1">Next Scene:</p>
-                  {(() => {
+              <div className="mt-2">
+                <p className="text-xs text-gray-500 mb-1">Next Scene:</p>
+                {scheduler.status?.homeAwayStatus === 'away' ? (
+                  <p className="text-xl font-bold text-orange-500 italic">
+                    Paused - Away
+                  </p>
+                ) : scheduler.config?.serviceHealth?.message ? (
+                  (() => {
                     // Extract next scene from message like "Scheduler active, next: Good Night at 8:56 PM"
                     const message = scheduler.config.serviceHealth.message;
                     const nextSceneMatch = message.match(/next:\s*(.+)/i);
-                    
+
                     if (nextSceneMatch) {
                       return (
                         <p className="text-xl font-bold text-bold-1000">
@@ -586,9 +624,11 @@ function SettingsPage() {
                         </p>
                       );
                     }
-                  })()}
-                </div>
-              )}
+                  })()
+                ) : (
+                  <p className="text-sm text-gray-600">Loading...</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1410,21 +1450,32 @@ Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Date Picker Column */}
               <div>
-                <AwayDatePicker 
+                <AwayDatePicker
                   awayContext={awayContext}
-                  onSuccess={(message) => showSuccess(message)}
+                  onSuccess={(message) => {
+                    showSuccess(message);
+                    // Refresh scheduler to update home/away status display
+                    actions.refreshScheduler();
+                  }}
                   onError={(message) => showError(message)}
                 />
               </div>
-              
+
               {/* Calendar Display Column */}
               <div>
                 <AwayCalendarDisplay awayContext={awayContext} />
               </div>
-              
+
               {/* Periods List Column */}
               <div>
-                <AwayPeriodsList awayContext={awayContext} />
+                <AwayPeriodsList
+                  awayContext={awayContext}
+                  onSuccess={(message) => {
+                    showSuccess(message);
+                    // Refresh scheduler to update home/away status display
+                    actions.refreshScheduler();
+                  }}
+                />
               </div>
             </div>
           )}
