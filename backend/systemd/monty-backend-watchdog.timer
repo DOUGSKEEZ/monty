@@ -1,0 +1,17 @@
+[Unit]
+Description=Run Monty Backend Health Check every minute
+Documentation=https://github.com/your-repo/monty
+
+[Timer]
+# Run every 60 seconds
+OnBootSec=120
+OnUnitActiveSec=60
+
+# Add some randomization to prevent thundering herd
+RandomizedDelaySec=5
+
+# Persist timer state across reboots
+Persistent=true
+
+[Install]
+WantedBy=timers.target

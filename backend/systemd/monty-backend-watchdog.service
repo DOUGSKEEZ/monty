@@ -1,0 +1,14 @@
+[Unit]
+Description=Monty Backend Health Check Watchdog
+Documentation=https://github.com/your-repo/monty
+After=monty-backend.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/monty/monty/backend/health-check.sh
+
+# Run as root to be able to restart the service
+User=root
+
+# Don't fail the timer if health check finds issues
+# (we handle the restart in the script itself)
