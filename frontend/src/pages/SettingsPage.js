@@ -443,7 +443,7 @@ function SettingsPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading settings...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading settings...</p>
         </div>
       </div>
     );
@@ -470,8 +470,8 @@ function SettingsPage() {
     <div className="container mx-auto px-4 py-8">
 
      {/* Scheduler Status Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">📊</span>
           Scheduler Status
         </h2>
@@ -491,8 +491,8 @@ function SettingsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2">Events Summary:</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">Events Summary:</h3>
+            <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
               {scheduler.schedules && Object.keys(scheduler.schedules).length > 0 ? (
                 (() => {
                   // Calculate Good Morning time based on wake-up alarm + delay
@@ -553,7 +553,7 @@ function SettingsPage() {
                   const isAway = scheduler.status?.homeAwayStatus === 'away';
 
                   return orderedEvents.map((event, index) => (
-                    <li key={index} className="text-base font-semibold text-gray-800">
+                    <li key={index} className="text-base font-semibold text-gray-800 dark:text-gray-200">
                       • <span className="font-bold">{event.name}:</span>{' '}
                       {isAway ? (
                         <span className="text-orange-500 italic">Paused - Away</span>
@@ -572,7 +572,7 @@ function SettingsPage() {
           </div>
           
           <div>
-            <h3 className="font-semibold text-gray-700 mb-3">System Status:</h3>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-3">System Status:</h3>
             <div className="space-y-2">
               {/* Home/Away Status */}
               <div className="flex items-center">
@@ -580,7 +580,7 @@ function SettingsPage() {
                   scheduler.status?.homeAwayStatus === 'away' ? 'bg-orange-500' : 'bg-blue-500'
                 }`}></span>
                 <div>
-                  <span className="text-sm font-medium text-gray-700">Home/Away:</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Home/Away:</span>
                   <span className={`ml-2 text-sm font-semibold ${
                     scheduler.status?.homeAwayStatus === 'away' ? 'text-orange-600' : 'text-blue-600'
                   }`}>
@@ -593,14 +593,14 @@ function SettingsPage() {
               <div className="flex items-center">
                 <span className="inline-block w-3 h-3 rounded-full mr-3 bg-green-500"></span>
                 <div>
-                  <span className="text-sm font-medium text-gray-700">Scheduler Status:</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Scheduler Status:</span>
                   <span className="ml-2 text-sm font-semibold text-green-600">Active</span>
                 </div>
               </div>
 
               {/* Next Scene Display - Make it prominent */}
               <div className="mt-2">
-                <p className="text-xs text-gray-500 mb-1">Next Scene:</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Next Scene:</p>
                 {scheduler.status?.homeAwayStatus === 'away' ? (
                   <p className="text-xl font-bold text-orange-500 italic">
                     Paused - Away
@@ -613,20 +613,20 @@ function SettingsPage() {
 
                     if (nextSceneMatch) {
                       return (
-                        <p className="text-xl font-bold text-bold-1000">
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
                           {nextSceneMatch[1]}
                         </p>
                       );
                     } else {
                       return (
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
                           {message}
                         </p>
                       );
                     }
                   })()
                 ) : (
-                  <p className="text-sm text-gray-600">Loading...</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Loading...</p>
                 )}
               </div>
             </div>
@@ -635,15 +635,15 @@ function SettingsPage() {
       </div>
 
       {/* Wake Up Alarm Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">⏰</span>
           Wake Up Alarm
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
               Wake Up Time
             </label>
             <div className="flex gap-2">
@@ -651,7 +651,7 @@ function SettingsPage() {
                 type="time"
                 value={wakeUpSettings.time}
                 onChange={(e) => setWakeUpSettings(prev => ({ ...prev, time: e.target.value }))}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline"
               />
               <button
                 onClick={() => updateWakeUpSettings({ time: wakeUpSettings.time })}
@@ -671,7 +671,7 @@ function SettingsPage() {
           </div>
           
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
               Good Morning Delay (minutes after Rise'n'Shine)
             </label>
             <div className="flex gap-2 items-center mb-3">
@@ -682,7 +682,7 @@ function SettingsPage() {
                 step="5"
                 value={wakeUpDelayDraft}
                 onChange={(e) => handleWakeUpDelayChange(parseInt(e.target.value))}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline w-20"
               />
               <button
                 onClick={saveWakeUpDelay}
@@ -703,7 +703,7 @@ function SettingsPage() {
                 }}
                 className="mr-2"
               />
-              <span className="text-gray-600">🎵 Start music automatically</span>
+              <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
             </label>
           </div>
         </div>
@@ -711,22 +711,22 @@ function SettingsPage() {
         <div className="mt-4">
           {/* Actual Alarm Status Display */}
           {scheduler.wakeUpStatus && scheduler.wakeUpStatus.enabled ? (
-            <div className="alarm-status bg-green-50 border border-green-200 rounded p-4">
-              <p className="text-lg font-medium text-green-700 mb-1">
+            <div className="alarm-status bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded p-4">
+              <p className="text-lg font-medium text-green-700 dark:text-green-400 mb-1">
                 {scheduler.wakeUpStatus.nextWakeUpDateTime}
               </p>
-              <p className="text-sm text-green-600">
+              <p className="text-sm text-green-600 dark:text-green-500">
                 {calculateTimeUntilAlarm(scheduler.wakeUpStatus.time)}
               </p>
               {scheduler.wakeUpStatus.lastTriggered_formatted && (
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   Last Triggered: {scheduler.wakeUpStatus.lastTriggered_formatted}
                 </p>
               )}
             </div>
           ) : (
-            <div className="alarm-status bg-gray-50 border border-gray-200 rounded p-4">
-              <p className="text-gray-600">
+            <div className="alarm-status bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded p-4">
+              <p className="text-gray-600 dark:text-gray-300">
                 <span className="mr-2">⏰</span>No alarm currently set
               </p>
             </div>
@@ -734,16 +734,16 @@ function SettingsPage() {
 
           {/* Guest Alarm Status */}
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-600 mb-3">Guest Room Alarms</h3>
+            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-3">Guest Room Alarms</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Guestroom 1 */}
               <div className={`rounded p-3 ${
-                guestAlarms.guestroom1.loading ? 'bg-gray-50 border border-gray-200' :
+                guestAlarms.guestroom1.loading ? 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600' :
                 guestAlarms.guestroom1.enabled ? 'bg-green-50 border border-green-200' :
-                'bg-gray-50 border border-gray-200'
+                'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600'
               }`}>
                 {guestAlarms.guestroom1.loading ? (
-                  <p className="text-gray-500 text-sm">Loading Guestroom 1...</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Loading Guestroom 1...</p>
                 ) : guestAlarms.guestroom1.enabled ? (
                   <div className="flex justify-between items-center">
                     <div>
@@ -766,7 +766,7 @@ function SettingsPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
                     🦌 Guestroom 1: No alarm set
                   </p>
                 )}
@@ -774,12 +774,12 @@ function SettingsPage() {
 
               {/* Guestroom 2 */}
               <div className={`rounded p-3 ${
-                guestAlarms.guestroom2.loading ? 'bg-gray-50 border border-gray-200' :
+                guestAlarms.guestroom2.loading ? 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600' :
                 guestAlarms.guestroom2.enabled ? 'bg-green-50 border border-green-200' :
-                'bg-gray-50 border border-gray-200'
+                'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600'
               }`}>
                 {guestAlarms.guestroom2.loading ? (
-                  <p className="text-gray-500 text-sm">Loading Guestroom 2...</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Loading Guestroom 2...</p>
                 ) : guestAlarms.guestroom2.enabled ? (
                   <div className="flex justify-between items-center">
                     <div>
@@ -802,7 +802,7 @@ function SettingsPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
                     🏋️ Guestroom 2: No alarm set
                   </p>
                 )}
@@ -813,8 +813,8 @@ function SettingsPage() {
       </div>
 
       {/* Scene Timing Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">📅</span>
           Scene Timing & Scheduling
         </h2>
@@ -831,7 +831,7 @@ function SettingsPage() {
                 })}
               </div>
             )}
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
               Good Afternoon Time
             </label>
             <div className="flex gap-2 mb-3">
@@ -839,7 +839,7 @@ function SettingsPage() {
                 type="time"
                 value={sceneDrafts.good_afternoon_time}
                 onChange={(e) => handleSceneDraftChange('good_afternoon_time', e.target.value)}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline"
               />
               <button
                 onClick={() => saveSceneSetting('good_afternoon_time')}
@@ -860,7 +860,7 @@ function SettingsPage() {
                 }}
                 className="mr-2"
               />
-              <span className="text-gray-600">🎵 Start music automatically</span>
+              <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
             </label>
             <label className="flex items-center text-sm mt-2">
               <input
@@ -871,7 +871,7 @@ function SettingsPage() {
                 }}
                 className="mr-2"
               />
-              <span className="text-gray-600">☁️ Skip solar shades today (cloudy/rainy)</span>
+              <span className="text-gray-600 dark:text-gray-300">☁️ Skip solar shades today (cloudy/rainy)</span>
             </label>
           </div>
 
@@ -882,7 +882,7 @@ function SettingsPage() {
                 Sunset: {weather.sunTimes.sunsetTime}
               </div>
             )}
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
               Good Evening (minutes before sunset)
             </label>
             <div className="flex gap-2 items-center mb-3">
@@ -893,7 +893,7 @@ function SettingsPage() {
                 step="15"
                 value={sceneDrafts.good_evening_offset_minutes}
                 onChange={(e) => handleSceneDraftChange('good_evening_offset_minutes', parseInt(e.target.value))}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline w-20"
               />
               <button
                 onClick={() => saveSceneSetting('good_evening_offset_minutes')}
@@ -914,7 +914,7 @@ function SettingsPage() {
                 }}
                 className="mr-2"
               />
-              <span className="text-gray-600">🎵 Start music automatically</span>
+              <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
             </label>
           </div>
           
@@ -929,7 +929,7 @@ function SettingsPage() {
                 })}
               </div>
             )}
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
               Good Night (civil twilight offset)
             </label>
             <div className="flex gap-2 items-center mb-3">
@@ -940,9 +940,9 @@ function SettingsPage() {
                 step="5"
                 value={sceneDrafts.good_night_offset_minutes}
                 onChange={(e) => handleSceneDraftChange('good_night_offset_minutes', parseInt(e.target.value))}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-20"
+                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline w-20"
               />
-              <span className="text-sm text-gray-500">minutes</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">minutes</span>
               <button
                 onClick={() => saveSceneSetting('good_night_offset_minutes')}
                 disabled={saving || !sceneChanges.good_night_offset_minutes}
@@ -963,15 +963,15 @@ function SettingsPage() {
                 }}
                 className="mr-2"
               />
-              <span className="text-gray-600">🎵 Start music automatically</span>
+              <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
             </label>
           </div>
         </div>
       </div>
 
       {/* Theme Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">🎨</span>
           Theme
         </h2>
@@ -980,9 +980,9 @@ function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left: Mode Selection */}
           <div>
-            <h3 className="font-semibold text-gray-700 mb-1">Mode:</h3>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-1">Mode:</h3>
             <div className="space-y-2">
-              <label className="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="themeMode"
@@ -993,7 +993,7 @@ function SettingsPage() {
                 <span className="text-medium">🎉 Auto Seasonal</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="themeMode"
@@ -1021,9 +1021,9 @@ function SettingsPage() {
           <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Seasonal/Image Themes */}
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2">🌍 Seasonal (Image)</h3>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">🌍 Seasonal (Image)</h3>
             <div className="space-y-0">
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1034,7 +1034,7 @@ function SettingsPage() {
                 <span className="text-sm">🔵 Default</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1045,7 +1045,7 @@ function SettingsPage() {
                 <span className="text-sm">☀️ Summer</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1056,7 +1056,7 @@ function SettingsPage() {
                 <span className="text-sm">🍂 Autumn</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1067,7 +1067,7 @@ function SettingsPage() {
                 <span className="text-sm">🎃 Halloween</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1078,7 +1078,7 @@ function SettingsPage() {
                 <span className="text-sm">❄️ Winter</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1093,9 +1093,9 @@ function SettingsPage() {
 
           {/* Animated Themes */}
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2">✨ Animated (CSS)</h3>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">✨ Animated (CSS)</h3>
             <div className="space-y-0">
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1106,7 +1106,7 @@ function SettingsPage() {
                 <span className="text-sm">🎂 Birthday</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1117,7 +1117,7 @@ function SettingsPage() {
                 <span className="text-sm">🌌 Northern Lights</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1128,7 +1128,7 @@ function SettingsPage() {
                 <span className="text-sm">🎆 Fireworks</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1139,7 +1139,7 @@ function SettingsPage() {
                 <span className="text-sm">🇺🇸 Patriotic</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1150,7 +1150,7 @@ function SettingsPage() {
                 <span className="text-sm">⭐ Starfield</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1161,7 +1161,7 @@ function SettingsPage() {
                 <span className="text-sm">🟢 Matrix</span>
               </label>
 
-              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50">
+              <label className="flex items-center cursor-pointer p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                 <input
                   type="radio"
                   name="manualTheme"
@@ -1178,8 +1178,8 @@ function SettingsPage() {
       </div>
 
       {/* System Controls Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">⚙️</span>
           System Controls
         </h2>
@@ -1187,7 +1187,7 @@ function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Pianobar Controls */}
           <div>
-            <h3 className="text-md font-semibold text-gray-700 mb-3">Pianobar 🎹 🎶</h3>
+            <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-3">Pianobar 🎹 🎶</h3>
           <br></br>
           <button
             onClick={async () => {
@@ -1220,15 +1220,15 @@ function SettingsPage() {
 
           {/* ShadeCommander Controls */}
           <div>
-            <h3 className="text-md font-semibold text-gray-700 mb-3">ShadeCommander 🫡</h3>
+            <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-3">ShadeCommander 🫡</h3>
             
             {/* Arduino Status with Reconnect Button */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
                   <span className="font-medium text-gray-700 mr-2">Arduino Status:</span>
                   {arduinoStatus.loading ? (
-                    <span className="text-gray-500">Loading...</span>
+                    <span className="text-gray-500 dark:text-gray-400">Loading...</span>
                   ) : (
                     <div className="flex items-center">
                       <span className={`inline-block w-3 h-3 rounded-full mr-2 ${
@@ -1276,7 +1276,7 @@ function SettingsPage() {
               </div>
               
               {arduinoStatus.connected && arduinoStatus.lastCommand && (
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-gray-600 dark:text-gray-300">
                   Last command: {new Date(arduinoStatus.lastCommand + 'Z').toLocaleString("en-US", { 
                     timeZone: timezoneSettings.current,
                     year: 'numeric',
@@ -1293,7 +1293,7 @@ function SettingsPage() {
 
             {/* Zombie Retry Controls */}
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-600 flex items-center">
+              <h4 className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center">
                 <span className="mr-2">🧟</span>
                 Zombie Monitoring
               </h4>
@@ -1361,16 +1361,16 @@ Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
 
           {/* Scheduler Testing */}
           <div>
-            <h3 className="text-md font-semibold text-gray-700 mb-3">Scheduler 🗓️</h3>
+            <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-3">Scheduler 🗓️</h3>
             
-            <p className="text-gray-600 text-xs mb-3">
+            <p className="text-gray-600 dark:text-gray-300 text-xs mb-3">
               Scene testing buttons that play music (if enabled) and raise/lower shades defined for each scene.
             </p>
             
             <div className="grid grid-cols-2 gap-3">
               {/* User-time based scenes */}
               <div>
-                <h5 className="text-xs font-medium text-gray-600 mb-2">User-time Scenes</h5>
+                <h5 className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">User-time Scenes</h5>
                 <div className="space-y-1">
                   {['rise_n_shine', 'good_morning', 'good_afternoon'].map((scene) => (
                     <button
@@ -1394,7 +1394,7 @@ Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
 
               {/* Sun-time based scenes */}
               <div>
-                <h5 className="text-xs font-medium text-gray-600 mb-2">Sun-time Scenes</h5>
+                <h5 className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Sun-time Scenes</h5>
                 <div className="space-y-1">
                   {['good_evening', 'good_night'].map((scene) => (
                     <button
@@ -1435,13 +1435,13 @@ Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
       </div>
 
       {/* Away Status Management Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">✈️</span>
           Away Status Management
         </h2>
         
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
           Manage periods when you'll be away from home. This helps optimize scheduling and automation.
         </p>
         
@@ -1483,15 +1483,15 @@ Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
       </div>
 
       {/* System Timezone Information */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">🌍</span>
           System Timezone
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
               Current System Timezone
             </label>
             <div className="bg-gray-100 rounded py-3 px-4 text-gray-800 mb-3 border-l-4 border-blue-500">
@@ -1507,8 +1507,8 @@ Total Cancelled Tasks: ${result.total_cancelled_tasks || 0}`;
           </div>
           
           <div>
-            <h3 className="font-semibold text-gray-700 mb-2">ℹ️ About System Timezone:</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">ℹ️ About System Timezone:</h3>
+            <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
               <li>• All scheduled times use this timezone</li>
               <li>• Changes require system administrator access</li>
               <li>• To change: SSH to server and use <code className="bg-gray-100 px-1 rounded">timedatectl</code></li>

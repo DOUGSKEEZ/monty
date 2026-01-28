@@ -178,15 +178,15 @@ function WeatherPage() {
   // Render the current weather section
   const renderCurrentWeather = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
         <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Location and current conditions */}
           <div className="mb-4 md:mb-0 lg:col-span-3">
-            <h2 className="text-2xl font-bold">
-              {currentWeather.location?.name || 'Silverthorne'}, 
+            <h2 className="text-2xl font-bold dark:text-white">
+              {currentWeather.location?.name || 'Silverthorne'},
               {currentWeather.location?.country || 'US'}
             </h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 month: 'long', 
@@ -207,14 +207,14 @@ function WeatherPage() {
             </div>
             <p className="text-lg capitalize mt-1">{currentWeather.weather?.description || 'Loading...'}</p>
             <div className="mt-2">
-              <span className="text-gray-700">Feels like: </span>
-              <span className="font-semibold">{formatTemp(currentWeather.temperature?.feelsLike)}°F</span>
+              <span className="text-gray-700 dark:text-gray-300">Feels like: </span>
+              <span className="font-semibold dark:text-white">{formatTemp(currentWeather.temperature?.feelsLike)}°F</span>
             </div>
           </div>
-          
+
           {/* Daily Forecast - Middle Column */}
           <div className="flex flex-col h-full lg:col-span-5">
-            <h3 className="text-lg font-semibold mb-3">Daily Forecast</h3>
+            <h3 className="text-lg font-semibold mb-3 dark:text-white">Daily Forecast</h3>
             <div className="overflow-x-auto flex-1">
               <div className="inline-flex space-x-3 pb-2 h-full">
                 {(() => {
@@ -228,8 +228,8 @@ function WeatherPage() {
                     <div 
                       key={index}
                       className={`flex flex-col min-w-[95px] p-3 rounded-lg relative lg:h-full ${
-                        index === 0 ? 'bg-blue-50' : 
-                        day.isEstimated ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
+                        index === 0 ? 'bg-blue-50 dark:bg-blue-900' :
+                        day.isEstimated ? 'bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700' : 'bg-gray-50 dark:bg-gray-700'
                       }`}
                     >
                       {day.isEstimated && (
@@ -241,8 +241,8 @@ function WeatherPage() {
                       )}
                       <div className="flex flex-col items-center justify-between h-full">
                         <div className="flex flex-col items-center">
-                          <p className="text-xs font-semibold text-center">{index === 0 ? 'Today' : day.dayOfWeek}</p>
-                          <p className="text-xs text-gray-600">{formatDate(day.date, 'short')}</p>
+                          <p className="text-xs font-semibold text-center dark:text-white">{index === 0 ? 'Today' : day.dayOfWeek}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-300">{formatDate(day.date, 'short')}</p>
                         </div>
                         <div className="flex flex-col items-center flex-1">
                           <div className="flex justify-center items-center lg:h-16">
@@ -256,15 +256,15 @@ function WeatherPage() {
                           </div>
                           <div className="flex justify-center items-center lg:h-12 px-1">
                             <p className={`text-xs capitalize text-center leading-tight ${
-                              day.isEstimated ? 'text-yellow-700' : 'text-gray-600'
+                              day.isEstimated ? 'text-yellow-700 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-300'
                             }`}>
                               {day.weatherMain}
                             </p>
                           </div>
                         </div>
                         <div className="flex justify-between items-end text-xs w-full">
-                          <span className="font-semibold">{formatTemp(day.max)}°</span>
-                          <span className="text-gray-500">{formatTemp(day.min)}°</span>
+                          <span className="font-semibold dark:text-white">{formatTemp(day.max)}°</span>
+                          <span className="text-gray-500 dark:text-gray-400">{formatTemp(day.min)}°</span>
                         </div>
                       </div>
                     </div>
@@ -275,16 +275,16 @@ function WeatherPage() {
           </div>
           
           {/* Details */}
-          <div className="bg-gray-50 rounded-lg p-4 lg:col-span-4">
-            <h3 className="text-lg font-semibold mb-2">Details</h3>
+          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 lg:col-span-4">
+            <h3 className="text-lg font-semibold mb-2 dark:text-white">Details</h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <div>
-                <span className="text-gray-600">Humidity:</span>
-                <span className="ml-2 font-medium">{currentWeather.humidity || '--'}%</span>
+                <span className="text-gray-600 dark:text-gray-300">Humidity:</span>
+                <span className="ml-2 font-medium dark:text-white">{currentWeather.humidity || '--'}%</span>
               </div>
               <div>
-                <span className="text-gray-600">Wind:</span>
-                <span className="ml-2 font-medium">
+                <span className="text-gray-600 dark:text-gray-300">Wind:</span>
+                <span className="ml-2 font-medium dark:text-white">
                   {currentWeather.wind?.speed || '--'} mph
                   {currentWeather.wind?.direction !== undefined && (
                     <>
@@ -297,36 +297,36 @@ function WeatherPage() {
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Pressure:</span>
-                <span className="ml-2 font-medium">{currentWeather.pressure || '--'} hPa</span>
+                <span className="text-gray-600 dark:text-gray-300">Pressure:</span>
+                <span className="ml-2 font-medium dark:text-white">{currentWeather.pressure || '--'} hPa</span>
               </div>
               <div>
-                <span className="text-gray-600">Visibility:</span>
-                <span className="ml-2 font-medium">
-                  {currentWeather.visibility 
-                    ? `${Math.round(currentWeather.visibility / 1609)} mi` 
+                <span className="text-gray-600 dark:text-gray-300">Visibility:</span>
+                <span className="ml-2 font-medium dark:text-white">
+                  {currentWeather.visibility
+                    ? `${Math.round(currentWeather.visibility / 1609)} mi`
                     : '--'}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Sunrise:</span>
-                <span className="ml-2 font-medium">
-                  {currentWeather.sunrise 
+                <span className="text-gray-600 dark:text-gray-300">Sunrise:</span>
+                <span className="ml-2 font-medium dark:text-white">
+                  {currentWeather.sunrise
                     ? formatTime(currentWeather.sunrise)
                     : weather.sunTimes?.sunriseTime || '--:--'}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Sunset:</span>
-                <span className="ml-2 font-medium">
-                  {currentWeather.sunset 
+                <span className="text-gray-600 dark:text-gray-300">Sunset:</span>
+                <span className="ml-2 font-medium dark:text-white">
+                  {currentWeather.sunset
                     ? formatTime(currentWeather.sunset)
                     : weather.sunTimes?.sunsetTime || '--:--'}
                 </span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-200">
-              <div className="text-xs text-gray-600 mb-3">
+            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-3">
                 🌤️ Weather data via OpenWeatherMap One Call API 3.0
               </div>
               
@@ -469,8 +469,8 @@ function WeatherPage() {
     }
 
     return (
-      <div className="bg-white rounded-lg shadow-md p-4 mt-6">
-        <h3 className="text-xl font-semibold mb-4">48-Hour Forecast</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mt-6">
+        <h3 className="text-xl font-semibold mb-4 dark:text-white">48-Hour Forecast</h3>
         <div className="overflow-x-auto">
           <div>
             {/* Day labels row */}
@@ -500,7 +500,7 @@ function WeatherPage() {
             <div className="inline-flex space-x-4 pb-4 min-w-full">
               {displayEntries.map((hour, index) => (
                 <div key={index} className="flex flex-col items-center min-w-[100px]">
-                  <p className="text-sm font-medium">{formatTime(hour.timestamp)}</p>
+                  <p className="text-sm font-medium dark:text-white">{formatTime(hour.timestamp)}</p>
                   {hour.weather.icon && (
                     <img 
                       src={getWeatherIconUrl(hour.weather.icon)} 
@@ -511,8 +511,8 @@ function WeatherPage() {
                   <p className={`text-lg font-bold rounded-full px-2 ${getTemperatureColor(hour.temperature)}`}>
                     {formatTemp(hour.temperature)}°F
                   </p>
-                  <p className="py-1.5 text-xs text-gray-500 capitalize text-center">{hour.weather.description}</p>
-                  <p className="text-xs text-gray-600 mt-0">
+                  <p className="py-1.5 text-xs text-gray-500 dark:text-gray-400 capitalize text-center">{hour.weather.description}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-0">
                     {hour.windSpeed !== undefined ? (
                       <>
                         {Math.round(hour.windSpeed)} {getWindDirectionData(hour.windDirection).compass}{' '}
@@ -581,51 +581,51 @@ function WeatherPage() {
   // Render house temperatures section
   const renderHouseTemperatures = () => {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4 mt-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mt-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold">House Temperatures</h3>
-          <div className="text-sm text-gray-500">
+          <h3 className="text-xl font-semibold dark:text-white">House Temperatures</h3>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
             Last updated: {new Date().toLocaleTimeString()}
           </div>
         </div>
-        
+
         {weather.temperatures ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2">Outdoor</h4>
-              <p className="text-3xl font-bold">{formatTemp(weather.temperatures.outdoor)}°F</p>
-              <p className="text-sm text-gray-600 mt-1">From Weather Service</p>
+            <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-4">
+              <h4 className="text-lg font-medium mb-2 dark:text-white">Outdoor</h4>
+              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.outdoor)}°F</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">From Weather Service</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2">Main Floor</h4>
-              <p className="text-3xl font-bold">{formatTemp(weather.temperatures.mainFloor)}°F</p>
-              <p className="text-sm text-gray-600 mt-1">Govee Sensor</p>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h4 className="text-lg font-medium mb-2 dark:text-white">Main Floor</h4>
+              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.mainFloor)}°F</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2">Master Bedroom</h4>
-              <p className="text-3xl font-bold">{formatTemp(weather.temperatures.masterBedroom)}°F</p>
-              <p className="text-sm text-gray-600 mt-1">Govee Sensor</p>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h4 className="text-lg font-medium mb-2 dark:text-white">Master Bedroom</h4>
+              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.masterBedroom)}°F</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2">Guest Bedroom</h4>
-              <p className="text-3xl font-bold">{formatTemp(weather.temperatures.guestBedroom)}°F</p>
-              <p className="text-sm text-gray-600 mt-1">Govee Sensor</p>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h4 className="text-lg font-medium mb-2 dark:text-white">Guest Bedroom</h4>
+              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.guestBedroom)}°F</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2">Garage</h4>
-              <p className="text-3xl font-bold">{formatTemp(weather.temperatures.garage)}°F</p>
-              <p className="text-sm text-gray-600 mt-1">Govee Sensor</p>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h4 className="text-lg font-medium mb-2 dark:text-white">Garage</h4>
+              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.garage)}°F</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2">Humidor</h4>
-              <p className="text-3xl font-bold">{formatTemp(weather.temperatures.humidor)}°F</p>
-              <p className="text-sm text-gray-600 mt-1">Govee Sensor</p>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h4 className="text-lg font-medium mb-2 dark:text-white">Humidor</h4>
+              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.humidor)}°F</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
             </div>
           </div>
         ) : (
           <div className="text-center py-10">
-            <p>Temperature data not available</p>
-            <p className="text-sm text-gray-500 mt-2">Govee integration pending</p>
+            <p className="dark:text-white">Temperature data not available</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Govee integration pending</p>
           </div>
         )}
         

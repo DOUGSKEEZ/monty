@@ -5,14 +5,14 @@
   },
   "scenes": {
     "good_afternoon_time": "12:20",
-    "good_evening_offset_minutes": -43,
+    "good_evening_offset_minutes": -46,
     "good_night_timing": "civil_twilight_end",
-    "good_night_offset_minutes": -3
+    "good_night_offset_minutes": -10
   },
   "wake_up": {
     "enabled": false,
-    "time": "10:10",
-    "last_triggered": null,
+    "time": "10:15",
+    "last_triggered": "2026-01-28T17:15:00.029Z",
     "good_morning_delay_minutes": 15
   },
   "guest_alarms": {
@@ -32,7 +32,7 @@
     "enabled_for_evening": false,
     "bluetooth_retry_attempts": 3,
     "bluetooth_retry_delay_seconds": 30,
-    "enabled_for_afternoon": true,
+    "enabled_for_afternoon": false,
     "enabled_for_night": false
   }
 }

@@ -18,7 +18,7 @@ function Footer() {
   const isWeatherPage = location.pathname === '/weather';
 
   return (
-    <footer className="bg-gray-800 text-white p-4 shadow-inner">
+    <footer className="bg-gray-800 dark:bg-gray-950 text-white p-4 shadow-inner dark:border-t dark:border-gray-700">
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center text-medium">
         <div className="mb-2 md:mb-0">
           {currentTemp !== null && (

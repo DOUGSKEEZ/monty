@@ -527,16 +527,16 @@ function HomePage() {
       
       {/* Error alerts */}
       {weather.error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded mb-4">
           Weather data could not be loaded. Please check your connection.
         </div>
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Weather Widget */}
-        <div className="bg-white p-4 rounded shadow">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold">Weather</h2>
+            <h2 className="text-xl font-semibold dark:text-white">Weather</h2>
             <button 
               onClick={handleWeatherRefresh}
               className={`transition-colors ${
@@ -574,7 +574,7 @@ function HomePage() {
           
           <p className="capitalize">{description}</p>
           
-          <div className="flex justify-between mt-2 text-sm text-gray-600">
+          <div className="flex justify-between mt-2 text-sm text-gray-600 dark:text-gray-300">
             <div>
               <span className="font-semibold">Feels like:</span> {formatTemp(weather.current?.temperature?.feelsLike)}°F
             </div>
@@ -582,8 +582,8 @@ function HomePage() {
               <span className="font-semibold">Humidity:</span> {weather.current?.humidity || '--'}%
             </div>
           </div>
-          
-          <div className="flex justify-between mt-2 text-sm text-gray-600">
+
+          <div className="flex justify-between mt-2 text-sm text-gray-600 dark:text-gray-300">
             <div>
               <span className="font-semibold">Sunrise:</span> {formatSunTime(weather.sunTimes?.sunrise)}
             </div>
@@ -591,8 +591,8 @@ function HomePage() {
               <span className="font-semibold">Sunset:</span> {formatSunTime(weather.sunTimes?.sunset)}
             </div>
           </div>
-          
-          <div className="mt-3 pt-3 border-t border-gray-200">
+
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <h3 className="font-semibold mb-2">House Temperatures</h3>
             {weather.temperatures ? (
               <div className="grid grid-cols-2 gap-2 text-sm">
@@ -619,13 +619,13 @@ function HomePage() {
         {/* Shade Status Widget (Homeowner) OR Guest Alarm (Guest) - 2nd position */}
         {guest.isGuest ? (
           // Guest Alarm Widget - NOW IN 2ND POSITION
-          <div className="bg-white p-4 rounded shadow">
-            <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+            <h2 className="text-xl font-semibold mb-4 flex items-center dark:text-white">
               <span className="text-2xl mr-2">{guest.roomEmoji}</span> Your Wake Up Alarm
             </h2>
 
             <div className="mb-4">
-              <p className="text-sm mb-2 text-gray-600">{guest.roomLabel} Alarm:</p>
+              <p className="text-sm mb-2 text-gray-600 dark:text-gray-300">{guest.roomLabel} Alarm:</p>
 
               {guestAlarm.loading ? (
                 <p className="text-xl font-bold text-gray-400">Loading...</p>
@@ -653,7 +653,7 @@ function HomePage() {
               )}
             </div>
 
-            <div className="text-sm text-gray-600 mb-4">
+            <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
               <p className="mb-2">Your wake-up alarm will:</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Raise your room's blackout shade</li>
@@ -681,58 +681,58 @@ function HomePage() {
           </div>
         ) : (
           // Shade Status Widget for Homeowner
-          <div className="bg-white p-4 rounded shadow">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-semibold">Shade Status</h2>
-              <div className="text-sm text-gray-500">
+              <h2 className="text-xl font-semibold dark:text-white">Shade Status</h2>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
             </div>
 
             {/* Arduino Error Display */}
             {arduinoError && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded mb-4">
                 {arduinoError}
               </div>
             )}
 
             {/* Current Shade Automation State */}
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
               <div className="flex items-center">
                 {/* Icon based on time of day */}
                 {getTimeBasedIcon()}
                 <div className="ml-4">
-                  <h3 className="text-lg font-semibold">{getCurrentSceneText()}</h3>
-                  <p className="text-sm text-gray-600">{getCurrentSceneDescription()}</p>
+                  <h3 className="text-lg font-semibold dark:text-white">{getCurrentSceneText()}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{getCurrentSceneDescription()}</p>
                 </div>
               </div>
             </div>
 
             {/* Manual Override Section */}
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <h3 className="text-md font-medium mb-2">Manual Override</h3>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+              <h3 className="text-md font-medium mb-2 dark:text-white">Manual Override</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <button
                   onClick={() => triggerScene('good_morning')}
-                  className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 p-2 rounded"
+                  className="bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-700 dark:hover:bg-yellow-600 text-yellow-800 dark:text-yellow-100 p-2 rounded"
                 >
                   Good Morning
                 </button>
                 <button
                   onClick={() => triggerScene('good_afternoon')}
-                  className="bg-blue-100 hover:bg-blue-200 text-blue-800 p-2 rounded"
+                  className="bg-blue-100 hover:bg-blue-200 dark:bg-blue-700 dark:hover:bg-blue-600 text-blue-800 dark:text-blue-100 p-2 rounded"
                 >
                   Good Afternoon
                 </button>
                 <button
                   onClick={() => triggerScene('good_evening')}
-                  className="bg-orange-100 hover:bg-orange-200 text-orange-800 p-2 rounded"
+                  className="bg-orange-100 hover:bg-orange-200 dark:bg-orange-700 dark:hover:bg-orange-600 text-orange-800 dark:text-orange-100 p-2 rounded"
                 >
                   Good Evening
                 </button>
                 <button
                   onClick={() => triggerScene('good_night')}
-                  className="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 p-2 rounded"
+                  className="bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-indigo-800 dark:text-indigo-100 p-2 rounded"
                 >
                   Good Night
                 </button>
@@ -740,7 +740,7 @@ function HomePage() {
             </div>
 
             <div className="mt-4">
-              <Link to="/shades" className="w-full block text-center bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+              <Link to="/shades" className="w-full block text-center bg-blue-500 hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded">
                 Detailed Shade Control
               </Link>
             </div>
@@ -748,7 +748,7 @@ function HomePage() {
             <div className="mt-2">
               <button
                 onClick={() => triggerScene('main_interrupt')}
-                className="w-full bg-red-100 hover:bg-red-200 text-red-800 px-4 py-2 rounded font-medium"
+                className="w-full bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-800 dark:text-red-100 px-4 py-2 rounded font-medium"
               >
                 Interrupt
               </button>
@@ -759,12 +759,12 @@ function HomePage() {
         {/* Wake Up Widget (Homeowner) OR PWA Instructions (Guest) - 3rd position */}
         {guest.isGuest ? (
           // PWA Instructions Card for Guests - NOW IN 3RD POSITION
-          <div className="bg-white p-4 rounded shadow">
-            <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+            <h2 className="text-xl font-semibold mb-4 flex items-center dark:text-white">
               <span className="mr-2">📱</span> Add to Home Screen
             </h2>
 
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
               For the best experience, add Monty to your phone's home screen:
             </p>
 
@@ -823,19 +823,19 @@ function HomePage() {
               </div>
             )}
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 Welcome to {guest.roomLabel}! {guest.roomEmoji}
               </p>
             </div>
           </div>
         ) : (
           // Homeowner Wake Up Widget
-          <div className="bg-white p-4 rounded shadow">
-            <h2 className="text-xl font-semibold mb-4">Wake Up Alarm</h2>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+            <h2 className="text-xl font-semibold mb-4 dark:text-white">Wake Up Alarm</h2>
 
             <div className="mb-4">
-              <p className="text-sm mb-2">Tomorrow's Wake Up:</p>
+              <p className="text-sm mb-2 dark:text-gray-300">Tomorrow's Wake Up:</p>
 
               {(() => {
                 const wakeUpInfo = getWakeUpDisplay();
@@ -854,7 +854,7 @@ function HomePage() {
                     </div>
 
                     {/* Less prominent date */}
-                    <div className="text-lg text-gray-600">
+                    <div className="text-lg text-gray-600 dark:text-gray-400">
                       {wakeUpInfo.dateOnly}
                     </div>
 
@@ -869,7 +869,7 @@ function HomePage() {
               })()}
             </div>
 
-            <div className="text-sm text-gray-600 mb-4">
+            <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
               <p className="mb-2">The wake-up alarm will:</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Raise bedroom blackout shades</li>
@@ -893,8 +893,8 @@ function HomePage() {
       {/* Wake Up Time Modal - works for both guests and homeowners */}
       {showWakeUpModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h3 className="text-xl font-bold mb-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+            <h3 className="text-xl font-bold mb-4 dark:text-white">
               {guest.isGuest ? (
                 <span>{guest.roomEmoji} Set Your Wake Up Time</span>
               ) : (
@@ -902,7 +902,7 @@ function HomePage() {
               )}
             </h3>
 
-            <p className="mb-4 text-sm text-gray-600">
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
               {guest.isGuest ? (
                 `Select when you'd like your ${guest.roomLabel} blackout shade to rise.`
               ) : (
@@ -911,19 +911,19 @@ function HomePage() {
             </p>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Wake Up Time</label>
+              <label className="block text-sm font-medium mb-2 dark:text-white">Wake Up Time</label>
               <input
                 type="time"
                 value={wakeUpTime}
                 onChange={(e) => setWakeUpTime(e.target.value)}
-                className="w-full p-2 border rounded text-lg"
+                className="w-full p-2 border rounded text-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               />
             </div>
 
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowWakeUpModal(false)}
-                className="px-4 py-2 border rounded hover:bg-gray-100"
+                className="px-4 py-2 border rounded hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-white"
                 disabled={isSubmitting}
               >
                 Cancel

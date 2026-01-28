@@ -161,32 +161,32 @@ function ShadesPage() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Shade Control</h1>
-      
+      <h1 className="text-3xl font-bold mb-6 dark:text-white">Shade Control</h1>
+
       {/* Arduino Error Display */}
         {arduinoError && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded mb-4">
             ⚠️ {arduinoError}
           </div>
         )}
 
         {/* Shade Config Error Display */}
         {shades.error && (
-          <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded mb-4">
+          <div className="bg-orange-100 dark:bg-orange-900 border border-orange-400 dark:border-orange-700 text-orange-700 dark:text-orange-200 px-4 py-3 rounded mb-4">
             Could not load shade configuration. Please check your connection.
           </div>
         )}
-      
+
       {/* Loading Indicator */}
       {shades.loading && (
-        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+        <div className="bg-blue-100 dark:bg-blue-900 border border-blue-400 dark:border-blue-700 text-blue-700 dark:text-blue-200 px-4 py-3 rounded mb-4">
           Loading shade configuration...
         </div>
       )}
-      
+
       {/* Global Scene Controls */}
-      <div className="bg-white p-4 rounded shadow mb-6">
-        <h2 className="text-xl font-semibold mb-4">Quick Scenes</h2>
+      <div className="bg-white dark:bg-gray-800 p-4 rounded shadow mb-6">
+        <h2 className="text-xl font-semibold mb-4 dark:text-white">Quick Scenes</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="flex flex-col space-y-2">
             <button 
@@ -195,7 +195,7 @@ function ShadesPage() {
             >
               Good Morning
             </button>
-            <p className="text-sm text-gray-600 px-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300 px-1">
               Raises main floor privacy shades to let morning light.
             </p>
           </div>
@@ -206,7 +206,7 @@ function ShadesPage() {
             >
               Good Afternoon
             </button>
-            <p className="text-sm text-gray-600 px-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300 px-1">
               Lowers solar shades in main floor and office to occlude afternoon sun.
             </p>
           </div>
@@ -217,7 +217,7 @@ function ShadesPage() {
             >
               Good Evening
             </button>
-            <p className="text-sm text-gray-600 px-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300 px-1">
               Raises solar shades to enjoy the sunset views.
             </p>
           </div>
@@ -228,7 +228,7 @@ function ShadesPage() {
             >
               Good Night
             </button>
-            <p className="text-sm text-gray-600 px-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300 px-1">
               Lowers all privacy shades throughout the house for nighttime.
             </p>
           </div>
@@ -236,14 +236,14 @@ function ShadesPage() {
       </div>
       
       {/* Room Tabs */}
-      <div className="flex mb-4 border-b overflow-x-auto">
+      <div className="flex mb-4 border-b dark:border-gray-700 overflow-x-auto">
         {rooms.map(room => (
           <button
             key={room}
             className={`py-4 px-3 mr-3 text-[22px] font-semibold tracking-tight border-b-2 whitespace-nowrap ${
               activeRoom === room
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent hover:border-gray-300'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent hover:border-gray-300 dark:text-gray-300 dark:hover:border-gray-500'
             }`}
             onClick={() => setActiveRoom(room)}
           >
@@ -253,9 +253,9 @@ function ShadesPage() {
       </div>
       
       {/* Room Control */}
-      <div className="bg-white p-3 rounded shadow mb-4">
+      <div className="bg-white dark:bg-gray-800 p-3 rounded shadow mb-4">
         {/* "All" Room Type Controls - Top row, original sizing */}
-        <div className="bg-gray-100 p-3 rounded-lg mb-4">
+        <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mb-4">
           <div className="flex justify-center flex-wrap gap-4">
             {/* Privacy Type ALL Control - LEFT SIDE (White Box) */}
             {(activeRoom === 'Main Level' || activeRoom === 'Bedroom' || activeRoom === 'Office') && privacyShades.some(s => s.location === 'All') && (
@@ -404,13 +404,13 @@ function ShadesPage() {
           {activeRoom === 'Main Level' && (
             <div className="space-y-4">
               {/* Kitchen Section */}
-              <div className="bg-gray-50 p-3 rounded shadow mb-4">
-                <h3 className="text-md font-semibold mb-2">Kitchen</h3>
+              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow mb-4">
+                <h3 className="text-md font-semibold mb-2 dark:text-white">Kitchen</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-1">
                   
                   {/* Portrait 01 */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Portrait 01</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Portrait 01</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -444,8 +444,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Portrait 02 */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Portrait 02</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Portrait 02</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -479,8 +479,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Portrait 03 */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Portrait 03</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Portrait 03</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -514,8 +514,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Patio Door */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Patio Door</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Patio Door</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -549,8 +549,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Media Window */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Media Window</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Media Window</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -586,13 +586,13 @@ function ShadesPage() {
               </div>
               
               {/* Great Room Section */}
-              <div className="bg-gray-50 p-3 rounded shadow mb-4">
-                <h3 className="text-md font-semibold mb-2">Great Room</h3>
+              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow mb-4">
+                <h3 className="text-md font-semibold mb-2 dark:text-white">Great Room</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-1">
                   
                   {/* Main Left */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Main Left</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Main Left</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -626,8 +626,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Main Right */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Main Right</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Main Right</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -661,8 +661,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Upper Left */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Upper Left</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Upper Left</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -696,8 +696,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Upper Right */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Upper Right</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Upper Right</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -734,16 +734,16 @@ function ShadesPage() {
               
               {/* Dining & Laundry Section */}
               
-              <div className="bg-gray-50 p-3 rounded shadow mb-4">
+              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow mb-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1 mb-2">
-                  <h3 className="text-md font-semibold col-span-2">Dining & Laundry</h3>
-                  <h3 className="text-md font-semibold col-span-2">Projector</h3>
+                  <h3 className="text-md font-semibold col-span-2 dark:text-white">Dining & Laundry</h3>
+                  <h3 className="text-md font-semibold col-span-2 dark:text-white">Projector</h3>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1">
                   
                   {/* Dining Table */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Dining Table</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Dining Table</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -777,8 +777,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Pantry */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Pantry</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Pantry</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -812,8 +812,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Above Projector Left */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Proj Left</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Proj Left</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -847,8 +847,8 @@ function ShadesPage() {
                   </div>
 
                   {/* Above Projector Right */}
-                  <div className="border rounded p-1">
-                    <h4 className="font-medium text-center text-xs mb-0.5">Proj Right</h4>
+                  <div className="border dark:border-transparent rounded p-1">
+                    <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Proj Right</h4>
                     <div className="flex justify-center gap-1">
                       <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                         <p className="text-xs mb-0.5 text-center text-gray-800">Privacy</p>
@@ -888,12 +888,12 @@ function ShadesPage() {
           
           {/* Bedroom Windows - Organized by location */}
           {activeRoom === 'Bedroom' && (
-            <div className="bg-gray-50 p-3 rounded shadow">
-              <h3 className="text-md font-semibold mb-2">Bedroom Windows</h3>
+            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow">
+              <h3 className="text-md font-semibold mb-2 dark:text-white">Bedroom Windows</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-1">
                 {/* Hard-coded Bedroom Windows */}
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">South</h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">South</h4>
                   <div className="flex justify-center gap-1">
                     {/* Privacy shade controls */}
                     <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
@@ -962,8 +962,8 @@ function ShadesPage() {
                   </div>
                 </div>
                 
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">Southwest</h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Southwest</h4>
                   <div className="flex justify-center gap-1">
                     {/* Privacy shade controls */}
                     <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
@@ -1032,8 +1032,8 @@ function ShadesPage() {
                   </div>
                 </div>
                 
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">West</h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">West</h4>
                   <div className="flex justify-center gap-1">
                     {/* Privacy shade controls */}
                     <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
@@ -1107,8 +1107,8 @@ function ShadesPage() {
           
           {/* Office Windows - Display by window locations with labeled types */}
           {activeRoom === 'Office' && (
-            <div className="bg-gray-50 p-3 rounded shadow">
-              <h3 className="text-md font-semibold mb-2">Office Solar</h3>
+            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow">
+              <h3 className="text-md font-semibold mb-2 dark:text-white">Office Solar</h3>
               <div className="flex justify-center space-x-2 mb-4">
 
                 
@@ -1188,7 +1188,7 @@ function ShadesPage() {
 
               </div>
               
-              <h3 className="text-md font-semibold mb-2">Office Privacy</h3>
+              <h3 className="text-md font-semibold mb-2 dark:text-white">Office Privacy</h3>
               <div className="flex justify-center flex-wrap gap-2">
                 
                 
@@ -1332,12 +1332,12 @@ function ShadesPage() {
           
           {/* Loft Windows - Bedroom-style layout */}
           {activeRoom === 'Loft' && (
-            <div className="bg-gray-50 p-3 rounded shadow">
-              <h3 className="text-md font-semibold mb-2">Loft Windows</h3>
+            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow">
+              <h3 className="text-md font-semibold mb-2 dark:text-white">Loft Windows</h3>
               <div className="grid grid-cols-2 md:grid-cols-2 gap-1">
                 {/* Deskside Window - Dual shades */}
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">Deskside</h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Deskside</h4>
                   <div className="flex justify-center gap-1">
                     {/* Dimming shade controls */}
                     <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
@@ -1410,8 +1410,8 @@ function ShadesPage() {
                 </div>
 
                 {/* Back Window - Single shade */}
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">Back Window</h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Back Window</h4>
                   <div className="flex justify-center gap-1">
                     {/* Dimming shade controls only */}
                     <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
@@ -1454,12 +1454,12 @@ function ShadesPage() {
 
           {/* Downstairs Rooms - Bedroom-style layout */}
           {activeRoom === 'Downstairs' && (
-            <div className="bg-gray-50 p-3 rounded shadow">
-              <h3 className="text-md font-semibold mb-2">Downstairs Rooms</h3>
+            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow">
+              <h3 className="text-md font-semibold mb-2 dark:text-white">Downstairs Rooms</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
                 {/* Guestroom 1 - Single blackout shade (white) */}
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">Guestroom 1<br/><span className="text-xl">🦌</span></h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Guestroom 1<br/><span className="text-xl">🦌</span></h4>
                   <div className="flex justify-center gap-1">
                     <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                       <p className="text-xs mb-0.5 text-center text-gray-800">Blackout</p>
@@ -1497,8 +1497,8 @@ function ShadesPage() {
                 </div>
 
                 {/* Guestroom 2 - Single blackout shade (white) */}
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">Guestroom 2<br/><span className="text-xl">🏋️</span></h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Guestroom 2<br/><span className="text-xl">🏋️</span></h4>
                   <div className="flex justify-center gap-1">
                     <div className="bg-white border rounded p-1 pb-2 shadow-sm w-20">
                       <p className="text-xs mb-0.5 text-center text-gray-800">Blackout</p>
@@ -1536,8 +1536,8 @@ function ShadesPage() {
                 </div>
 
                 {/* Workshop - Single solar shade */}
-                <div className="border rounded p-1">
-                  <h4 className="font-medium text-center text-xs mb-0.5">Workshop<br/><span className="text-xl">🛠️</span></h4>
+                <div className="border dark:border-transparent rounded p-1">
+                  <h4 className="font-medium text-center text-xs mb-0.5 dark:text-white">Workshop<br/><span className="text-xl">🛠️</span></h4>
                   <div className="flex justify-center gap-1">
                     <div className="bg-gray-800 border rounded p-1 pb-2 shadow-sm w-20">
                       <p className="text-xs mb-0.5 text-center text-white">Solar</p>

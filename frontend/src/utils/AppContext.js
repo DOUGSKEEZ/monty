@@ -121,17 +121,19 @@ export const AppProvider = ({ children }) => {
 
   // Removed complex currentSong state - now managed locally in components
 
-  // Theme state - controls navbar seasonal themes
+  // Theme state - controls navbar seasonal themes and dark mode
   const [theme, setTheme] = useState(() => {
     // Load from localStorage or default to festive mode enabled
     const savedMode = localStorage.getItem('montyThemeMode'); // 'festive' or 'manual'
     const savedManualTheme = localStorage.getItem('montyManualTheme');
+    const savedDarkMode = localStorage.getItem('montyDarkMode');
 
     return {
       mode: savedMode || 'festive', // 'festive' or 'manual'
       festiveEnabled: savedMode !== 'manual', // Deprecated but kept for compatibility
       manualTheme: savedManualTheme || 'default',
       currentTheme: 'default', // Will be calculated based on mode
+      darkMode: savedDarkMode === 'true', // Dark mode preference
     };
   });
 
@@ -1156,6 +1158,12 @@ export const AppProvider = ({ children }) => {
     setThemeMode(enabled ? 'festive' : 'manual');
   };
 
+  // Toggle dark mode
+  const toggleDarkMode = (enabled) => {
+    localStorage.setItem('montyDarkMode', enabled ? 'true' : 'false');
+    setTheme(prev => ({ ...prev, darkMode: enabled }));
+  };
+
   // Note: Guest mode is now determined by subdomain (e.g., guest1.monty.home)
   // See detectGuestFromSubdomain() at the top of this file
   // No setGuestMode/clearGuestMode needed - subdomain is the source of truth
@@ -1183,6 +1191,7 @@ export const AppProvider = ({ children }) => {
     toggleFestiveMode,
     setThemeMode,
     setManualTheme,
+    toggleDarkMode,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []); // Functions are stable - intentionally omitted to prevent re-creation
 

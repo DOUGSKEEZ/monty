@@ -862,17 +862,17 @@ function PianobarPage() {
       
       {/* Operation Message */}
       {showOperationMessage && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+        <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-700 text-yellow-700 dark:text-yellow-200 px-4 py-3 rounded mb-4">
           {operationMessage}
         </div>
       )}
-      
+
       {/* Music Player Controls */}
-      <div className="bg-white p-6 rounded shadow">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded shadow">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center">
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-xl font-semibold dark:text-white">
                 Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
               </h2>
               {/* Bluetooth Signal Strength Icon */}
@@ -884,7 +884,7 @@ function PianobarPage() {
                 className={`w-2 h-2 rounded-full mr-2 ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}
                 title={wsConnected ? 'WebSocket connected' : 'WebSocket disconnected'}
               />
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 dark:text-gray-500">
                 {wsConnected ? 'Live updates' : 'Polling updates'}
               </span>
               {/* Bluetooth Signal Strength Text */}
@@ -979,10 +979,10 @@ function PianobarPage() {
         
         {/* Bluetooth Contextual Status Message Area */}
         {(bluetooth.connectionInProgress || bluetooth.disconnecting) && (
-          <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-4">
+          <div className="bg-amber-50 dark:bg-amber-900 border border-amber-200 dark:border-amber-700 rounded p-3 mb-4">
             {bluetooth.connectionInProgress && !bluetooth.disconnecting && (
               <>
-                <p className="text-amber-700 animate-pulse mb-2">
+                <p className="text-amber-700 dark:text-amber-200 animate-pulse mb-2">
                   ⚠️ The Fives speakers pair from a sleep mode - this process may take up to 30 seconds
                 </p>
                 
@@ -1002,7 +1002,7 @@ function PianobarPage() {
             )}
             
             {bluetooth.disconnecting && (
-              <p className="text-amber-700 animate-pulse">
+              <p className="text-amber-700 dark:text-amber-200 animate-pulse">
                 ⚠️ Disconnecting from Klipsch The Fives... Un momento.
               </p>
             )}
@@ -1012,7 +1012,7 @@ function PianobarPage() {
         {/* Now Playing Section */}
         <div>
           <div className="mb-6">
-            <p className={`text-lg font-semibold mb-4 ${isPlayerOn() ? '' : 'opacity-50'}`}>Now Playing</p>
+            <p className={`text-lg font-semibold mb-4 dark:text-white ${isPlayerOn() ? '' : 'opacity-50'}`}>Now Playing</p>
             
             {/* Album Art + Song Details Layout */}
             <div className="flex items-start space-x-4">
@@ -1063,20 +1063,20 @@ function PianobarPage() {
               {/* Song Details */}
               <div className="flex-grow min-w-0">
                 {/* Title */}
-                <h3 className={`text-xl font-bold truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-title">
+                <h3 className={`text-xl font-bold truncate dark:text-white ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-title">
                   {trackInfo.title || song || 'No song playing'}
                 </h3>
                 
                 {/* Artist */}
                 {(trackInfo.artist || artist) && (
-                  <p className={`text-lg text-gray-700 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-artist">
+                  <p className={`text-lg text-gray-700 dark:text-gray-300 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-artist">
                     {trackInfo.artist || artist}
                   </p>
                 )}
                 
                 {/* Album */}
                 {(trackInfo.album || album) && (
-                  <p className={`text-sm text-gray-600 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-album">
+                  <p className={`text-sm text-gray-600 dark:text-gray-400 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-album">
                     {trackInfo.album || album}
                   </p>
                 )}
@@ -1111,11 +1111,11 @@ function PianobarPage() {
                 <div className="mt-4 flex items-center space-x-3">
                   {trackInfo.songDuration > 0 && (
                     <div className={`flex-1 ${isPlayerOn() ? '' : 'opacity-50'}`}>
-                      <div className="flex justify-between text-sm text-gray-500 mb-1">
+                      <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
                         <span>{formatTime(trackInfo.songPlayed || 0)}</span>
                         <span>{formatTime(trackInfo.songDuration)}</span>
                       </div>
-                      <div className="w-full bg-gray-300 rounded-full h-2">
+                      <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
                         <div 
                           className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
                           style={{ 
@@ -1211,7 +1211,7 @@ function PianobarPage() {
           {/* Station Selector */}
           <div className={`mt-6 ${isPlayerOn() ? '' : 'opacity-50'}`}>
             <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium">Select Station</label>
+              <label className="block text-sm font-medium dark:text-white">Select Station</label>
               {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
                 <span className="text-xs text-amber-600">
                   {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
@@ -1219,23 +1219,23 @@ function PianobarPage() {
               )}
             </div>
             <div className="flex space-x-2">
-              <select 
-                className={`block w-full p-2 border rounded ${!isPlayerOn() ? 'bg-gray-100' : ''}`}
+              <select
+                className={`block w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 ${!isPlayerOn() ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
                 value={selectedStation}
                 onChange={(e) => setSelectedStation(e.target.value)}
                 disabled={!isPlayerOn() || pianobar.loading || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0}
               >
-                <option value="">Select a station...</option>
+                <option value="" className="dark:bg-gray-700">Select a station...</option>
                 {Array.isArray(pianobar.stations) && pianobar.stations.map((station, index) => (
-                  <option key={index} value={index}>{station}</option>
+                  <option key={index} value={index} className="dark:bg-gray-700">{station}</option>
                 ))}
               </select>
               <button
                 onClick={handleChangeStation}
                 className={`px-4 py-2 rounded ${
-                  isPlayerOn() && selectedStation 
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  isPlayerOn() && selectedStation
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 }`}
                 disabled={!isPlayerOn() || !selectedStation}
               >
@@ -1244,17 +1244,17 @@ function PianobarPage() {
             </div>
             {/* Show current station count */}
             {isPlayerOn() && Array.isArray(pianobar.stations) && pianobar.stations.length > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {pianobar.stations.length} station{pianobar.stations.length !== 1 ? 's' : ''} available
               </p>
             )}
           </div>
         </div>
       </div>
-      
+
       {/* Usage Instructions */}
-      <div className="mt-6 bg-gray-50 p-4 rounded border">
-        <h3 className="font-semibold mb-2">How to Use:</h3>
+      <div className="mt-6 bg-gray-50 dark:bg-gray-700 p-4 rounded border dark:border-gray-600">
+        <h3 className="font-semibold mb-2 dark:text-white">How to Use:</h3>
         <ol className="list-decimal pl-5 space-y-1">
           <li>Turn on the music player using the "Turn On" button</li>
           <li>Use the playback controls to skip songs or pause music</li>

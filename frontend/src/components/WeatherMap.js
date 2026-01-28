@@ -153,8 +153,8 @@ function WeatherMap() {
 
   if (mapError) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4 mt-6">
-        <h3 className="text-xl font-semibold mb-4">Precipitation Map</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mt-6">
+        <h3 className="text-xl font-semibold mb-4 dark:text-white">Precipitation Map</h3>
         <div className="flex items-center justify-center h-96 bg-gray-100 rounded">
           <div className="text-center">
             <p className="text-red-600 mb-2">⚠️ Map Unavailable</p>
@@ -175,15 +175,15 @@ function WeatherMap() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 mt-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mt-6">
       {/* Inject dynamic weather tile enhancement styles */}
       <style>{getWeatherTileStyles(contrast, saturation)}</style>
-      
+
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-xl font-semibold">
+          <h3 className="text-xl font-semibold dark:text-white">
             Weather Radar
-            <span className="text-sm font-normal text-gray-600 ml-4">
+            <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-4">
              (Next ~3 hours model)
             </span>
           </h3>
@@ -347,10 +347,10 @@ function WeatherMap() {
       </div>
       
       {/* Layer Opacity Controls - right below map for live adjustment */}
-      <div className="mt-2 pt-1 border-t border-gray-200">
+      <div className="mt-2 pt-1 border-t border-gray-200 dark:border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
           <div className="py-1">
-            <label className="block text-xs text-gray-600 mb-1">
+            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
               Clouds Opacity: {Math.round(cloudOpacity * 100)}%
             </label>
             <input
@@ -365,7 +365,7 @@ function WeatherMap() {
           </div>
           
           <div className="py-1">
-            <label className="block text-xs text-gray-600 mb-1">
+            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
               Wind Opacity: {Math.round(windOpacity * 100)}%
             </label>
             <input
@@ -380,7 +380,7 @@ function WeatherMap() {
           </div>
           
           <div className="py-1">
-            <label className="block text-xs text-gray-600 mb-1">
+            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
               Precipitation Opacity: {Math.round(precipOpacity * 100)}%
             </label>
             <input
@@ -396,7 +396,7 @@ function WeatherMap() {
         </div>
       </div>
       
-      <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+      <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
         <span>🔄 Near real-time data (may show 3-hour model intervals)</span>
         <span>Powered by OpenWeatherMap</span>
       </div>
