@@ -386,6 +386,34 @@ class SchedulerService {
   }
 
   /**
+   * Notify Vivaldi to trigger a GONG for the given scene type.
+   * Fire-and-forget: failures are logged but don't affect scene execution.
+   * @param {string} sceneType - One of: morning, afternoon, evening, night
+   */
+  async notifyVivaldiGong(sceneType) {
+    const validTypes = ['morning', 'afternoon', 'evening', 'night'];
+    if (!validTypes.includes(sceneType)) {
+      logger.warn(`Invalid Vivaldi GONG type: ${sceneType}`);
+      return;
+    }
+
+    const baseUrl = process.env.VIVALDI_TRIGGER_URL || 'http://192.168.10.21:3002/api/operandi/trigger';
+    const url = `${baseUrl}?type=${sceneType}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        signal: AbortSignal.timeout(5000)
+      });
+      const data = await response.json();
+      logger.info(`Vivaldi GONG triggered: ${sceneType} → ${data.status}`);
+    } catch (err) {
+      // Non-fatal: Vivaldi being down shouldn't break shade automation
+      logger.warn(`Failed to trigger Vivaldi GONG (${sceneType}): ${err.message}`);
+    }
+  }
+
+  /**
    * Schedule all scenes using node-cron
    */
   async scheduleAllScenes() {
@@ -573,6 +601,18 @@ class SchedulerService {
         this.scheduleSunsetBasedScenes().catch(() => {
           logger.warn(`Failed to schedule sun-based scenes after ${sceneName} execution`);
         });
+
+        // Notify Vivaldi to trigger GONG for this scene (fire-and-forget)
+        const sceneToGongType = {
+          'good_morning': 'morning',
+          'good_afternoon': 'afternoon',
+          'good_evening': 'evening',
+          'good_night': 'night'
+        };
+        const gongType = sceneToGongType[sceneName];
+        if (gongType) {
+          this.notifyVivaldiGong(gongType).catch(() => {});
+        }
       } else {
         logger.error(`Scene '${sceneName}' failed: ${result.message}`);
       }

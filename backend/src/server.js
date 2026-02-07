@@ -924,6 +924,11 @@ app.use('/api/state', stateRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/system', systemRoutes);
 
+// Simple ping route for health checks (must be before catch-all)
+app.get('/ping', (req, res) => {
+  res.status(200).json({ message: 'pong' });
+});
+
 // Catch-all route for client-side routing (production only)
 // Note: Express 5.x requires '{*path}' syntax instead of '*' for wildcards
 if (process.env.NODE_ENV === 'production') {
@@ -1045,11 +1050,6 @@ process.on('unhandledRejection', (reason, promise) => {
 // FIXED SERVER STARTUP - bind to all interfaces rather than just localhost
 console.log(`Attempting to start server on port ${PORT}...`);
 logger.logger.info(`Attempting to start server on port ${PORT}...`);
-
-// Create a simple ping route to check if server is running
-app.get('/ping', (req, res) => {
-  res.status(200).send('pong');
-});
 
 // Additional debug logging for server startup
 console.log(`DEBUG: About to start server on port ${PORT}...`);
