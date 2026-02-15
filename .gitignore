@@ -78,4 +78,5 @@ frontend/public/config/birthdays.json
 # Personal documentation
 CLAUDE.md
 CLAUDE_CODE_README.md
+CLAUDE_COLLABORATION.md
 .cursorignore

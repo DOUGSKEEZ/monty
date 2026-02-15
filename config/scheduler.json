@@ -4,16 +4,16 @@
     "city": "Silverthorne, CO"
   },
   "scenes": {
-    "good_afternoon_time": "12:20",
-    "good_evening_offset_minutes": -46,
+    "good_afternoon_time": "12:45",
+    "good_evening_offset_minutes": -38,
     "good_night_timing": "civil_twilight_end",
-    "good_night_offset_minutes": -10
+    "good_night_offset_minutes": -13
   },
   "wake_up": {
     "enabled": false,
-    "time": "10:15",
-    "last_triggered": "2026-01-28T17:15:00.029Z",
-    "good_morning_delay_minutes": 15
+    "time": "11:20",
+    "last_triggered": "2026-02-10T18:20:00.030Z",
+    "good_morning_delay_minutes": 10
   },
   "guest_alarms": {
     "guestroom1": {

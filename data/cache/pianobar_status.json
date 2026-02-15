@@ -1,7 +1,9 @@
 {
-  "status": "playing",
-  "isPianobarRunning": true,
-  "isPlaying": true,
-  "updateTime": 1769638262581,
-  "startTime": 1769632040615
+  "status": "stopped",
+  "isPianobarRunning": false,
+  "isPlaying": false,
+  "updateTime": 1771114291904,
+  "stopTime": 1771114291904,
+  "fromCache": false,
+  "note": "Corrected stale cache on server startup"
 }
