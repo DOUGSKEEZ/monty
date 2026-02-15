@@ -237,6 +237,10 @@ console.log('[DEBUG] About to require systemRoutes...');
 const systemRoutes = require('./routes/system');
 console.log('[DEBUG] systemRoutes imported');
 
+console.log('[DEBUG] About to require jukeboxRoutes...');
+const jukeboxRoutes = require('./routes/jukebox');
+console.log('[DEBUG] jukeboxRoutes imported');
+
 // API Routes
 app.get('/api/health', async (req, res) => {
   // Enhanced health check that verifies key system components
@@ -920,6 +924,7 @@ app.use('/api/scheduler', schedulerRoutes);
 // app.use('/api/music', musicRoutes); // Removed - Legacy music service now Pianobar is the music service
 app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);
+app.use('/api/jukebox', jukeboxRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/system', systemRoutes);

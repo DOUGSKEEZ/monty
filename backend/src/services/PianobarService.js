@@ -20,6 +20,9 @@ const prometheusMetrics = require('./PrometheusMetricsService');
 // Singleton instance management
 let instance = null;
 
+// AudioBroker reference (lazy-loaded to avoid circular dependencies)
+let audioBroker = null;
+
 class PianobarService extends IPianobarService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog) {
     // Enforce singleton
@@ -622,6 +625,26 @@ class PianobarService extends IPianobarService {
   }
 
   /**
+   * Get AudioBroker instance (lazy-loaded to avoid circular dependencies)
+   * @private
+   */
+  _getAudioBroker() {
+    if (!audioBroker) {
+      try {
+        const AudioBroker = require('./AudioBroker');
+        audioBroker = AudioBroker.getInstance();
+        // Register this service with the broker
+        audioBroker.setPianobarService(this);
+        logger.debug('AudioBroker reference established');
+      } catch (error) {
+        logger.warn(`Could not get AudioBroker: ${error.message}`);
+        return null;
+      }
+    }
+    return audioBroker;
+  }
+
+  /**
    * Notify BluetoothService about Pianobar lifecycle events
    * @private
    */
@@ -646,6 +669,16 @@ class PianobarService extends IPianobarService {
    */
   async _startPianobarImpl(silent = false) {
     try {
+      // Acquire playback from AudioBroker - this kills any other audio source (jukebox)
+      // and defensively kills any zombie pianobar instances before we start fresh
+      const broker = this._getAudioBroker();
+      if (broker) {
+        const acquired = await broker.acquirePlayback('pianobar');
+        if (!acquired) {
+          logger.warn('Failed to acquire playback from AudioBroker, proceeding anyway');
+        }
+      }
+
       // First check and kill any existing processes
       await this.checkForExistingProcesses();
       
@@ -854,10 +887,16 @@ class PianobarService extends IPianobarService {
         prometheusMetrics.recordOperation('stop-pianobar', true);
         prometheusMetrics.recordGauge('pianobar', 'status', 0);
       }
-      
+
+      // Release playback from AudioBroker
+      const broker = this._getAudioBroker();
+      if (broker) {
+        broker.releasePlayback('pianobar');
+      }
+
       // Notify BluetoothService that Pianobar has stopped
       this._notifyBluetoothService('stopped');
-      
+
       return {
         success: true,
         message: 'Pianobar stopped successfully',
@@ -866,17 +905,23 @@ class PianobarService extends IPianobarService {
       };
     } catch (error) {
       logger.error(`Error stopping pianobar: ${error.message}`);
-      
+
       // Record metrics
       if (prometheusMetrics) {
         prometheusMetrics.recordOperation('stop-pianobar', false);
       }
-      
+
       // Force state reset on error
       this.isPianobarRunning = false;
       this.isPlaying = false;
       this.pianobarProcess = null;
-      
+
+      // Release playback from AudioBroker even on error
+      const broker = this._getAudioBroker();
+      if (broker) {
+        broker.releasePlayback('pianobar');
+      }
+
       // Notify BluetoothService even on error since Pianobar is stopped
       this._notifyBluetoothService('stopped');
       
