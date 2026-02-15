@@ -12,6 +12,7 @@ const logger = require('../utils/logger').getModuleLogger('jukebox-routes');
 // Lazy-loaded service references
 let jukeboxService = null;
 let audioBroker = null;
+let wsService = null;
 
 /**
  * Get or create JukeboxService instance
@@ -21,11 +22,15 @@ function getJukeboxService() {
     try {
       const AudioBroker = require('../services/AudioBroker');
       const JukeboxService = require('../services/JukeboxService');
+      const { getWebSocketServiceInstance } = require('../services/PianobarWebsocketIntegration');
 
       audioBroker = AudioBroker.getInstance();
-      jukeboxService = JukeboxService.getInstance(audioBroker, null); // WebSocket added later
+      wsService = getWebSocketServiceInstance();
+      jukeboxService = JukeboxService.getInstance(audioBroker, wsService);
 
-      logger.info('JukeboxService initialized via routes');
+      logger.info('JukeboxService initialized via routes', {
+        hasWebSocket: !!wsService
+      });
     } catch (error) {
       logger.error(`Failed to initialize JukeboxService: ${error.message}`);
       throw error;

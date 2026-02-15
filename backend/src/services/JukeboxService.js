@@ -874,21 +874,21 @@ class JukeboxService {
   }
 
   /**
-   * Subscribe a client to progress updates
-   * @param {string} clientId
+   * Subscribe a WebSocket client to progress updates
+   * @param {WebSocket} ws - The WebSocket connection
    */
-  subscribeProgress(clientId) {
-    this.progressSubscribers.add(clientId);
-    logger.debug(`Progress subscriber added: ${clientId} (total: ${this.progressSubscribers.size})`);
+  subscribeProgress(ws) {
+    this.progressSubscribers.add(ws);
+    logger.debug(`Progress subscriber added (total: ${this.progressSubscribers.size})`);
   }
 
   /**
-   * Unsubscribe a client from progress updates
-   * @param {string} clientId
+   * Unsubscribe a WebSocket client from progress updates
+   * @param {WebSocket} ws - The WebSocket connection
    */
-  unsubscribeProgress(clientId) {
-    this.progressSubscribers.delete(clientId);
-    logger.debug(`Progress subscriber removed: ${clientId} (total: ${this.progressSubscribers.size})`);
+  unsubscribeProgress(ws) {
+    this.progressSubscribers.delete(ws);
+    logger.debug(`Progress subscriber removed (total: ${this.progressSubscribers.size})`);
   }
 
   /**
@@ -916,21 +916,41 @@ class JukeboxService {
   }
 
   /**
-   * Broadcast playback progress
+   * Broadcast playback progress directly to subscribed WebSocket clients
+   * Uses direct send to subscribers (not broadcast) to avoid chatter to non-interested clients
    * @private
    */
   _broadcastProgress() {
-    if (!this.websocketService) return;
+    const WebSocket = require('ws');
 
-    const message = {
+    const message = JSON.stringify({
       type: 'playback-progress',
       data: {
+        source: 'jukebox',
         position: this.position,
         duration: this.duration
       }
-    };
+    });
 
-    this.websocketService.broadcast(message);
+    // Send directly to each subscriber, cleaning up dead connections
+    const deadSockets = [];
+    for (const ws of this.progressSubscribers) {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(message);
+        } catch (error) {
+          logger.debug(`Error sending progress to subscriber: ${error.message}`);
+          deadSockets.push(ws);
+        }
+      } else {
+        deadSockets.push(ws);
+      }
+    }
+
+    // Clean up dead sockets
+    for (const ws of deadSockets) {
+      this.progressSubscribers.delete(ws);
+    }
   }
 
   /**
@@ -986,6 +1006,15 @@ class JukeboxService {
       instance = new JukeboxService(audioBroker, websocketService);
     }
     return instance;
+  }
+
+  /**
+   * Get existing instance without creating a new one
+   * Used by WebSocket handlers that need to interact with jukebox if it's running
+   * @returns {JukeboxService|null} The existing instance or null
+   */
+  static getExistingInstance() {
+    return instance || null;
   }
 }
 

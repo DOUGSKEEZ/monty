@@ -264,6 +264,22 @@ class PianobarCommandInterface {
   }
 
   /**
+   * Check if pianobar process is actually running
+   * CRITICAL: Must check before writing to FIFO to prevent blocking hang
+   * @returns {Promise<boolean>} True if pianobar is running
+   */
+  async isPianobarRunning() {
+    try {
+      const { stdout } = await execPromise('pgrep -x pianobar', { timeout: 3000 });
+      const pids = stdout.trim().split('\n').filter(Boolean);
+      return pids.length > 0;
+    } catch (error) {
+      // pgrep returns non-zero exit code if no process found
+      return false;
+    }
+  }
+
+  /**
    * Send a command to pianobar with appropriate timeout based on command type
    * @param {string} command - The command to send
    * @returns {Promise<Object>} Result of the operation
@@ -273,8 +289,22 @@ class PianobarCommandInterface {
       async () => {
         const startTime = Date.now();
         const operationId = `cmd-${command}-${startTime}`;
-        
+
         try {
+          // CRITICAL: Check if pianobar is running BEFORE writing to FIFO
+          // Writing to a FIFO with no reader causes writeFileSync to block forever,
+          // hanging the entire Node event loop and crashing the backend.
+          const isRunning = await this.isPianobarRunning();
+          if (!isRunning) {
+            logger.info(`[${operationId}] Pianobar not running - skipping FIFO command '${command}'`);
+            return {
+              success: false,
+              message: 'Pianobar is not running',
+              command,
+              skipped: true
+            };
+          }
+
           // Check if initialized
           if (!this.isInitialized) {
             logger.warn(`[${operationId}] Command attempted before initialization`);

@@ -157,9 +157,41 @@ class AudioBroker {
       } else if (source === 'jukebox') {
         await this._killJukebox();
       }
+
+      // Broadcast source-killed event so frontend can update UI
+      this._broadcastSourceKilled(source);
     } catch (error) {
       logger.error(`Error killing ${source}: ${error.message}`);
       // Don't throw - we want to continue even if kill fails
+      // Still broadcast so frontend knows we attempted to kill
+      this._broadcastSourceKilled(source);
+    }
+  }
+
+  /**
+   * Broadcast that a source was killed
+   * Allows frontend to update "Turn Off" buttons and status displays
+   * @param {string} source - The source that was killed
+   * @private
+   */
+  _broadcastSourceKilled(source) {
+    try {
+      const { getWebSocketServiceInstance } = require('./PianobarWebsocketIntegration');
+      const wsService = getWebSocketServiceInstance();
+
+      if (wsService) {
+        wsService.broadcast({
+          type: 'source-killed',
+          source: source,
+          data: {
+            killedSource: source,
+            timestamp: Date.now()
+          }
+        });
+        logger.debug(`Broadcast source-killed for: ${source}`);
+      }
+    } catch (error) {
+      logger.debug(`Could not broadcast source-killed: ${error.message}`);
     }
   }
 

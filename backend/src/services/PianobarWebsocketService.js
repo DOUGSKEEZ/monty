@@ -81,12 +81,19 @@ class PianobarWebsocketService {
       // But first verify it's accurate by reading fresh status from file
       this.sendFreshStatusToClient(ws);
       
-      // Simple ping/pong handling
+      // Message handling (ping/pong, jukebox progress subscriptions)
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message);
           if (data.type === 'ping') {
             ws.send(JSON.stringify({ type: 'pong' }));
+          }
+          // Jukebox progress subscription handlers
+          else if (data.type === 'subscribe-progress') {
+            this._handleProgressSubscribe(ws);
+          }
+          else if (data.type === 'unsubscribe-progress') {
+            this._handleProgressUnsubscribe(ws);
           }
         } catch (error) {
           logger.debug(`Error processing message: ${error.message}`);
@@ -97,6 +104,8 @@ class PianobarWebsocketService {
       ws.on('close', () => {
         logger.info(`WebSocket client disconnected: ${clientIp}`);
         this.clients.delete(ws);
+        // Clean up any jukebox progress subscriptions
+        this._handleProgressUnsubscribe(ws);
       });
       
       // Handle errors
@@ -161,6 +170,7 @@ class PianobarWebsocketService {
           // Broadcast verified status
           this.broadcast({
             type: 'status',
+            source: 'pianobar',
             data: statusData
           });
         } catch (error) {
@@ -211,6 +221,7 @@ class PianobarWebsocketService {
               
               this.broadcast({
                 type: 'song',
+                source: 'pianobar',
                 data: this.currentTrack
               });
               
@@ -218,7 +229,7 @@ class PianobarWebsocketService {
               this.updateBackendSharedState(this.currentTrack);
             }
             else if (eventData.eventType === 'songlove') {
-              this.broadcast({ type: 'love', data: {} });
+              this.broadcast({ type: 'love', source: 'pianobar', data: {} });
             }
             else if (eventData.eventType === 'usergetstations') {
               const stations = eventData.stations || [];
@@ -226,6 +237,7 @@ class PianobarWebsocketService {
               // Broadcast to WebSocket clients
               this.broadcast({
                 type: 'stations',
+                source: 'pianobar',
                 data: { stations: stations }
               });
               
@@ -309,6 +321,7 @@ class PianobarWebsocketService {
       // Send to client
       this.sendToClient(client, {
         type: 'status',
+        source: 'pianobar',
         data: statusData
       });
     } catch (error) {
@@ -316,6 +329,7 @@ class PianobarWebsocketService {
       // Send default safe status on error
       this.sendToClient(client, {
         type: 'status',
+        source: 'pianobar',
         data: { status: 'stopped', isPianobarRunning: false, isPlaying: false }
       });
     }
@@ -398,6 +412,7 @@ class PianobarWebsocketService {
       // Broadcast to all clients
       this.broadcast({
         type: 'status',
+        source: 'pianobar',
         data: statusData
       });
 
@@ -458,17 +473,60 @@ class PianobarWebsocketService {
   async updateStationsFile(stations) {
     try {
       const stationsFilePath = path.join(process.env.HOME || '/home/monty', 'monty/data/cache/pianobar_stations.json');
-      
+
       const stationsData = {
         stations: stations,
         fetchTime: Date.now(),
         lastUpdated: new Date().toISOString()
       };
-      
+
       fs.writeFileSync(stationsFilePath, JSON.stringify(stationsData, null, 2), 'utf8');
       logger.info(`Updated stations file with ${stations.length} stations`);
     } catch (error) {
       logger.warn(`Failed to update stations file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Handle subscribe-progress WebSocket message
+   * Subscribes the client to jukebox playback progress updates
+   * @param {WebSocket} ws - The WebSocket connection
+   * @private
+   */
+  _handleProgressSubscribe(ws) {
+    try {
+      const JukeboxService = require('./JukeboxService');
+      // Use getExistingInstance to avoid creating a broken instance
+      // If jukebox hasn't been initialized yet, subscription will happen later
+      const jukeboxService = JukeboxService.getExistingInstance();
+      if (jukeboxService) {
+        jukeboxService.subscribeProgress(ws);
+        logger.debug('Client subscribed to jukebox progress updates');
+      } else {
+        logger.debug('Jukebox not initialized yet - progress subscription deferred');
+      }
+    } catch (error) {
+      logger.debug(`Could not subscribe to progress: ${error.message}`);
+    }
+  }
+
+  /**
+   * Handle unsubscribe-progress WebSocket message
+   * Unsubscribes the client from jukebox playback progress updates
+   * @param {WebSocket} ws - The WebSocket connection
+   * @private
+   */
+  _handleProgressUnsubscribe(ws) {
+    try {
+      const JukeboxService = require('./JukeboxService');
+      // Use getExistingInstance - if there's no instance, nothing to unsubscribe from
+      const jukeboxService = JukeboxService.getExistingInstance();
+      if (jukeboxService) {
+        jukeboxService.unsubscribeProgress(ws);
+        logger.debug('Client unsubscribed from jukebox progress updates');
+      }
+    } catch (error) {
+      // Silent fail on unsubscribe - socket may already be closing
     }
   }
   
