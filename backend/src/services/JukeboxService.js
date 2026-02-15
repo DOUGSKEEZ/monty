@@ -564,13 +564,16 @@ class JukeboxService {
       parsedTitle = parsedTitle.replace(/\s*\(instrumental[^)]*\)\s*/gi, ' ').trim() + ' - Instrumental';
     }
 
-    // Pre-scrub: preserve (Live), (Acoustic), (Remix) by moving to end
+    // Pre-scrub: preserve (Live), (Acoustic), (Remix), (Remastered) by moving to end
     // These are meaningful metadata that users might want to keep
     // NOTE: Avoid .test() + .replace() on same regex with 'g' flag - lastIndex gotcha
     const preservePatterns = [
-      { regex: /\s*\(live[^)]*\)\s*/gi, suffix: ' - Live' },
-      { regex: /\s*\(acoustic[^)]*\)\s*/gi, suffix: ' - Acoustic' },
-      { regex: /\s*\(remix[^)]*\)\s*/gi, suffix: ' - Remix' }
+      // Match keyword ANYWHERE inside parens: (Live at...), (Best live...), (Super Deluxe Live)
+      // \b word boundary prevents false matches like (Oliver's Version) matching "live"
+      { regex: /\s*\([^)]*\blive\b[^)]*\)\s*/gi, suffix: ' - Live' },
+      { regex: /\s*\([^)]*\bacoustic\b[^)]*\)\s*/gi, suffix: ' - Acoustic' },
+      { regex: /\s*\([^)]*\bremix\b[^)]*\)\s*/gi, suffix: ' - Remix' },
+      { regex: /\s*\([^)]*\bremaster(ed)?\b[^)]*\)\s*/gi, suffix: ' - Remastered' }
     ];
 
     for (const pattern of preservePatterns) {
