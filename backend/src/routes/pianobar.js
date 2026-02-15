@@ -16,9 +16,7 @@ const PORT = process.env.PORT || 3001;
 let cachedWebSocketService = null;
 
 // Import PianobarCommandInterface factory but don't create instance yet
-console.log('[DEBUG] Importing createPianobarCommandInterface in routes');
 const { createPianobarCommandInterface } = require('../services/PianobarCommandInterface');
-console.log('[DEBUG] Successfully imported createPianobarCommandInterface in routes');
 
 // Import ServiceFactory to access actual PianobarService
 const { createActualPianobarService } = require('../utils/ServiceFactory');
@@ -33,16 +31,14 @@ let actualPianobarService = null;
 function getCommandInterface() {
   if (!commandInterface) {
     try {
-      console.log('[DEBUG] Creating PianobarCommandInterface in routes (lazy initialization)');
       commandInterface = createPianobarCommandInterface(
-        { 
+        {
           verbose: true,
           skipAsyncInit: true  // Skip async initialization to prevent blocking
         },
         null, // No RetryHelper
         null  // No ServiceWatchdog
       );
-      console.log('[DEBUG] Successfully created PianobarCommandInterface in routes');
     } catch (error) {
       console.error(`[ERROR] Error creating PianobarCommandInterface in routes: ${error.message}`);
       console.error(error.stack);
@@ -65,9 +61,7 @@ function getCommandInterface() {
 function getActualPianobarService() {
   if (!actualPianobarService) {
     try {
-      console.log('[DEBUG] Creating actual PianobarService in routes (lazy initialization)');
       actualPianobarService = createActualPianobarService();
-      console.log('[DEBUG] Successfully created actual PianobarService in routes');
     } catch (error) {
       console.error(`[ERROR] Error creating actual PianobarService in routes: ${error.message}`);
       console.error(error.stack);
@@ -419,94 +413,51 @@ router.get('/state', async (req, res) => {
 
 // Start pianobar
 router.post('/start', async (req, res) => {
+  const { exec } = require('child_process');
+
   try {
-    // Start pianobar process - this requires a shell command 
-    // This is one command we can't do with just FIFO
-    const { exec } = require('child_process');
-    
-    // Use nohup to ensure process continues after command completes
-    exec('nohup pianobar > /tmp/pianobar_stdout.log 2> /tmp/pianobar_stderr.log &', async (error, stdout, stderr) => {
-      if (error) {
-        logger.error(`Error starting pianobar: ${error.message}`);
-        
-        // Check error logs
-        try {
-          const stderrContent = fs.readFileSync('/tmp/pianobar_stderr.log', 'utf8');
-          logger.error(`Pianobar stderr: ${stderrContent}`);
-        } catch (readErr) {
-          logger.error(`Could not read stderr log: ${readErr.message}`);
-        }
-        
-        return res.status(500).json({ 
-          success: false, 
-          message: `Failed to start pianobar: ${error.message}`,
-          error: error.message
-        });
+    // AudioBroker preamble: kill jukebox if active
+    try {
+      const AudioBroker = require('../services/AudioBroker');
+      const broker = AudioBroker.getInstance();
+      await broker.acquirePlayback('pianobar');
+    } catch (brokerError) {
+      logger.warn(`AudioBroker error (continuing): ${brokerError.message}`);
+    }
+
+    // Start pianobar the simple way that always worked
+    logger.info('Starting pianobar');
+    exec('nohup pianobar > /tmp/pianobar_stdout.log 2>&1 &');
+
+    // Update status file (frontend/watchers rely on this)
+    const statusData = {
+      status: 'playing',
+      isPianobarRunning: true,
+      isPlaying: true,
+      updateTime: Date.now(),
+      startTime: Date.now()
+    };
+    fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
+
+    // Update central state
+    await updateCentralStateViaService({
+      player: {
+        isRunning: true,
+        isPlaying: true,
+        status: 'playing'
       }
-      
-      // Log the PID for debugging
-      logger.info(`Started pianobar command, stdout: ${stdout}, stderr: ${stderr}`);
-      
-      // Add a delay and then check if pianobar actually started
-      setTimeout(async () => {
-        try {
-          const { exec: execCheck } = require('child_process');
-          execCheck('pgrep pianobar', (err, stdout) => {
-            if (err || !stdout.trim()) {
-              logger.error('Pianobar process not found after start attempt');
-              
-              // Try to read error log
-              try {
-                const stderrContent = fs.readFileSync('/tmp/pianobar_stderr.log', 'utf8').slice(-500);
-                logger.error(`Recent pianobar stderr: ${stderrContent}`);
-              } catch (readErr) {
-                logger.error(`Could not read stderr log: ${readErr.message}`);
-              }
-            } else {
-              logger.info(`Pianobar running with PID(s): ${stdout.trim()}`);
-            }
-          });
-        } catch (checkErr) {
-          logger.error(`Error checking pianobar status: ${checkErr.message}`);
-        }
-      }, 3000);
-      
-      // Update status file
-      try {
-        const statusData = {
-          status: 'playing',
-          isPianobarRunning: true,
-          isPlaying: true,
-          updateTime: Date.now(),
-          startTime: Date.now()
-        };
-        
-        fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
-        
-        // Update central state
-        await updateCentralStateViaService({
-          player: {
-            isRunning: true,
-            isPlaying: true,
-            status: 'playing'
-          }
-        }, 'route-start');
-        
-        // Broadcast state update to all connected clients
-        const wsService = getWebSocketService();
-        if (wsService) {
-          wsService.broadcastStateUpdate();
-          logger.debug('Broadcasted state update after start command');
-        }
-      } catch (statusError) {
-        logger.warn(`Error updating status file: ${statusError.message}`);
-      }
-      
-      res.json({
-        success: true,
-        message: 'Pianobar started successfully',
-        isPlaying: true
-      });
+    }, 'route-start');
+
+    // Broadcast state update to all connected clients
+    const wsService = getWebSocketService();
+    if (wsService) {
+      wsService.broadcastStateUpdate();
+    }
+
+    res.json({
+      success: true,
+      message: 'Pianobar started successfully',
+      isPlaying: true
     });
   } catch (error) {
     logger.error(`Error in start route: ${error.message}`);
@@ -517,22 +468,20 @@ router.post('/start', async (req, res) => {
 // Stop pianobar - send quit command
 router.post('/stop', async (req, res) => {
   try {
-    // Check if pianobar is actually running first
-    const statusResult = await fetch(`http://localhost:${PORT}/api/pianobar/status?silent=true`).then(r => r.json());
-    if (!statusResult.data.isPianobarRunning) {
-      logger.info('Pianobar already stopped, skipping quit command');
-      return res.json({
-        success: true,
-        message: 'Pianobar is already stopped',
-        isPlaying: false
-      });
-    }
-    
     // Get command interface and send quit command
     const cmd = getCommandInterface();
     const result = await cmd.quit();
-    
-    // Update status file regardless of command result
+
+    // Release AudioBroker playback
+    try {
+      const AudioBroker = require('../services/AudioBroker');
+      const broker = AudioBroker.getInstance();
+      broker.releasePlayback('pianobar');
+    } catch (brokerError) {
+      logger.warn(`AudioBroker release error: ${brokerError.message}`);
+    }
+
+    // Update status file
     try {
       const statusData = {
         status: 'stopped',
@@ -541,10 +490,10 @@ router.post('/stop', async (req, res) => {
         updateTime: Date.now(),
         stopTime: Date.now()
       };
-      
+
       fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
-      
-      // Update central state BEFORE broadcasting
+
+      // Update central state
       await updateCentralStateViaService({
         player: {
           isRunning: false,
@@ -552,22 +501,16 @@ router.post('/stop', async (req, res) => {
           status: 'stopped'
         }
       }, 'route-stop');
-      
-      // Broadcast state update to all connected clients
-      logger.info('[DEBUG-STOP] About to get WebSocket service');
+
+      // Broadcast state update
       const wsService = getWebSocketService();
-      logger.info('[DEBUG-STOP] WebSocket service result:', !!wsService);
       if (wsService) {
-        logger.info('[DEBUG-STOP] Calling broadcastStateUpdate');
         wsService.broadcastStateUpdate();
-        logger.debug('Broadcasted state update after stop command');
-      } else {
-        logger.warn('[DEBUG-STOP] No WebSocket service found - cannot broadcast');
       }
     } catch (statusError) {
       logger.warn(`Error updating status file: ${statusError.message}`);
     }
-    
+
     res.json({
       success: true,
       message: 'Pianobar stopped successfully',
