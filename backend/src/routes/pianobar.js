@@ -529,7 +529,7 @@ router.post('/play', async (req, res) => {
     // Get command interface and send play command
     const cmd = getCommandInterface();
     const result = await cmd.play();
-    
+
     // Update status if command was successful
     if (result.success) {
       try {
@@ -540,7 +540,7 @@ router.post('/play', async (req, res) => {
           isPlaying: true,
           updateTime: Date.now()
         };
-        
+
         if (fs.existsSync(statusFilePath)) {
           try {
             const currentStatus = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'));
@@ -549,9 +549,9 @@ router.post('/play', async (req, res) => {
             logger.warn(`Error parsing status file: ${parseError.message}`);
           }
         }
-        
+
         fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
-        
+
         // Update central state
         await updateCentralStateViaService({
           player: {
@@ -560,7 +560,17 @@ router.post('/play', async (req, res) => {
             status: 'playing'
           }
         }, 'route-play');
-        
+
+        // Track pause duration for accurate progress calculation
+        // When resuming from pause, accumulate the paused time
+        if (sharedState.pauseStartTime) {
+          const pauseDuration = Date.now() - sharedState.pauseStartTime;
+          sharedState.totalPausedMs = (sharedState.totalPausedMs || 0) + pauseDuration;
+          sharedState.pauseStartTime = null;
+          sharedState.shared.isPlaying = true;
+          logger.debug(`Resume: accumulated ${pauseDuration}ms pause (total: ${sharedState.totalPausedMs}ms)`);
+        }
+
         // Broadcast state update to all connected clients
         const wsService = getWebSocketService();
         if (wsService) {
@@ -571,7 +581,7 @@ router.post('/play', async (req, res) => {
         logger.warn(`Error updating status file: ${statusError.message}`);
       }
     }
-    
+
     res.json(result);
   } catch (error) {
     logger.error(`Error playing pianobar: ${error.message}`);
@@ -585,7 +595,7 @@ router.post('/pause', async (req, res) => {
     // Get command interface and send pause command
     const cmd = getCommandInterface();
     const result = await cmd.pause();
-    
+
     // Update status if command was successful
     if (result.success) {
       try {
@@ -596,7 +606,7 @@ router.post('/pause', async (req, res) => {
           isPlaying: false,
           updateTime: Date.now()
         };
-        
+
         if (fs.existsSync(statusFilePath)) {
           try {
             const currentStatus = JSON.parse(fs.readFileSync(statusFilePath, 'utf8'));
@@ -605,9 +615,9 @@ router.post('/pause', async (req, res) => {
             logger.warn(`Error parsing status file: ${parseError.message}`);
           }
         }
-        
+
         fs.writeFileSync(statusFilePath, JSON.stringify(statusData, null, 2), 'utf8');
-        
+
         // Update central state
         await updateCentralStateViaService({
           player: {
@@ -616,7 +626,14 @@ router.post('/pause', async (req, res) => {
             status: 'paused'
           }
         }, 'route-pause');
-        
+
+        // Track when pause started for accurate progress calculation
+        if (!sharedState.pauseStartTime) {
+          sharedState.pauseStartTime = Date.now();
+          sharedState.shared.isPlaying = false;
+          logger.debug(`Pause started at: ${sharedState.pauseStartTime}`);
+        }
+
         // Broadcast state update to all connected clients
         const wsService = getWebSocketService();
         if (wsService) {
@@ -627,7 +644,7 @@ router.post('/pause', async (req, res) => {
         logger.warn(`Error updating status file: ${statusError.message}`);
       }
     }
-    
+
     res.json(result);
   } catch (error) {
     logger.error(`Error pausing pianobar: ${error.message}`);
@@ -1055,8 +1072,11 @@ router.get('/current-track', async (req, res) => {
         
         // Read and clean the JSON content
         let fileContent = fs.readFileSync(filePath, 'utf8');
-        // Replace curly quotes with straight quotes for JSON parsing
-        fileContent = fileContent.replace(/[""]/g, '"').replace(/['']/g, "'");
+        // Remove curly quotes entirely - they break JSON when inside string values
+        // Use explicit Unicode escapes to avoid accidentally matching straight quotes
+        // U+201C = left double curly quote, U+201D = right double curly quote
+        // U+2018 = left single curly quote, U+2019 = right single curly quote
+        fileContent = fileContent.replace(/[\u201C\u201D]/g, '').replace(/[\u2018\u2019]/g, "'");
         
         mostRecentSongStart = JSON.parse(fileContent);
         songStartTime = latestFile.timestamp;
@@ -1174,21 +1194,33 @@ let sharedState = {
     detailUrl: ''
   },
   lastUpdated: Date.now(),
-  songStartTime: null // Track when current song started playing
+  songStartTime: null,    // When current song started playing
+  pauseStartTime: null,   // When current pause began (null if not paused)
+  totalPausedMs: 0        // Accumulated pause time in milliseconds
 };
 
 // GET shared state for cross-device sync
 router.get('/sync-state', (req, res) => {
   try {
-    // Calculate real-time song progress if playing
+    // Calculate real-time song progress, accounting for pause time
     let currentState = { ...sharedState };
-    if (currentState.shared.isPlaying && currentState.songStartTime && currentState.track.songDuration > 0) {
+    if (currentState.songStartTime && currentState.track.songDuration > 0) {
       const now = Date.now();
-      const elapsedSeconds = Math.floor((now - currentState.songStartTime) / 1000);
-      // Cap at song duration to prevent overflow
-      currentState.track.songPlayed = Math.min(elapsedSeconds, currentState.track.songDuration);
+
+      // Calculate current pause duration (if currently paused)
+      const currentPausedMs = currentState.pauseStartTime
+        ? (now - currentState.pauseStartTime)
+        : 0;
+
+      // Total elapsed wall-clock time minus all pause time
+      const totalPausedMs = (currentState.totalPausedMs || 0) + currentPausedMs;
+      const actualPlayTimeMs = now - currentState.songStartTime - totalPausedMs;
+      const elapsedSeconds = Math.floor(actualPlayTimeMs / 1000);
+
+      // Cap at song duration to prevent overflow, and ensure non-negative
+      currentState.track.songPlayed = Math.max(0, Math.min(elapsedSeconds, currentState.track.songDuration));
     }
-    
+
     res.json({
       success: true,
       state: currentState,
@@ -1203,39 +1235,56 @@ router.get('/sync-state', (req, res) => {
 // POST update shared state for cross-device sync
 router.post('/sync-state', (req, res) => {
   try {
-    const { shared, track } = req.body;
-    
+    const { shared, track, pauseAction } = req.body;
+
     if (shared) {
       // Detect when playback resumes (was not playing, now is playing)
       const wasPlaying = sharedState.shared.isPlaying;
       const nowPlaying = shared.isPlaying;
-      
+
       sharedState.shared = { ...sharedState.shared, ...shared };
       logger.debug('Updated shared state:', shared);
-      
+
       // If playback just resumed and we don't have a start time, set it now
       if (!wasPlaying && nowPlaying && !sharedState.songStartTime && sharedState.track.title) {
         sharedState.songStartTime = Date.now();
         logger.debug('Playback resumed - setting song start time');
       }
     }
-    
+
     if (track) {
       // Detect new song by comparing titles
       const isNewSong = track.title && track.title !== sharedState.track.title;
-      
+
       sharedState.track = { ...sharedState.track, ...track };
       logger.debug('Updated track info:', track.title || 'no title');
-      
-      // Set song start time when a new song begins
+
+      // Set song start time when a new song begins - also reset pause tracking
       if (isNewSong) {
         sharedState.songStartTime = Date.now();
-        logger.debug(`New song detected: "${track.title}" - setting start time`);
+        sharedState.pauseStartTime = null;
+        sharedState.totalPausedMs = 0;
+        logger.debug(`New song detected: "${track.title}" - reset pause tracking`);
       }
     }
-    
+
+    // Handle pause/resume actions for accurate progress tracking
+    if (pauseAction === 'pause') {
+      // Starting a pause - record when it began
+      sharedState.pauseStartTime = Date.now();
+      logger.debug('Pause started at:', sharedState.pauseStartTime);
+    } else if (pauseAction === 'resume') {
+      // Ending a pause - accumulate the paused duration
+      if (sharedState.pauseStartTime) {
+        const pauseDuration = Date.now() - sharedState.pauseStartTime;
+        sharedState.totalPausedMs = (sharedState.totalPausedMs || 0) + pauseDuration;
+        sharedState.pauseStartTime = null;
+        logger.debug(`Pause ended, accumulated ${pauseDuration}ms (total: ${sharedState.totalPausedMs}ms)`);
+      }
+    }
+
     sharedState.lastUpdated = Date.now();
-    
+
     res.json({
       success: true,
       state: sharedState,

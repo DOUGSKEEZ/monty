@@ -14,28 +14,31 @@ const logger = require('../utils/logger').getModuleLogger('pianobar-ws');
 
 class PianobarWebsocketService {
   constructor(server, config = {}) {
+
     // Simple config
-    this.statusFile = config.statusFile || 
+    this.statusFile = config.statusFile ||
       path.join(process.env.HOME || '/home/monty', 'monty/data/cache/pianobar_status.json');
-    
-    this.eventDir = config.eventDir || 
+
+    this.eventDir = config.eventDir ||
       path.join(process.env.HOME || '/home/monty', '.config/pianobar/event_data');
-    
+
+
     // Create WebSocket server
-    this.wss = new WebSocket.Server({ 
+    this.wss = new WebSocket.Server({
       server,
       path: '/api/pianobar/ws'
     });
-    
+
+
     // Simple state
     this.clients = new Set();
     this.currentStatus = { status: 'unknown' };
     this.currentTrack = {};
-    
+
     this.setupWebSocketHandlers();
     this.setupWatchers();
     this.ensureEventDirectory();
-    
+
     logger.info('Simple PianobarWebsocketService initialized');
   }
   
@@ -181,7 +184,7 @@ class PianobarWebsocketService {
       // Watch event directory for new event files
       const absoluteEventDir = path.resolve(this.eventDir);
       logger.info(`Setting up file watcher for: ${absoluteEventDir}`);
-      
+
       const eventWatcher = chokidar.watch(absoluteEventDir, {
         persistent: true,
         ignoreInitial: true,
@@ -192,17 +195,21 @@ class PianobarWebsocketService {
         },
         depth: 0
       });
-      
+
+
       eventWatcher
         .on('add', (filePath) => {
           if (!filePath.endsWith('.json')) return;
-          
+
           try {
             // Read and clean the JSON content to handle problematic characters
             let fileContent = fs.readFileSync(filePath, 'utf8');
-            // Replace problematic Unicode quotes with standard quotes for JSON parsing
-            fileContent = fileContent.replace(/[""]/g, '"').replace(/['']/g, "'");
-            
+            // Remove curly quotes entirely - they break JSON when inside string values
+            // Use explicit Unicode escapes to avoid accidentally matching straight quotes
+            // U+201C = left double curly quote, U+201D = right double curly quote
+            // U+2018 = left single curly quote, U+2019 = right single curly quote
+            fileContent = fileContent.replace(/[\u201C\u201D]/g, '').replace(/[\u2018\u2019]/g, "'");
+
             const eventData = JSON.parse(fileContent);
             
             // Simple event processing
@@ -233,18 +240,36 @@ class PianobarWebsocketService {
             }
             else if (eventData.eventType === 'usergetstations') {
               const stations = eventData.stations || [];
-              
+
               // Broadcast to WebSocket clients
               this.broadcast({
                 type: 'stations',
                 source: 'pianobar',
                 data: { stations: stations }
               });
-              
+
               // Update the stations file for the /stations API endpoint
               this.updateStationsFile(stations);
             }
-            
+            // Handle pause event - track when pause started
+            else if (eventData.eventType === 'playbackpause') {
+              this.broadcast({
+                type: 'status',
+                source: 'pianobar',
+                data: { isPlaying: false, isPaused: true }
+              });
+              this.updatePauseState(true);
+            }
+            // Handle resume event - accumulate paused time
+            else if (eventData.eventType === 'playbackstart') {
+              this.broadcast({
+                type: 'status',
+                source: 'pianobar',
+                data: { isPlaying: true, isPaused: false }
+              });
+              this.updatePauseState(false);
+            }
+
             // Clean up
             fs.unlinkSync(filePath);
           } catch (error) {
@@ -253,6 +278,8 @@ class PianobarWebsocketService {
         })
         .on('ready', () => {
           logger.info(`Event file watcher ready, watching: ${absoluteEventDir}`);
+        })
+        .on('error', (error) => {
         });
       
       logger.info('File watchers set up for status and events');
@@ -450,8 +477,14 @@ class PianobarWebsocketService {
     try {
       const axios = require('axios');
       const baseURL = 'http://localhost:3001';
-      
+
+      // Include shared state (isPlaying, isRunning) along with track data
+      // This ensures the progress calculation works correctly in /sync-state
       await axios.post(`${baseURL}/api/pianobar/sync-state`, {
+        shared: {
+          isPlaying: true,
+          isRunning: true
+        },
         track: trackData
       }, {
         headers: {
@@ -459,13 +492,43 @@ class PianobarWebsocketService {
         },
         timeout: 5000
       });
-      
+
       logger.debug('Successfully updated backend shared state with new track info');
     } catch (error) {
       logger.warn(`Failed to update backend shared state: ${error.message}`);
     }
   }
-  
+
+  /**
+   * Update pause state for accurate progress tracking
+   * @param {boolean} isPaused - true when pausing, false when resuming
+   */
+  async updatePauseState(isPaused) {
+    try {
+      const axios = require('axios');
+      const baseURL = 'http://localhost:3001';
+
+      // Send pause/resume action to backend
+      // Backend will handle pause time accumulation
+      await axios.post(`${baseURL}/api/pianobar/sync-state`, {
+        shared: {
+          isPlaying: !isPaused,
+          isRunning: true
+        },
+        pauseAction: isPaused ? 'pause' : 'resume'
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      });
+
+      logger.debug(`Updated pause state: ${isPaused ? 'PAUSED' : 'RESUMED'}`);
+    } catch (error) {
+      logger.warn(`Failed to update pause state: ${error.message}`);
+    }
+  }
+
   /**
    * Update stations file when new station list is received
    * @param {Array} stations - The stations array from pianobar
