@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../utils/AppContext';
 import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
 import ModeSelector from '../components/ModeSelector';
+import NowPlaying from '../components/shared/NowPlaying';
+import TransportControls from '../components/shared/TransportControls';
 
 // Backend API base URL (same as api.js)
 const API_BASE_URL = 'http://192.168.10.15:3001/api';
@@ -159,13 +161,6 @@ function PianobarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // syncSharedState is stable - intentionally omitted to prevent re-creation
 
-  // Format time in MM:SS format
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-  
   // Update selected station when pianobar status changes
   useEffect(() => {
     if (pianobar.status && pianobar.status.stationId) {
@@ -1009,204 +1004,35 @@ function PianobarPage() {
           </div>
         )}
         
-        {/* Now Playing Section */}
+        {/* Now Playing Section - Using shared component */}
         <div>
-          <div className="mb-6">
-            <p className={`text-lg font-semibold mb-4 dark:text-white ${isPlayerOn() ? '' : 'opacity-50'}`}>Now Playing</p>
-            
-            {/* Album Art + Song Details Layout */}
-            <div className="flex items-start space-x-4">
-              {/* Album Art */}
-              {/* Album Art Column */}
-              <div className="flex flex-col space-y-3">
-                {/* Album Art */}
-                <div className={`flex-shrink-0 ${isPlayerOn() ? '' : 'opacity-50'}`}>
-                  {trackInfo.coverArt ? (
-                    <img
-                      src={trackInfo.coverArt}
-                      alt={`${trackInfo.album || 'Album'} cover`}
-                      className="w-32 h-32 rounded-lg shadow-lg object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-32 h-32 rounded-lg shadow-lg bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
-                      <span className="text-white text-4xl">🎵</span>
-                    </div>
-                  )}
-                </div>
+          <NowPlaying
+            source="pianobar"
+            title={trackInfo.title || song}
+            artist={trackInfo.artist || artist}
+            position={trackInfo.songPlayed || 0}
+            duration={trackInfo.songDuration || 0}
+            isActive={isPlayerOn()}
+            album={trackInfo.album || album}
+            stationName={trackInfo.stationName || station}
+            coverArt={trackInfo.coverArt}
+            rating={trackInfo.rating}
+            detailUrl={trackInfo.detailUrl}
+            onOpenModeSelector={() => setShowModeSelector(true)}
+            onRefresh={handleRefreshAll}
+          />
 
-                {/* Station Mode Button */}
-                <button
-                  onClick={() => setShowModeSelector(true)}
-                  disabled={!isPlayerOn()}
-                  className={`w-32 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    isPlayerOn()
-                      ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600 shadow-md'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                  }`}
-                  title={isPlayerOn() ? 'Customize your station mode' : 'Start pianobar to change modes'}
-                >
-                  <div className="flex flex-col items-center justify-center space-y-1">
-                    <div className="flex items-center space-x-1.5">
-                      <span className="text-[12px] opacity-75">Mode</span>
-                      <svg className="w-4 h-4 opacity-75" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                      </svg>
-                    </div>
-                    <span className="leading-tight text-[14px] font-semibold">Tune Your Station</span>
-                  </div>
-                </button>
-              </div>
-
-              {/* Song Details */}
-              <div className="flex-grow min-w-0">
-                {/* Title */}
-                <h3 className={`text-xl font-bold truncate dark:text-white ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-title">
-                  {trackInfo.title || song || 'No song playing'}
-                </h3>
-                
-                {/* Artist */}
-                {(trackInfo.artist || artist) && (
-                  <p className={`text-lg text-gray-700 dark:text-gray-300 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-artist">
-                    {trackInfo.artist || artist}
-                  </p>
-                )}
-                
-                {/* Album */}
-                {(trackInfo.album || album) && (
-                  <p className={`text-sm text-gray-600 dark:text-gray-400 truncate ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-album">
-                    {trackInfo.album || album}
-                  </p>
-                )}
-                
-                {/* Station */}
-                {(trackInfo.stationName || station) && (
-                  <p className={`text-sm text-blue-600 font-medium truncate flex items-center space-x-1 ${isPlayerOn() ? '' : 'opacity-50'}`} data-testid="song-station">
-                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect x="2" y="10" width="2" height="4" fill="currentColor"/>
-                      <rect x="5" y="8" width="2" height="8" fill="currentColor"/>
-                      <rect x="8" y="6" width="2" height="12" fill="currentColor"/>
-                      <rect x="11" y="4" width="2" height="16" fill="currentColor"/>
-                      <rect x="14" y="6" width="2" height="12" fill="currentColor"/>
-                      <rect x="17" y="8" width="2" height="8" fill="currentColor"/>
-                      <rect x="20" y="10" width="2" height="4" fill="currentColor"/>
-                    </svg>
-                    <span className="truncate">{trackInfo.stationName || station}</span>
-                  </p>
-                )}
-                
-                {/* Loved Indicator */}
-                {trackInfo.rating > 0 && (
-                  <div className={`flex items-center mt-2 ${isPlayerOn() ? '' : 'opacity-50'}`}>
-                    <span className="text-sm text-red-500 flex items-center">
-                      <span className="mr-1">Loved</span> 
-                      <span className="text-red-500 animate-pulse">❤️</span>
-                    </span>
-                  </div>
-                )}
-                
-                {/* Song Progress Bar and Force Sync Button */}
-                <div className="mt-4 flex items-center space-x-3">
-                  {trackInfo.songDuration > 0 && (
-                    <div className={`flex-1 ${isPlayerOn() ? '' : 'opacity-50'}`}>
-                      <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
-                        <span>{formatTime(trackInfo.songPlayed || 0)}</span>
-                        <span>{formatTime(trackInfo.songDuration)}</span>
-                      </div>
-                      <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
-                        <div 
-                          className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
-                          style={{ 
-                            width: `${Math.min(100, (trackInfo.songPlayed / trackInfo.songDuration) * 100)}%` 
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <button 
-                    onClick={handleRefreshAll}
-                    className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-all duration-200 transform hover:scale-105 shadow-md"
-                    title="🔄 Force Sync Latest Track & Progress"
-                  >
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                      <path d="M21 3v5h-5"></path>
-                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                      <path d="M3 21v-5h5"></path>
-                    </svg>
-                  </button>
-                </div>
-                
-                {/* Pandora Link */}
-                {trackInfo.detailUrl && (
-                  <a 
-                    href={trackInfo.detailUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className={`text-sm text-blue-400 hover:text-blue-300 mt-3 inline-block transition-colors ${isPlayerOn() ? '' : 'opacity-50'}`}
-                  >
-                    View on Pandora →
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Playback Controls */}
-          <div className={`flex justify-center space-x-6 my-6 ${isPlayerOn() ? '' : 'opacity-50'}`}>
-            <button 
-              onClick={handleLove}
-              className={`p-4 rounded-full transition-all duration-300 ${
-                !isPlayerOn() 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : trackInfo.rating > 0 
-                    ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
-                    : 'bg-red-500 hover:bg-red-600 text-white'
-              } ${isAnimatingLove ? 'animate-love' : ''}`}
-              disabled={!isPlayerOn()}
-              title={trackInfo.rating > 0 ? "Loved Song" : "Love This Song"}
-            >
-              <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-              </svg>
-            </button>
-            <button 
-              onClick={handlePlayPause}
-              className={`p-4 rounded-full ${
-                isPlayerOn() 
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              disabled={!isPlayerOn()}
-              title={isPlaying() ? 'Pause' : 'Play'}
-            >
-              {isPlaying() ? (
-                <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
-                </svg>
-              )}
-            </button>
-            <button 
-              onClick={handleNext}
-              className={`p-4 rounded-full ${
-                isPlayerOn() 
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              disabled={!isPlayerOn()}
-              title="Next Song"
-            >
-              <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M5.055 7.06c-1.25-.714-2.805.189-2.805 1.628v8.123c0 1.44 1.555 2.342 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.342 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256L14.805 7.06C13.555 6.346 12 7.25 12 8.688v2.34L5.055 7.06z" />
-              </svg>
-            </button>
-          </div>
+          {/* Playback Controls - Using shared component */}
+          <TransportControls
+            source="pianobar"
+            isActive={isPlayerOn()}
+            isPlaying={isPlaying()}
+            onPlayPause={handlePlayPause}
+            onNext={handleNext}
+            isLoved={trackInfo.rating > 0}
+            isAnimatingLove={isAnimatingLove}
+            onLove={handleLove}
+          />
           
           {/* Station Selector */}
           <div className={`mt-6 ${isPlayerOn() ? '' : 'opacity-50'}`}>
