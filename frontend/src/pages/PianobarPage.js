@@ -10,7 +10,7 @@ const API_BASE_URL = 'http://192.168.10.15:3001/api';
 
 function PianobarPage() {
   // Get state from context
-  const { pianobar, bluetooth, actions } = useAppContext();
+  const { pianobar, bluetooth, jukebox, activeSource, actions } = useAppContext();
   
   // Component state
   const [selectedStation, setSelectedStation] = useState('');
@@ -256,8 +256,106 @@ function PianobarPage() {
         
         websocket.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          
-          // Only handle simple status updates
+          const source = data.source || data.data?.source; // Some messages have source in data
+
+          // ============================================
+          // SOURCE-KILLED: AudioBroker killed a source
+          // ============================================
+          if (data.type === 'source-killed') {
+            // Backend sends killedSource in data.data or data.source
+            const killedSource = data.data?.killedSource || data.source;
+            console.log('🔴 [WS] source-killed:', killedSource);
+
+            if (killedSource === 'pianobar') {
+              // Immediately update pianobar state to stopped
+              setSharedState(prev => ({
+                ...prev,
+                isRunning: false,
+                isPlaying: false
+              }));
+              actions.updatePianobarStatus({
+                isRunning: false,
+                isPlaying: false,
+                status: { ...pianobar.status, status: 'stopped' }
+              });
+              // Clear activeSource if pianobar was the active source
+              // (The new source will set activeSource optimistically when it starts)
+              actions.setActiveSource('none');
+            } else if (killedSource === 'jukebox') {
+              // Clear jukebox state
+              actions.clearJukeboxTrack();
+              // Clear activeSource if jukebox was the active source
+              actions.setActiveSource('none');
+            }
+            return;
+          }
+
+          // ============================================
+          // JUKEBOX MESSAGES (source === 'jukebox')
+          // ============================================
+          if (source === 'jukebox') {
+
+            // Jukebox song update
+            if (data.type === 'song') {
+              console.log('🎵 [WS] Jukebox song:', data.data);
+              actions.updateJukeboxTrack({
+                title: data.data.title || '',
+                artist: data.data.artist || '',
+                duration: parseInt(data.data.duration) || 0,
+                position: parseInt(data.data.position) || 0,
+                youtubeId: data.data.youtubeId || null,
+                filepath: data.data.filepath || null
+              });
+              // Also update playing state if provided
+              if (data.data.isPlaying !== undefined) {
+                actions.updateJukeboxStatus({ isPlaying: data.data.isPlaying });
+              }
+            }
+
+            // Jukebox status update
+            else if (data.type === 'status') {
+              console.log('🎵 [WS] Jukebox status:', data.data);
+              actions.updateJukeboxStatus({
+                isPlaying: data.data.isPlaying || data.data.status === 'playing'
+              });
+            }
+
+            // Jukebox playback progress (opt-in subscription)
+            else if (data.type === 'playback-progress') {
+              // Update position without logging (high frequency)
+              actions.updateJukeboxTrack({
+                position: data.data.position || 0
+              });
+            }
+
+            // Save completed
+            else if (data.type === 'save-complete') {
+              console.log('✅ [WS] Save complete:', data.data);
+              // TODO: Show success toast when Toast component is implemented (4.9)
+              // For now, just refresh library
+              // jukeboxApi.getLibrary().then(res => actions.setJukeboxLibrary(res.data));
+            }
+
+            // Save failed
+            else if (data.type === 'save-failed') {
+              console.log('❌ [WS] Save failed:', data.data);
+              // TODO: Show error toast when Toast component is implemented (4.9)
+            }
+
+            // Queue updated
+            else if (data.type === 'queue-updated') {
+              console.log('🎵 [WS] Queue updated:', data.data);
+              actions.updateJukeboxQueue(data.data.queue || {});
+            }
+
+            return; // Don't fall through to pianobar handlers
+          }
+
+          // ============================================
+          // PIANOBAR MESSAGES (source === 'pianobar' or no source)
+          // ============================================
+
+          // Pianobar status updates
           if (data.type === 'status') {
             const newSharedState = {
               isRunning: data.data.isPianobarRunning || (data.data.status !== 'stopped'),
@@ -265,9 +363,9 @@ function PianobarPage() {
               currentStation: pianobar.status?.stationId || '',
               bluetoothConnected: bluetooth.isConnected
             };
-            
+
             setSharedState(newSharedState);
-            
+
             // Update pianobar context for other components
             actions.updatePianobarStatus({
               isRunning: newSharedState.isRunning,
@@ -277,19 +375,19 @@ function PianobarPage() {
                 status: data.data.status
               }
             });
-            
+
             // Sync to backend
             debouncedSyncSharedState(newSharedState);
           }
-          // Handle song updates intelligently
+          // Pianobar song updates
           else if (data.type === 'song') {
             setTrackInfo(prev => {
               const newTitle = data.data.title || '';
               const newArtist = data.data.artist || '';
-              
+
               // Check if this is a new song (different title or artist)
               const isNewSong = (prev.title !== newTitle || prev.artist !== newArtist);
-              
+
               const newTrackInfo = {
                 title: newTitle,
                 artist: newArtist,
@@ -302,18 +400,15 @@ function PianobarPage() {
                 coverArt: data.data.coverArt || '',
                 detailUrl: data.data.detailUrl || ''
               };
-              
-              // REMOVED: Client-to-backend track sync - Backend is source of truth
-              // The WebSocket service already updates backend state automatically
-              
+
               return newTrackInfo;
             });
           }
-          // Handle love events
+          // Pianobar love events
           else if (data.type === 'love') {
             setTrackInfo(prev => ({ ...prev, rating: 1 }));
           }
-          // Handle station list updates
+          // Pianobar station list updates
           else if (data.type === 'stations' && data.data.stations) {
             const stationList = parseStationList(data.data.stations);
             if (stationList && stationList.length > 0) {
@@ -361,6 +456,29 @@ function PianobarPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Mount-only: WebSocket connection lifecycle managed internally
+
+  // ============================================
+  // JUKEBOX PROGRESS SUBSCRIPTION LIFECYCLE
+  // ============================================
+  // Subscribe to progress updates when jukebox is playing
+  // Unsubscribe when jukebox stops or component unmounts
+  useEffect(() => {
+    const ws = wsRef.current;
+
+    // Only subscribe if jukebox is playing and WebSocket is connected
+    if (jukebox.isPlaying && ws && ws.readyState === WebSocket.OPEN) {
+      console.log('🎵 [WS] Subscribing to jukebox progress updates');
+      ws.send(JSON.stringify({ type: 'subscribe-progress' }));
+    }
+
+    // Cleanup: unsubscribe when jukebox stops playing or component unmounts
+    return () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('🎵 [WS] Unsubscribing from jukebox progress updates');
+        ws.send(JSON.stringify({ type: 'unsubscribe-progress' }));
+      }
+    };
+  }, [jukebox.isPlaying]); // Re-run when jukebox playing state changes
 
   // Bluetooth Progress Bar Animation
   useEffect(() => {

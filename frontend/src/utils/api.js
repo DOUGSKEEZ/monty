@@ -509,9 +509,169 @@ export const pianobarApi = {
    * 🚨 NUCLEAR OPTION: Force kill all pianobar processes
    * @returns {Promise<Object>} - Result
    */
-  kill: () => 
+  kill: () =>
     fetchApi('/pianobar/kill', {
       method: 'POST',
+    }),
+};
+
+// Jukebox API endpoints (YouTube streaming + local music library)
+export const jukeboxApi = {
+  // ============================================
+  // SEARCH
+  // ============================================
+
+  /**
+   * Search YouTube for tracks
+   * @param {string} query - Search query
+   * @param {number} offset - Pagination offset (default 0)
+   * @returns {Promise<Object>} - Search results with parsed artist/title
+   */
+  search: (query, offset = 0) =>
+    fetchApi(`/jukebox/search?q=${encodeURIComponent(query)}&offset=${offset}`),
+
+  // ============================================
+  // PLAYBACK
+  // ============================================
+
+  /**
+   * Play a YouTube video by ID (resolves URL fresh, never cached)
+   * @param {string} youtubeId - YouTube video ID
+   * @param {Object} metadata - Optional track metadata from search results
+   * @param {string} metadata.title - Track title (avoids "Unknown" in NowPlaying)
+   * @param {string} metadata.artist - Artist name (from parsedArtist)
+   * @param {number} metadata.duration - Duration in seconds
+   * @returns {Promise<Object>} - Result
+   */
+  playYouTube: (youtubeId, metadata = {}) =>
+    fetchApi('/jukebox/play-youtube', {
+      method: 'POST',
+      body: JSON.stringify({ youtubeId, ...metadata }),
+    }),
+
+  /**
+   * Play a local library track by filepath
+   * @param {string} filepath - Path to local file (relative to ~/Music)
+   * @returns {Promise<Object>} - Result
+   */
+  playLocal: (filepath) =>
+    fetchApi('/jukebox/play-local', {
+      method: 'POST',
+      body: JSON.stringify({ filepath }),
+    }),
+
+  /**
+   * Resume playback (after pause)
+   * @returns {Promise<Object>} - Result
+   */
+  play: () =>
+    fetchApi('/jukebox/play', {
+      method: 'POST',
+    }),
+
+  /**
+   * Pause playback
+   * @returns {Promise<Object>} - Result
+   */
+  pause: () =>
+    fetchApi('/jukebox/pause', {
+      method: 'POST',
+    }),
+
+  /**
+   * Stop playback (clears track, releases AudioBroker)
+   * @returns {Promise<Object>} - Result
+   */
+  stop: () =>
+    fetchApi('/jukebox/stop', {
+      method: 'POST',
+    }),
+
+  /**
+   * Skip to next track in queue (or stop if queue empty)
+   * @returns {Promise<Object>} - Result
+   */
+  next: () =>
+    fetchApi('/jukebox/next', {
+      method: 'POST',
+    }),
+
+  // ============================================
+  // STATUS
+  // ============================================
+
+  /**
+   * Get current jukebox status (track info, playing state, queue)
+   * @param {boolean} silent - Whether to suppress logging
+   * @returns {Promise<Object>} - Jukebox status
+   */
+  getStatus: (silent = false) =>
+    fetchApi('/jukebox/status', {}, silent),
+
+  // ============================================
+  // LIBRARY
+  // ============================================
+
+  /**
+   * Get all tracks in the local music library (~Music/)
+   * @returns {Promise<Object>} - Library tracks array
+   */
+  getLibrary: () =>
+    fetchApi('/jukebox/library'),
+
+  /**
+   * Save a YouTube track to the local library
+   * @param {string} youtubeId - YouTube video ID
+   * @param {string} artist - Artist name (user-editable)
+   * @param {string} title - Track title (user-editable)
+   * @returns {Promise<Object>} - Result (save is async, watch for WebSocket save-complete)
+   */
+  saveTrack: (youtubeId, artist, title) =>
+    fetchApi('/jukebox/save', {
+      method: 'POST',
+      body: JSON.stringify({ youtubeId, artist, title }),
+    }),
+
+  /**
+   * Delete a track from the local library
+   * @param {string} filename - Filename to delete (e.g., "Artist - Title.mp3")
+   * @returns {Promise<Object>} - Result
+   */
+  deleteTrack: (filename) =>
+    fetchApi(`/jukebox/library/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    }),
+
+  // ============================================
+  // QUEUE
+  // ============================================
+
+  /**
+   * Get current queue state (onDeck, inTheHole)
+   * @returns {Promise<Object>} - Queue state
+   */
+  getQueue: () =>
+    fetchApi('/jukebox/queue'),
+
+  /**
+   * Add a library track to the queue
+   * @param {string} filepath - Path to local file
+   * @returns {Promise<Object>} - Result
+   */
+  addToQueue: (filepath) =>
+    fetchApi('/jukebox/queue', {
+      method: 'POST',
+      body: JSON.stringify({ filepath }),
+    }),
+
+  /**
+   * Remove a track from a queue slot
+   * @param {string} slot - Queue slot ('onDeck' | 'inTheHole')
+   * @returns {Promise<Object>} - Result
+   */
+  removeFromQueue: (slot) =>
+    fetchApi(`/jukebox/queue/${encodeURIComponent(slot)}`, {
+      method: 'DELETE',
     }),
 };
 

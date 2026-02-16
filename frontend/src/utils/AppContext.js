@@ -119,6 +119,34 @@ export const AppProvider = ({ children }) => {
     error: null,
   });
 
+  // Active audio source - APP-WIDE SINGLE SOURCE OF TRUTH
+  // Lives at top level because it orchestrates BOTH pianobar and jukebox
+  const [activeSource, setActiveSourceState] = useState('none'); // 'pianobar' | 'jukebox' | 'none'
+
+  // Jukebox state (YouTube streaming + local music library)
+  const [jukebox, setJukebox] = useState({
+    isPlaying: false,
+    track: {
+      title: '',
+      artist: '',
+      duration: 0,
+      position: 0,
+      youtubeId: null,    // Set when playing YouTube
+      filepath: null       // Set when playing local library
+    },
+    searchResults: [],
+    searchLoading: false,
+    queue: { onDeck: null, inTheHole: null },
+    library: [],
+    libraryLoading: false,
+    saveModal: {
+      isOpen: false,
+      youtubeId: null,
+      parsedArtist: '',
+      parsedTitle: ''
+    }
+  });
+
   // Removed complex currentSong state - now managed locally in components
 
   // Theme state - controls navbar seasonal themes and dark mode
@@ -1121,6 +1149,125 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
+  // ============================================
+  // JUKEBOX STATE UPDATE FUNCTIONS
+  // ============================================
+
+  // Set active audio source - APP-WIDE SINGLE SOURCE OF TRUTH
+  // Call this OPTIMISTICALLY when user triggers playback (before API call)
+  // Lives at top level (not inside jukebox) because it orchestrates BOTH sources
+  const setActiveSource = (source) => {
+    console.log('🎵 [ACTIVE-SOURCE] Setting to:', source);
+    setActiveSourceState(source);
+  };
+
+  // Update jukebox track info (from WebSocket or API)
+  const updateJukeboxTrack = (trackData) => {
+    console.log('🎵 [JUKEBOX-TRACK] Updating:', trackData);
+    setJukebox(prev => ({
+      ...prev,
+      track: {
+        ...prev.track,
+        ...trackData
+      }
+    }));
+  };
+
+  // Update jukebox status (isPlaying, etc.)
+  const updateJukeboxStatus = (statusData) => {
+    console.log('🎵 [JUKEBOX-STATUS] Updating:', statusData);
+    setJukebox(prev => ({
+      ...prev,
+      ...statusData
+    }));
+  };
+
+  // Set search results from YouTube search
+  const setJukeboxSearchResults = (results) => {
+    setJukebox(prev => ({
+      ...prev,
+      searchResults: results || []
+    }));
+  };
+
+  // Toggle search loading state
+  const setJukeboxSearchLoading = (isLoading) => {
+    setJukebox(prev => ({
+      ...prev,
+      searchLoading: isLoading
+    }));
+  };
+
+  // Update queue (onDeck / inTheHole)
+  const updateJukeboxQueue = (queue) => {
+    console.log('🎵 [JUKEBOX-QUEUE] Updating:', queue);
+    setJukebox(prev => ({
+      ...prev,
+      queue: {
+        ...prev.queue,
+        ...queue
+      }
+    }));
+  };
+
+  // Set library tracks
+  const setJukeboxLibrary = (tracks) => {
+    setJukebox(prev => ({
+      ...prev,
+      library: tracks || []
+    }));
+  };
+
+  // Toggle library loading state
+  const setJukeboxLibraryLoading = (isLoading) => {
+    setJukebox(prev => ({
+      ...prev,
+      libraryLoading: isLoading
+    }));
+  };
+
+  // Open save modal with pre-populated data from search results
+  const openSaveModal = ({ youtubeId, parsedArtist, parsedTitle }) => {
+    setJukebox(prev => ({
+      ...prev,
+      saveModal: {
+        isOpen: true,
+        youtubeId,
+        parsedArtist: parsedArtist || '',
+        parsedTitle: parsedTitle || ''
+      }
+    }));
+  };
+
+  // Close save modal
+  const closeSaveModal = () => {
+    setJukebox(prev => ({
+      ...prev,
+      saveModal: {
+        isOpen: false,
+        youtubeId: null,
+        parsedArtist: '',
+        parsedTitle: ''
+      }
+    }));
+  };
+
+  // Reset jukebox track state (e.g., after stop)
+  const clearJukeboxTrack = () => {
+    setJukebox(prev => ({
+      ...prev,
+      isPlaying: false,
+      track: {
+        title: '',
+        artist: '',
+        duration: 0,
+        position: 0,
+        youtubeId: null,
+        filepath: null
+      }
+    }));
+  };
+
   // Removed complex song update logic
 
   // Removed song clearing logic
@@ -1192,6 +1339,18 @@ export const AppProvider = ({ children }) => {
     setThemeMode,
     setManualTheme,
     toggleDarkMode,
+    // Jukebox actions
+    setActiveSource,
+    updateJukeboxTrack,
+    updateJukeboxStatus,
+    setJukeboxSearchResults,
+    setJukeboxSearchLoading,
+    updateJukeboxQueue,
+    setJukeboxLibrary,
+    setJukeboxLibraryLoading,
+    openSaveModal,
+    closeSaveModal,
+    clearJukeboxTrack,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []); // Functions are stable - intentionally omitted to prevent re-creation
 
@@ -1204,6 +1363,8 @@ export const AppProvider = ({ children }) => {
     music,
     bluetooth,
     pianobar,
+    jukebox,        // Jukebox state (YouTube + local library)
+    activeSource,   // App-wide: 'pianobar' | 'jukebox' | 'none'
     theme,
     // Removed currentSong from context
     actions,

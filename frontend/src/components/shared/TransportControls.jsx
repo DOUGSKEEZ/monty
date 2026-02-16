@@ -20,9 +20,6 @@ import React from 'react';
  *
  * Props (jukebox-only):
  * - onStop: function - Callback for stop button (clears track, releases AudioBroker)
- *
- * TODO Phase 4: Add Stop button for jukebox - distinct from pianobar's "Turn Off"
- * power button. Jukebox stop clears the current track and releases playback.
  */
 function TransportControls({
   source,
@@ -33,9 +30,12 @@ function TransportControls({
   // Pianobar-specific
   isLoved = false,
   isAnimatingLove = false,
-  onLove
+  onLove,
+  // Jukebox-specific
+  onStop
 }) {
   const isPianobar = source === 'pianobar';
+  const isJukebox = source === 'jukebox';
 
   return (
     <div className={`flex justify-center space-x-6 my-6 ${isActive ? '' : 'opacity-50'}`}>
@@ -96,6 +96,26 @@ function TransportControls({
           <path d="M5.055 7.06c-1.25-.714-2.805.189-2.805 1.628v8.123c0 1.44 1.555 2.342 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.342 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256L14.805 7.06C13.555 6.346 12 7.25 12 8.688v2.34L5.055 7.06z" />
         </svg>
       </button>
+
+      {/* Stop Button - Jukebox only */}
+      {/* Distinct from pianobar's "Turn Off" power button. */}
+      {/* Stop clears the current track and releases AudioBroker. */}
+      {isJukebox && onStop && (
+        <button
+          onClick={onStop}
+          className={`p-4 rounded-full ${
+            isActive
+              ? 'bg-gray-500 hover:bg-gray-600 text-white'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+          disabled={!isActive}
+          title="Stop Playback"
+        >
+          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M4.5 7.5a3 3 0 013-3h9a3 3 0 013 3v9a3 3 0 01-3 3h-9a3 3 0 01-3-3v-9z" clipRule="evenodd" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
