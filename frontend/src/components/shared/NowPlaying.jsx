@@ -79,7 +79,7 @@ function NowPlaying({
       {/* Album Art + Song Details Layout */}
       <div className="flex items-start space-x-4">
 
-        {/* Album Art Column - Pianobar only */}
+        {/* Album Art Column - Pianobar */}
         {isPianobar && (
           <div className="flex flex-col space-y-3">
             {/* Album Art */}
@@ -121,6 +121,30 @@ function NowPlaying({
                 <span className="leading-tight text-[14px] font-semibold">Tune Your Station</span>
               </div>
             </button>
+          </div>
+        )}
+
+        {/* Thumbnail Column - Jukebox (YouTube) */}
+        {isJukebox && youtubeId && (
+          <div className={`flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}>
+            <img
+              src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
+              alt={title || 'YouTube thumbnail'}
+              className="w-32 h-24 rounded-lg shadow-lg object-cover"
+              onError={(e) => {
+                // Fallback to placeholder on error
+                e.target.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+
+        {/* Placeholder Art - Jukebox (Library, no thumbnail) */}
+        {isJukebox && !youtubeId && (
+          <div className={`flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}>
+            <div className="w-32 h-24 rounded-lg shadow-lg bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center">
+              <span className="text-white text-3xl">🎵</span>
+            </div>
           </div>
         )}
 

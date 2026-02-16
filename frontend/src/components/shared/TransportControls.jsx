@@ -20,6 +20,9 @@ import React from 'react';
  *
  * Props (jukebox-only):
  * - onStop: function - Callback for stop button (clears track, releases AudioBroker)
+ * - onRestart: function - Callback for restart button (replay current track from beginning)
+ * - restartDisabled: boolean - Whether restart is in cooldown
+ * - playDisabled: boolean - Whether play is disabled (song finished, use Restart)
  */
 function TransportControls({
   source,
@@ -32,7 +35,10 @@ function TransportControls({
   isAnimatingLove = false,
   onLove,
   // Jukebox-specific
-  onStop
+  onStop,
+  onRestart,
+  restartDisabled = false,
+  playDisabled = false
 }) {
   const isPianobar = source === 'pianobar';
   const isJukebox = source === 'jukebox';
@@ -59,16 +65,35 @@ function TransportControls({
         </button>
       )}
 
+      {/* Restart Button - Jukebox only, left of Play/Pause */}
+      {isJukebox && onRestart && (
+        <button
+          onClick={onRestart}
+          className={`p-4 rounded-full transition-opacity ${
+            isActive && !restartDisabled
+              ? 'bg-gray-400 hover:bg-gray-500 text-white'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+          }`}
+          disabled={!isActive || restartDisabled}
+          title={restartDisabled ? 'Please wait...' : 'Restart Track'}
+        >
+          <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      )}
+
       {/* Play/Pause Button - Shared */}
+      {/* For jukebox: disabled after song finishes (use Restart instead) */}
       <button
         onClick={onPlayPause}
-        className={`p-4 rounded-full ${
-          isActive
+        className={`p-4 rounded-full transition-opacity ${
+          isActive && !(isJukebox && playDisabled && !isPlaying)
             ? 'bg-blue-500 hover:bg-blue-600 text-white'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
         }`}
-        disabled={!isActive}
-        title={isPlaying ? 'Pause' : 'Play'}
+        disabled={!isActive || (isJukebox && playDisabled && !isPlaying)}
+        title={isPlaying ? 'Pause' : (playDisabled ? 'Song finished - use Restart' : 'Play')}
       >
         {isPlaying ? (
           <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">

@@ -94,9 +94,13 @@ class AudioBroker {
         await this._killSource(this.activeSource);
       }
 
-      // Also do a defensive kill of the same source to prevent duplicates
-      // (e.g., killing any zombie pianobar before starting a new one)
-      await this._killSource(source);
+      // Defensive kill of same source to catch zombies - but ONLY for pianobar
+      // Pianobar can have orphaned processes from crashes. Jukebox's mpv is
+      // managed by node-mpv and doesn't need defensive kills - calling stop()
+      // on an idle jukebox causes unnecessary state resets and source-killed events.
+      if (source === 'pianobar') {
+        await this._killSource(source);
+      }
 
       // Mark new source as active
       this.activeSource = source;

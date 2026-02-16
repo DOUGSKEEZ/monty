@@ -4,6 +4,7 @@ import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
 import ModeSelector from '../components/ModeSelector';
 import NowPlaying from '../components/shared/NowPlaying';
 import TransportControls from '../components/shared/TransportControls';
+import JukeboxSection from '../components/Jukebox/JukeboxSection';
 
 // Backend API base URL (same as api.js)
 const API_BASE_URL = 'http://192.168.10.15:3001/api';
@@ -298,16 +299,30 @@ function PianobarPage() {
             // Jukebox song update
             if (data.type === 'song') {
               console.log('🎵 [WS] Jukebox song:', data.data);
-              actions.updateJukeboxTrack({
-                title: data.data.title || '',
-                artist: data.data.artist || '',
-                duration: parseInt(data.data.duration) || 0,
-                position: parseInt(data.data.position) || 0,
-                youtubeId: data.data.youtubeId || null,
-                filepath: data.data.filepath || null
-              });
-              // Also update playing state if provided
-              if (data.data.isPlaying !== undefined) {
+
+              // Only update track info if there's meaningful data
+              // On natural EOF, backend sends empty track - preserve last track for replay
+              const hasTrackInfo = data.data.youtubeId || data.data.filepath || data.data.title;
+              if (hasTrackInfo) {
+                actions.updateJukeboxTrack({
+                  title: data.data.title || '',
+                  artist: data.data.artist || '',
+                  duration: parseInt(data.data.duration) || 0,
+                  position: parseInt(data.data.position) || 0,
+                  youtubeId: data.data.youtubeId || null,
+                  filepath: data.data.filepath || null
+                });
+                // New track loaded - clear finished state
+                if (data.data.isPlaying) {
+                  actions.updateJukeboxStatus({ isPlaying: true, isFinished: false });
+                }
+              } else if (data.data.isPlaying === false) {
+                // Empty track + not playing = EOF (song finished naturally)
+                actions.updateJukeboxStatus({ isPlaying: false, isFinished: true });
+              }
+
+              // Update playing state if provided (and not already handled above)
+              if (data.data.isPlaying !== undefined && hasTrackInfo) {
                 actions.updateJukeboxStatus({ isPlaying: data.data.isPlaying });
               }
             }
@@ -1195,6 +1210,9 @@ function PianobarPage() {
           </div>
         </div>
       </div>
+
+      {/* Jukebox Section - YouTube streaming + local music library */}
+      <JukeboxSection />
 
       {/* Usage Instructions */}
       <div className="mt-6 bg-gray-50 dark:bg-gray-700 p-4 rounded border dark:border-gray-600">

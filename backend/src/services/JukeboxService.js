@@ -171,6 +171,11 @@ class JukeboxService {
       }
     });
 
+    // Error handling - catches load failures, stream issues, etc.
+    this.mpvPlayer.on('error', (error) => {
+      logger.error(`mpv error: ${error}`);
+    });
+
     logger.debug('mpv event handlers configured');
   }
 
@@ -548,38 +553,45 @@ class JukeboxService {
   /**
    * Parse YouTube title into artist/title
    * @private
+   *
+   * Handles both parentheses () and square brackets [] since YouTube titles use both.
+   * Example: "Sash! - Encore Une Fois [Remastered] Multi - 1997 HD & HQ @Channel"
+   *       -> { artist: "Sash!", title: "Encore Une Fois - Remastered" }
    */
   _parseYouTubeTitle(title) {
     let artist = '';
     let parsedTitle = title;
 
-    // Pre-scrub: handle "(ft. Artist)", "(feat. Artist)", "(featuring Artist)" etc.
+    // Pre-scrub: handle "(ft. Artist)", "[ft. Artist]", etc.
     // Handles: ft, feat, featuring, with or without . or : after it, any capitalization
-    // Removes both parens, keeps content as "ft. Artist"
-    parsedTitle = parsedTitle.replace(/\((?:feat(?:uring)?|ft)[.:!]?\s*([^)]*)\)/gi, 'ft. $1');
+    // Removes parens/brackets, keeps content as "ft. Artist"
+    parsedTitle = parsedTitle.replace(/[\[(](?:feat(?:uring)?|ft)[.:!]?\s*([^\])]*)[)\]]/gi, 'ft. $1');
 
-    // Pre-scrub: handle "(Instrumental)", "(Instrumental Version)", etc.
+    // Pre-scrub: handle "(Instrumental)", "[Instrumental Version]", etc.
     // Move to end of title as " - Instrumental"
-    if (/\(instrumental[^)]*\)/i.test(parsedTitle)) {
-      parsedTitle = parsedTitle.replace(/\s*\(instrumental[^)]*\)\s*/gi, ' ').trim() + ' - Instrumental';
+    if (/[\[(]instrumental[^\])]*[)\]]/i.test(parsedTitle)) {
+      parsedTitle = parsedTitle.replace(/\s*[\[(]instrumental[^\])]*[)\]]\s*/gi, ' ').trim() + ' - Instrumental';
     }
 
-    // Pre-scrub: preserve (Live), (Acoustic), (Remix), (Remastered) by moving to end
+    // Pre-scrub: preserve (Live), [Acoustic], (Remix), [Remastered] by moving to end
     // These are meaningful metadata that users might want to keep
-    // NOTE: Avoid .test() + .replace() on same regex with 'g' flag - lastIndex gotcha
+    // Handles both () and [] - YouTube uses square brackets frequently
+    // IMPORTANT: Truncate everything AFTER the match - it's usually junk like "HD & HQ @Channel"
     const preservePatterns = [
-      // Match keyword ANYWHERE inside parens: (Live at...), (Best live...), (Super Deluxe Live)
+      // Match keyword ANYWHERE inside parens/brackets: (Live at...), [Best live...], etc.
       // \b word boundary prevents false matches like (Oliver's Version) matching "live"
-      { regex: /\s*\([^)]*\blive\b[^)]*\)\s*/gi, suffix: ' - Live' },
-      { regex: /\s*\([^)]*\bacoustic\b[^)]*\)\s*/gi, suffix: ' - Acoustic' },
-      { regex: /\s*\([^)]*\bremix\b[^)]*\)\s*/gi, suffix: ' - Remix' },
-      { regex: /\s*\([^)]*\bremaster(ed)?\b[^)]*\)\s*/gi, suffix: ' - Remastered' }
+      { regex: /[\[(][^\])]*\blive\b[^\])]*[)\]]/i, suffix: ' - Live' },
+      { regex: /[\[(][^\])]*\bacoustic\b[^\])]*[)\]]/i, suffix: ' - Acoustic' },
+      { regex: /[\[(][^\])]*\bremix\b[^\])]*[)\]]/i, suffix: ' - Remix' },
+      { regex: /[\[(][^\])]*\bremaster(ed)?\b[^\])]*[)\]]/i, suffix: ' - Remastered' }
     ];
 
     for (const pattern of preservePatterns) {
-      const cleaned = parsedTitle.replace(pattern.regex, ' ').trim();
-      if (cleaned !== parsedTitle) {
-        parsedTitle = cleaned + pattern.suffix;
+      const match = parsedTitle.match(pattern.regex);
+      if (match) {
+        // Truncate at the match position (everything after is junk)
+        const matchIndex = parsedTitle.indexOf(match[0]);
+        parsedTitle = parsedTitle.substring(0, matchIndex).trim() + pattern.suffix;
         break;  // Only apply first match
       }
     }
@@ -591,8 +603,8 @@ class JukeboxService {
       parsedTitle = parsedTitle.substring(dashIndex + 3).trim();
     }
 
-    // Truncate at first "(" (remove video metadata like "(Official Video)")
-    const parenIndex = parsedTitle.indexOf('(');
+    // Truncate at first "(" or "[" (remove video metadata like "(Official Video)" or "[HD]")
+    const parenIndex = parsedTitle.search(/[\[(]/);
     if (parenIndex !== -1) {
       parsedTitle = parsedTitle.substring(0, parenIndex).trim();
     }
@@ -868,7 +880,7 @@ class JukeboxService {
       isPlaying: this.isPlaying,
       currentTrack: this.currentTrack,
       position: this.position,
-      duration: this.duration,
+      duration: this.currentTrack?.duration || this.duration,
       queue: this.getQueue()
     };
   }
@@ -904,7 +916,8 @@ class JukeboxService {
         source: 'jukebox',
         title: this.currentTrack?.title || '',
         artist: this.currentTrack?.artist || '',
-        duration: this.duration,
+        // Prefer metadata duration (from search results), fall back to mpv-reported
+        duration: this.currentTrack?.duration || this.duration,
         position: this.position,
         isPlaying: this.isPlaying,
         youtubeId: this.currentTrack?.youtubeId || null,
@@ -928,7 +941,7 @@ class JukeboxService {
       data: {
         source: 'jukebox',
         position: this.position,
-        duration: this.duration
+        duration: this.currentTrack?.duration || this.duration
       }
     });
 
