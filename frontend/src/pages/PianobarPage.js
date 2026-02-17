@@ -955,6 +955,22 @@ function PianobarPage() {
     }
   };
 
+  const handleJukeboxSeekBackward = async () => {
+    try {
+      await jukeboxApi.seek(-10);
+    } catch (error) {
+      console.error('Error seeking backward:', error);
+    }
+  };
+
+  const handleJukeboxSeekForward = async () => {
+    try {
+      await jukeboxApi.seek(10);
+    } catch (error) {
+      console.error('Error seeking forward:', error);
+    }
+  };
+
   // ============================================
   // UNIFIED TRANSPORT HANDLER DISPATCH
   // ============================================
@@ -1285,6 +1301,9 @@ function PianobarPage() {
                 // Jukebox-specific props
                 sourceType={isJukeboxActive ? (jukebox.track?.youtubeId ? 'youtube' : 'library') : undefined}
                 youtubeId={isJukeboxActive ? jukebox.track?.youtubeId : undefined}
+                isPlaying={isJukeboxActive ? jukebox.isPlaying : false}
+                onSeekBackward={isJukeboxActive ? handleJukeboxSeekBackward : undefined}
+                onSeekForward={isJukeboxActive ? handleJukeboxSeekForward : undefined}
               />
 
               {/* UNIFIED TRANSPORT CONTROLS - Switches based on activeSource */}
@@ -1359,19 +1378,6 @@ function PianobarPage() {
 
       {/* Jukebox Section - YouTube streaming + local music library */}
       <JukeboxSection />
-
-      {/* Usage Instructions */}
-      <div className="mt-6 bg-gray-50 dark:bg-gray-700 p-4 rounded border dark:border-gray-600">
-        <h3 className="font-semibold mb-2 dark:text-white">How to Use:</h3>
-        <ol className="list-decimal pl-5 space-y-1">
-          <li>Turn on the music player using the "Turn On" button</li>
-          <li>Use the playback controls to skip songs or pause music</li>
-          <li>Heart a song to tell Pandora you like it</li>
-          <li>Change stations using the selector</li>
-          <li>Change station mode to customize your listening experience</li>
-          <li>Turn off the player when done</li>
-        </ol>
-      </div>
 
       {/* Mode Selector Modal */}
       <ModeSelector

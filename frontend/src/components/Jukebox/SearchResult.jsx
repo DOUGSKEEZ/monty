@@ -64,12 +64,10 @@ function SearchResult({ result, onPlay, onSave, isPlaying }) {
         <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
           {parsedArtist || 'Unknown Artist'} • {formatDuration(duration)}
         </p>
-        {/* Original title if different (helps identify the video) */}
-        {parsedTitle && parsedTitle !== title && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-1">
-            {title}
-          </p>
-        )}
+        {/* Original YouTube title (always show for identification) */}
+        <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-1">
+          {title}
+        </p>
       </div>
 
       {/* Action Buttons */}

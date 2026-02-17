@@ -167,6 +167,30 @@ router.post('/stop', async (req, res) => {
 });
 
 /**
+ * POST /api/jukebox/seek
+ * Seek forward or backward in current track
+ * Body: { seconds: number } - positive for forward, negative for backward
+ */
+router.post('/seek', async (req, res) => {
+  try {
+    const { seconds } = req.body;
+
+    if (typeof seconds !== 'number') {
+      return res.status(400).json({ error: 'seconds must be a number' });
+    }
+
+    const service = getJukeboxService();
+    await service.seek(seconds);
+
+    res.json({ success: true, message: `Seeked ${seconds > 0 ? '+' : ''}${seconds}s` });
+
+  } catch (error) {
+    logger.error(`Seek error: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * POST /api/jukebox/next
  * Skip to next track in queue
  */

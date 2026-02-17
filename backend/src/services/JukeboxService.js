@@ -397,6 +397,24 @@ class JukeboxService {
   }
 
   /**
+   * Seek forward or backward in the current track
+   * @param {number} seconds - Positive to seek forward, negative to seek backward
+   */
+  async seek(seconds) {
+    if (!this.isInitialized || !this.isPlaying) {
+      logger.debug('Cannot seek: not playing');
+      return;
+    }
+
+    try {
+      await this.mpvPlayer.seek(seconds);
+      logger.debug(`Seeked ${seconds > 0 ? '+' : ''}${seconds}s`);
+    } catch (error) {
+      logger.error(`Failed to seek: ${error.message}`);
+    }
+  }
+
+  /**
    * Skip to next track in queue
    */
   async next() {
@@ -461,14 +479,16 @@ class JukeboxService {
   async searchYouTube(query, offset = 0) {
     logger.info(`Searching YouTube: "${query}"`);
 
-    const searchQuery = `ytsearch5:${query}`;
+    // Request 8 results, filter out non-videos, return up to 5
+    const searchQuery = `ytsearch8:${query}`;
 
     return new Promise((resolve, reject) => {
       // Use spawn with array args to prevent shell injection
+      // Include ie_key to filter out channels (YoutubeTab) vs videos (Youtube)
       const child = spawn('yt-dlp', [
         searchQuery,
         '--flat-playlist',
-        '--print', '%(title)s\t%(id)s\t%(duration)s'
+        '--print', '%(title)s\t%(id)s\t%(duration)s\t%(ie_key)s'
       ]);
 
       let stdout = '';
@@ -502,7 +522,7 @@ class JukeboxService {
           .split('\n')
           .filter(line => line.trim())
           .map(line => {
-            const [title, id, duration] = line.split('\t');
+            const [title, id, duration, ieKey] = line.split('\t');
             const parsed = this._parseYouTubeTitle(title || '');
 
             return {
@@ -510,9 +530,34 @@ class JukeboxService {
               youtubeId: id,
               duration: parseFloat(duration) || 0,
               parsedArtist: parsed.artist,
-              parsedTitle: parsed.title
+              parsedTitle: parsed.title,
+              _ieKey: ieKey  // Internal: for filtering
             };
-          });
+          })
+          // Filter out non-video results (channels, playlists, mixes)
+          .filter(result => {
+            // 1. Must be a video (ie_key=Youtube), not a channel/tab (YoutubeTab)
+            if (result._ieKey !== 'Youtube') {
+              logger.debug(`Filtered non-video (${result._ieKey}): "${result.title}"`);
+              return false;
+            }
+            // 2. Must have valid duration (catches anything missed above)
+            if (!result.duration || result.duration <= 0) {
+              logger.debug(`Filtered no-duration: "${result.title}"`);
+              return false;
+            }
+            // 3. Safety net: filter YouTube auto-generated Mixes by title pattern
+            const titleLower = result.title.toLowerCase();
+            if (titleLower.startsWith('mix - ') || titleLower.startsWith('mix– ')) {
+              logger.debug(`Filtered YouTube Mix: "${result.title}"`);
+              return false;
+            }
+            return true;
+          })
+          // Remove internal field before returning
+          .map(({ _ieKey, ...result }) => result)
+          // Limit to 5 results (we fetched 8 to have room for filtering)
+          .slice(0, 5);
 
         logger.info(`Found ${results.length} results for "${query}"`);
         resolve(results);

@@ -588,6 +588,17 @@ export const jukeboxApi = {
     }),
 
   /**
+   * Seek forward or backward in current track
+   * @param {number} seconds - Positive for forward, negative for backward
+   * @returns {Promise<Object>} - Result
+   */
+  seek: (seconds) =>
+    fetchApi('/jukebox/seek', {
+      method: 'POST',
+      body: JSON.stringify({ seconds }),
+    }),
+
+  /**
    * Skip to next track in queue (or stop if queue empty)
    * @returns {Promise<Object>} - Result
    */

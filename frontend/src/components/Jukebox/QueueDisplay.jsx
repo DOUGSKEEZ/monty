@@ -96,7 +96,7 @@ function QueueDisplay() {
   return (
     <div className="mb-3 p-2 bg-gray-50 dark:bg-gray-700 rounded">
       <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-        📋 Up Next
+        Up Next
       </h3>
       {renderSlot('On Deck', 'onDeck', queue.onDeck)}
       {renderSlot('In the Hole', 'inTheHole', queue.inTheHole)}

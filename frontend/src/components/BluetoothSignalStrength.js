@@ -192,7 +192,7 @@ function BluetoothSignalStrength({ mode = 'both' }) {
 
   if (mode === 'text') {
     return (
-      <span className="text-xs text-gray-500 font-mono ml-11">
+      <span className="text-xs text-gray-500 font-mono ml-3">
         {rssi} dBm
       </span>
     );

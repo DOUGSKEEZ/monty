@@ -77,7 +77,7 @@ function JukeboxSection() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold dark:text-white flex items-center">
           <span className="mr-2">🎵</span>
-          Jukebox
+          Monty's Jukebox
           {isJukeboxActive && (
             <span className="ml-3 text-sm font-normal text-green-600 dark:text-green-400">
               ● Active

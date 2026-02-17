@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../../utils/AppContext';
 import { jukeboxApi } from '../../utils/api';
 
@@ -14,16 +14,42 @@ import { jukeboxApi } from '../../utils/api';
  * Actions:
  * - Tap/click: Play track
  * - Queue button: Add to queue
- * - Long-press (600ms): Show delete confirmation
+ * - Long-press (800ms): Show delete confirmation
+ * - Tap elsewhere: Dismiss delete confirmation
  */
 function LibraryTrack({ track, isPlaying, isQueued, onRefresh }) {
   const { actions } = useAppContext();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const rowRef = useRef(null);
 
   // Long-press detection
   const longPressTimer = useRef(null);
   const isLongPress = useRef(false);
+  const touchStartPos = useRef({ x: 0, y: 0 });
+
+  // Click-outside to dismiss delete confirmation
+  useEffect(() => {
+    if (!showDeleteConfirm) return;
+
+    const handleClickOutside = (e) => {
+      if (rowRef.current && !rowRef.current.contains(e.target)) {
+        setShowDeleteConfirm(false);
+      }
+    };
+
+    // Small delay to avoid immediate dismiss from the same touch
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showDeleteConfirm]);
 
   const handlePlay = async () => {
     // Optimistic update
@@ -78,21 +104,43 @@ function LibraryTrack({ track, isPlaying, isQueued, onRefresh }) {
     }
   };
 
-  // Long-press handlers (600ms to trigger)
-  const startLongPress = () => {
+  // Long-press handlers (800ms to trigger, cancelled by scroll/movement)
+  const startLongPress = (e) => {
     isLongPress.current = false;
+
+    // Record touch start position for scroll detection
+    if (e.touches && e.touches[0]) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else {
+      touchStartPos.current = { x: e.clientX, y: e.clientY };
+    }
+
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
       setShowDeleteConfirm(true);
       // Vibrate on mobile if supported (subtle feedback)
       if (navigator.vibrate) navigator.vibrate(50);
-    }, 600);
+    }, 800);
   };
 
-  const endLongPress = () => {
+  const cancelLongPress = () => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
+    }
+  };
+
+  // Cancel long-press if finger moves (scroll detection)
+  const handleTouchMove = (e) => {
+    if (!longPressTimer.current) return;
+
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+
+    // If moved more than 10px in any direction, cancel (user is scrolling)
+    if (dx > 10 || dy > 10) {
+      cancelLongPress();
     }
   };
 
@@ -107,13 +155,15 @@ function LibraryTrack({ track, isPlaying, isQueued, onRefresh }) {
 
   return (
     <div
+      ref={rowRef}
       onClick={handleRowClick}
       onMouseDown={startLongPress}
-      onMouseUp={endLongPress}
-      onMouseLeave={endLongPress}
+      onMouseUp={cancelLongPress}
+      onMouseLeave={cancelLongPress}
       onTouchStart={startLongPress}
-      onTouchEnd={endLongPress}
-      className={`flex items-center py-1 px-2 transition-colors border-b border-gray-100 dark:border-gray-700 cursor-pointer select-none ${
+      onTouchMove={handleTouchMove}
+      onTouchEnd={cancelLongPress}
+      className={`flex items-center py-0 px-2 transition-colors border-b border-gray-100 dark:border-gray-700 cursor-pointer select-none ${
         isPlaying
           ? 'bg-blue-50 dark:bg-blue-900/20'
           : showDeleteConfirm
@@ -158,14 +208,14 @@ function LibraryTrack({ track, isPlaying, isQueued, onRefresh }) {
           <button
             onClick={handleQueue}
             disabled={isQueued}
-            className={`p-1 transition-colors ${
+            className={`p-1.5 transition-colors ${
               isQueued
                 ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
                 : 'text-yellow-500 hover:text-yellow-600'
             }`}
             title={isQueued ? 'Already in queue' : 'Add to queue'}
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
           </button>

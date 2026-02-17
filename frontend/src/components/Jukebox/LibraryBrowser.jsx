@@ -177,7 +177,7 @@ function LibraryBrowser() {
 
       {/* Track list - dense, no gaps */}
       {filteredAndSortedTracks.length > 0 && (
-        <div className="max-h-80 overflow-y-auto border-t border-gray-200 dark:border-gray-600">
+        <div className="max-h-96 overflow-y-auto border-t border-gray-200 dark:border-gray-600">
           {filteredAndSortedTracks.map((track) => (
             <LibraryTrack
               key={track.filepath}
