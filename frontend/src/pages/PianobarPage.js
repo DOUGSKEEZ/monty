@@ -306,8 +306,6 @@ function PianobarPage() {
 
             // Jukebox song update
             if (data.type === 'song') {
-              console.log('🎵 [WS] Jukebox song:', data.data);
-
               // Only update track info if there's meaningful data
               // On natural EOF, backend sends empty track - preserve last track for replay
               const hasTrackInfo = data.data.youtubeId || data.data.filepath || data.data.title;
@@ -337,7 +335,6 @@ function PianobarPage() {
 
             // Jukebox status update
             else if (data.type === 'status') {
-              console.log('🎵 [WS] Jukebox status:', data.data);
               actions.updateJukeboxStatus({
                 isPlaying: data.data.isPlaying || data.data.status === 'playing'
               });
@@ -369,7 +366,6 @@ function PianobarPage() {
 
             // Queue updated
             else if (data.type === 'queue-updated') {
-              console.log('🎵 [WS] Queue updated:', data.data);
               actions.updateJukeboxQueue(data.data || {});
             }
 
@@ -501,14 +497,12 @@ function PianobarPage() {
 
     // Only subscribe if jukebox is playing and WebSocket is connected
     if (jukebox.isPlaying && ws && ws.readyState === WebSocket.OPEN) {
-      console.log('🎵 [WS] Subscribing to jukebox progress updates');
       ws.send(JSON.stringify({ type: 'subscribe-progress' }));
     }
 
     // Cleanup: unsubscribe when jukebox stops playing or component unmounts
     return () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        console.log('🎵 [WS] Unsubscribing from jukebox progress updates');
         ws.send(JSON.stringify({ type: 'unsubscribe-progress' }));
       }
     };

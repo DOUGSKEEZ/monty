@@ -124,11 +124,14 @@ class JukeboxService {
       // Re-register property observers (initial ones may be lost to socket race condition)
       // At this point socket is guaranteed connected because mpv just loaded a track
       // timeposition event requires: observed.filename, !observed.pause, currentTimePos
+      // duration needed for local files (YouTube provides duration upfront)
+      // IDs match node-mpv internal assignment: pause=2, duration=3, filename=5, time-pos=0
       try {
         this.mpvPlayer.observeProperty('time-pos', 0);
-        this.mpvPlayer.observeProperty('filename', 5);
         this.mpvPlayer.observeProperty('pause', 2);
-        logger.info('mpv: Re-registered property observers (time-pos, filename, pause)');
+        this.mpvPlayer.observeProperty('duration', 3);
+        this.mpvPlayer.observeProperty('filename', 5);
+        logger.info('mpv: Re-registered property observers (time-pos, pause, duration, filename)');
       } catch (err) {
         logger.warn(`mpv: Failed to re-register observers: ${err.message}`);
       }

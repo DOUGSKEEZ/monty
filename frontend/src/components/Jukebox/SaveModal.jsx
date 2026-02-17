@@ -78,7 +78,6 @@ function SaveModal() {
         // Close modal immediately - download happens in background
         // WebSocket will deliver save-complete or save-failed event
         actions.closeSaveModal();
-        console.log('🎵 [SAVE] Track save initiated:', response.filename);
       } else {
         setError(response.error || 'Failed to save track');
       }

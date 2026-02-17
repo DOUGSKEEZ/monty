@@ -1158,13 +1158,11 @@ export const AppProvider = ({ children }) => {
   // Call this OPTIMISTICALLY when user triggers playback (before API call)
   // Lives at top level (not inside jukebox) because it orchestrates BOTH sources
   const setActiveSource = (source) => {
-    console.log('🎵 [ACTIVE-SOURCE] Setting to:', source);
     setActiveSourceState(source);
   };
 
   // Update jukebox track info (from WebSocket or API)
   const updateJukeboxTrack = (trackData) => {
-    console.log('🎵 [JUKEBOX-TRACK] Updating:', trackData);
     setJukebox(prev => ({
       ...prev,
       track: {
@@ -1176,7 +1174,6 @@ export const AppProvider = ({ children }) => {
 
   // Update jukebox status (isPlaying, etc.)
   const updateJukeboxStatus = (statusData) => {
-    console.log('🎵 [JUKEBOX-STATUS] Updating:', statusData);
     setJukebox(prev => ({
       ...prev,
       ...statusData
@@ -1201,7 +1198,6 @@ export const AppProvider = ({ children }) => {
 
   // Update queue (onDeck / inTheHole)
   const updateJukeboxQueue = (queue) => {
-    console.log('🎵 [JUKEBOX-QUEUE] Updating:', queue);
     setJukebox(prev => ({
       ...prev,
       queue: {

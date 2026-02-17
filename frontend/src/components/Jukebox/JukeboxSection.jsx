@@ -49,8 +49,6 @@ function JukeboxSection() {
         if (status.queue) {
           actions.updateJukeboxQueue(status.queue);
         }
-
-        console.log('🎵 [JUKEBOX] State synced on mount:', status);
       } catch (error) {
         // Silent fail - jukebox might not be initialized yet
         console.debug('Jukebox sync skipped (not active):', error.message);
