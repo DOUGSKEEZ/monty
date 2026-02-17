@@ -974,6 +974,7 @@ class JukeboxService {
     if (!this.websocketService) return;
 
     const message = {
+      source: 'jukebox',
       type: 'queue-updated',
       data: this.getQueue()
     };

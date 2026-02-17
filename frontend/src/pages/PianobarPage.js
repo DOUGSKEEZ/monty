@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../utils/AppContext';
+import { jukeboxApi } from '../utils/api';
 import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
 import ModeSelector from '../components/ModeSelector';
 import NowPlaying from '../components/shared/NowPlaying';
@@ -348,8 +349,10 @@ function PianobarPage() {
             else if (data.type === 'save-complete') {
               console.log('✅ [WS] Save complete:', data.data);
               actions.showToast('success', `Saved: ${data.data.filename}`);
-              // Refresh library when implemented
-              // jukeboxApi.getLibrary().then(res => actions.setJukeboxLibrary(res.tracks));
+              // Auto-refresh library so new track appears
+              jukeboxApi.getLibrary().then(res => {
+                if (res.tracks) actions.setJukeboxLibrary(res.tracks);
+              }).catch(err => console.error('Failed to refresh library:', err));
             }
 
             // Save failed
@@ -361,7 +364,7 @@ function PianobarPage() {
             // Queue updated
             else if (data.type === 'queue-updated') {
               console.log('🎵 [WS] Queue updated:', data.data);
-              actions.updateJukeboxQueue(data.data.queue || {});
+              actions.updateJukeboxQueue(data.data || {});
             }
 
             return; // Don't fall through to pianobar handlers

@@ -88,24 +88,36 @@ function LibraryBrowser() {
   ];
 
   return (
-    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
-          <span className="mr-2">📚</span>
-          My Library
-          {library.length > 0 && (
-            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-              ({library.length} tracks)
-            </span>
-          )}
+    <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded">
+      {/* Header row with title, sort buttons, and refresh */}
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          📚 Song Library ({library.length})
         </h3>
 
-        {/* Refresh button */}
+        {/* Sort buttons */}
+        <div className="flex space-x-1 flex-1">
+          {sortButtons.map(({ mode, label }) => (
+            <button
+              key={mode}
+              onClick={() => setSortMode(mode)}
+              className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                sortMode === mode
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Refresh button - icon only */}
         <button
           onClick={loadLibrary}
           disabled={libraryLoading}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
+          className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400
+                     hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
           title="Refresh library"
         >
           <svg className={`w-4 h-4 ${libraryLoading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -114,41 +126,24 @@ function LibraryBrowser() {
         </button>
       </div>
 
-      {/* Sort buttons */}
-      <div className="flex space-x-2 mb-3">
-        {sortButtons.map(({ mode, label }) => (
-          <button
-            key={mode}
-            onClick={() => setSortMode(mode)}
-            className={`px-3 py-1 text-xs rounded-full transition-colors ${
-              sortMode === mode
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Filter input */}
-      <div className="relative mb-4">
+      {/* Filter input - its own row for mobile visibility */}
+      <div className="relative mb-2">
         <input
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter tracks..."
-          className="w-full px-4 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
+          placeholder="Filter songs..."
+          className="w-full px-2 py-1 pr-6 text-xs border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                     focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                     focus:ring-1 focus:ring-blue-500 focus:border-transparent"
         />
         {filter && (
           <button
             onClick={() => setFilter('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             title="Clear filter"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -157,39 +152,32 @@ function LibraryBrowser() {
 
       {/* Loading state */}
       {libraryLoading && library.length === 0 && (
-        <div className="text-center py-8">
-          <svg className="w-8 h-8 mx-auto animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+        <div className="text-center py-4">
+          <svg className="w-5 h-5 mx-auto animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading library...</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading...</p>
         </div>
       )}
 
       {/* Empty state */}
       {!libraryLoading && library.length === 0 && (
-        <div className="text-center py-8">
-          <p className="text-gray-500 dark:text-gray-400">
-            No saved tracks yet
-          </p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-            Search YouTube above and save some!
-          </p>
-        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 py-2 text-center">
+          No saved tracks — search YouTube and save some!
+        </p>
       )}
 
       {/* No results from filter */}
       {!libraryLoading && library.length > 0 && filteredAndSortedTracks.length === 0 && (
-        <div className="text-center py-8">
-          <p className="text-gray-500 dark:text-gray-400">
-            No tracks match "{filter}"
-          </p>
-        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 py-2 text-center">
+          No tracks match "{filter}"
+        </p>
       )}
 
-      {/* Track list */}
+      {/* Track list - dense, no gaps */}
       {filteredAndSortedTracks.length > 0 && (
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+        <div className="max-h-80 overflow-y-auto border-t border-gray-200 dark:border-gray-600">
           {filteredAndSortedTracks.map((track) => (
             <LibraryTrack
               key={track.filepath}
