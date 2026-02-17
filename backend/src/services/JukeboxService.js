@@ -17,6 +17,7 @@ const mpv = require('node-mpv');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 const logger = require('../utils/logger').getModuleLogger('jukebox-service');
 
 // Singleton instance
@@ -869,6 +870,31 @@ class JukeboxService {
     // Unref so the parent can exit without waiting for download
     child.unref();
 
+    // Download YouTube thumbnail (fire-and-forget, don't block save)
+    const artworkDir = path.join(this.libraryPath, 'artwork');
+    const artworkPath = path.join(artworkDir, `${sanitizedArtist} - ${sanitizedTitle}.jpg`);
+    const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+
+    // Ensure artwork directory exists
+    if (!fs.existsSync(artworkDir)) {
+      fs.mkdirSync(artworkDir, { recursive: true });
+    }
+
+    https.get(thumbnailUrl, (response) => {
+      if (response.statusCode === 200) {
+        const fileStream = fs.createWriteStream(artworkPath);
+        response.pipe(fileStream);
+        fileStream.on('finish', () => {
+          fileStream.close();
+          logger.debug(`Artwork saved: ${sanitizedArtist} - ${sanitizedTitle}.jpg`);
+        });
+      } else {
+        logger.debug(`Artwork download failed: HTTP ${response.statusCode}`);
+      }
+    }).on('error', (err) => {
+      logger.debug(`Artwork download failed (non-fatal): ${err.message}`);
+    });
+
     logger.info(`Download started for: ${filename}`);
     return { status: 'saving', filename };
   }
@@ -899,9 +925,17 @@ class JukeboxService {
       await this.stop();
     }
 
-    // Delete the file
+    // Delete the mp3 file
     fs.unlinkSync(resolvedPath);
     logger.info(`Deleted: ${filename}`);
+
+    // Delete associated artwork if it exists
+    const artworkFilename = filename.replace('.mp3', '.jpg');
+    const artworkPath = path.join(this.libraryPath, 'artwork', artworkFilename);
+    if (fs.existsSync(artworkPath)) {
+      fs.unlinkSync(artworkPath);
+      logger.info(`Deleted artwork: ${artworkFilename}`);
+    }
   }
 
   /**

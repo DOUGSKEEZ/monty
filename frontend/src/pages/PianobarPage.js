@@ -1301,6 +1301,7 @@ function PianobarPage() {
                 // Jukebox-specific props
                 sourceType={isJukeboxActive ? (jukebox.track?.youtubeId ? 'youtube' : 'library') : undefined}
                 youtubeId={isJukeboxActive ? jukebox.track?.youtubeId : undefined}
+                filepath={isJukeboxActive ? jukebox.track?.filepath : undefined}
                 isPlaying={isJukeboxActive ? jukebox.isPlaying : false}
                 onSeekBackward={isJukeboxActive ? handleJukeboxSeekBackward : undefined}
                 onSeekForward={isJukeboxActive ? handleJukeboxSeekForward : undefined}

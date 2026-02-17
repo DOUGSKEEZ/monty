@@ -7,6 +7,8 @@
 
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const logger = require('../utils/logger').getModuleLogger('jukebox-routes');
 
 // Lazy-loaded service references
@@ -264,6 +266,36 @@ router.get('/library', async (req, res) => {
   } catch (error) {
     logger.error(`Library list error: ${error.message}`);
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/jukebox/artwork
+ * Serve artwork for a library track
+ * Query params: filepath (path to the .mp3 file)
+ */
+router.get('/artwork', (req, res) => {
+  const { filepath } = req.query;
+
+  if (!filepath) {
+    return res.status(400).json({ error: 'filepath required' });
+  }
+
+  // Security: path traversal check (same as playLocal)
+  const libraryPath = path.join(process.env.HOME || '/home/monty', 'Music');
+  const resolvedPath = path.resolve(filepath);
+  if (!resolvedPath.startsWith(libraryPath)) {
+    return res.status(403).json({ error: 'Invalid path' });
+  }
+
+  // Swap .mp3 for .jpg and look in artwork subdirectory
+  const filename = path.basename(filepath, '.mp3') + '.jpg';
+  const artworkPath = path.join(libraryPath, 'artwork', filename);
+
+  if (fs.existsSync(artworkPath)) {
+    res.sendFile(artworkPath);
+  } else {
+    res.status(404).json({ error: 'Artwork not found' });
   }
 });
 

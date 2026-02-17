@@ -48,6 +48,7 @@ function NowPlaying({
   // Jukebox-specific
   sourceType,
   youtubeId,
+  filepath,
   isPlaying = false,
   onSeekBackward,
   onSeekForward
@@ -180,12 +181,21 @@ function NowPlaying({
           </div>
         )}
 
-        {/* Placeholder Art - Jukebox (Library, no thumbnail) */}
+        {/* Library Art - Jukebox (artwork if exists, otherwise placeholder) */}
         {isJukebox && !youtubeId && (
           <div className="flex flex-col space-y-3">
             <div className={`flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}>
-              <div className="w-32 h-24 rounded-lg shadow-lg bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center">
+              <div className="w-32 h-24 rounded-lg shadow-lg bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center relative overflow-hidden">
                 <span className="text-white text-3xl">🎵</span>
+                {filepath && (
+                  <img
+                    key={filepath}
+                    src={`http://192.168.10.15:3001/api/jukebox/artwork?filepath=${encodeURIComponent(filepath)}`}
+                    alt="Album art"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                )}
               </div>
             </div>
             {/* Seek Buttons - Below artwork */}
