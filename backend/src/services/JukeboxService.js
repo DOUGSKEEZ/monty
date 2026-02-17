@@ -88,7 +88,8 @@ class JukeboxService {
       this.mpvPlayer = new mpv({
         audio_only: true,
         verbose: false,
-        socket: '/tmp/monty-jukebox.sock'
+        socket: '/tmp/monty-jukebox.sock',
+        time_update: 1  // Enable timeposition events (fires every 1 second)
       }, [
         '--no-video',
         '--volume=80',           // Comfortable default level
@@ -119,6 +120,19 @@ class JukeboxService {
     this.mpvPlayer.on('started', () => {
       logger.info('mpv: Track started');
       this.isPlaying = true;
+
+      // Re-register property observers (initial ones may be lost to socket race condition)
+      // At this point socket is guaranteed connected because mpv just loaded a track
+      // timeposition event requires: observed.filename, !observed.pause, currentTimePos
+      try {
+        this.mpvPlayer.observeProperty('time-pos', 0);
+        this.mpvPlayer.observeProperty('filename', 5);
+        this.mpvPlayer.observeProperty('pause', 2);
+        logger.info('mpv: Re-registered property observers (time-pos, filename, pause)');
+      } catch (err) {
+        logger.warn(`mpv: Failed to re-register observers: ${err.message}`);
+      }
+
       this._broadcastStatus();
     });
 
@@ -154,7 +168,7 @@ class JukeboxService {
       this._broadcastStatus();
     });
 
-    // Time position updates (every second)
+    // Time position updates (every second - requires time_update option)
     this.mpvPlayer.on('timeposition', (seconds) => {
       this.position = seconds;
 
@@ -164,10 +178,27 @@ class JukeboxService {
       }
     });
 
-    // Status changes
+    // Log when timeposition events start (confirms time_update is working)
+    let firstTimeposition = true;
+    this.mpvPlayer.on('timeposition', () => {
+      if (firstTimeposition) {
+        logger.info('mpv: First timeposition event received (time_update working)');
+        firstTimeposition = false;
+      }
+    });
+
+    // Status changes (captures duration for local files)
     this.mpvPlayer.on('statuschange', (status) => {
-      if (status.duration) {
+      if (status.duration && status.duration !== this.duration) {
+        const previousDuration = this.duration;
         this.duration = status.duration;
+        logger.debug(`mpv: Duration updated: ${previousDuration} → ${this.duration}`);
+
+        // If duration was unknown (0) and now we have it, broadcast update
+        // This is critical for local files where duration isn't known until loaded
+        if (previousDuration === 0 && this.duration > 0) {
+          this._broadcastStatus();
+        }
       }
     });
 
@@ -891,7 +922,7 @@ class JukeboxService {
    */
   subscribeProgress(ws) {
     this.progressSubscribers.add(ws);
-    logger.debug(`Progress subscriber added (total: ${this.progressSubscribers.size})`);
+    logger.info(`Progress subscriber added (total: ${this.progressSubscribers.size})`);
   }
 
   /**

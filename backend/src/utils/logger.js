@@ -198,22 +198,27 @@ class Logger {
   _initializeTransports() {
     const transports = [];
 
-    // Console transport for development
-    if (this.environment !== 'production') {
-      transports.push(
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.colorize(),
-            winston.format.printf(({ level, message, module, correlationId }) => {
-              // Simple, clean format for development
-              const prefix = module ? `[${module}]` : '';
-              const corr = correlationId ? ` (${correlationId.substring(0, 8)})` : '';
-              return `${level} ${prefix}: ${message}${corr}`;
-            })
-          )
-        })
-      );
-    }
+    // Console transport - always enabled for journalctl visibility
+    // Production: simpler format without colors (systemd captures plain text)
+    // Development: colorized output for terminal readability
+    const consoleFormat = this.environment === 'production'
+      ? winston.format.combine(
+          winston.format.printf(({ level, message, module, correlationId }) => {
+            const prefix = module ? `[${module}]` : '';
+            const corr = correlationId ? ` (${correlationId.substring(0, 8)})` : '';
+            return `${level.toUpperCase()} ${prefix}: ${message}${corr}`;
+          })
+        )
+      : winston.format.combine(
+          winston.format.colorize(),
+          winston.format.printf(({ level, message, module, correlationId }) => {
+            const prefix = module ? `[${module}]` : '';
+            const corr = correlationId ? ` (${correlationId.substring(0, 8)})` : '';
+            return `${level} ${prefix}: ${message}${corr}`;
+          })
+        );
+
+    transports.push(new winston.transports.Console({ format: consoleFormat }));
 
     // Custom Splunk HEC transport when enabled
     if (process.env.SPLUNK_ENABLED === 'true') {

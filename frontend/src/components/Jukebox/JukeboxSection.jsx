@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useAppContext } from '../../utils/AppContext';
 import { jukeboxApi } from '../../utils/api';
-import TransportControls from '../shared/TransportControls';
 import YouTubeSearch from './YouTubeSearch';
 import QueueDisplay from './QueueDisplay';
 import LibraryBrowser from './LibraryBrowser';
@@ -10,19 +9,16 @@ import SaveModal from './SaveModal';
 /**
  * JukeboxSection Component
  *
- * Wrapper for all jukebox UI - keeps PianobarPage.js thin.
- * Contains: TransportControls, YouTubeSearch, QueueDisplay, LibraryBrowser, SaveModal
+ * Wrapper for jukebox content UI - search, queue, library, save modal.
+ * Transport controls are now unified with pianobar in PianobarPage.js
  *
- * This component is always visible below the Pianobar controls,
+ * This component is always visible below the unified Now Playing area,
  * allowing users to search/browse even when Pianobar is playing.
  */
 function JukeboxSection() {
-  const { jukebox, activeSource, actions } = useAppContext();
-  const [restartCooldown, setRestartCooldown] = useState(false);
+  const { activeSource, actions } = useAppContext();
 
   const isJukeboxActive = activeSource === 'jukebox';
-  const hasTrack = jukebox.track?.title || jukebox.track?.youtubeId;
-  const isFinished = jukebox.isFinished && !jukebox.isPlaying;
 
   // ============================================
   // SYNC STATE ON MOUNT
@@ -65,80 +61,6 @@ function JukeboxSection() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ============================================
-  // TRANSPORT CONTROL HANDLERS
-  // ============================================
-
-  const handlePlayPause = async () => {
-    const wasPlaying = jukebox.isPlaying;
-    actions.updateJukeboxStatus({ isPlaying: !wasPlaying });
-
-    try {
-      if (wasPlaying) {
-        await jukeboxApi.pause();
-      } else {
-        // Resume - only works if mpv has content loaded (mid-song pause)
-        // After EOF this is a no-op, but button is dimmed anyway
-        await jukeboxApi.play();
-      }
-    } catch (error) {
-      console.error('Error toggling jukebox playback:', error);
-      actions.updateJukeboxStatus({ isPlaying: wasPlaying });
-    }
-  };
-
-  const handleNext = async () => {
-    try {
-      await jukeboxApi.next();
-    } catch (error) {
-      console.error('Error skipping to next track:', error);
-    }
-  };
-
-  const handleStop = async () => {
-    try {
-      await jukeboxApi.stop();
-      // Clear local state immediately for responsive UI
-      actions.clearJukeboxTrack();
-      actions.setActiveSource('none');
-    } catch (error) {
-      console.error('Error stopping jukebox:', error);
-    }
-  };
-
-  const handleRestart = useCallback(async () => {
-    // Prevent hammering - 3.5 second cooldown
-    if (restartCooldown) return;
-
-    const { track } = jukebox;
-    if (!track) return;
-
-    // Start cooldown (5s to allow yt-dlp URL resolution)
-    setRestartCooldown(true);
-    setTimeout(() => setRestartCooldown(false), 5000);
-
-    // Clear finished state immediately for responsive UI
-    actions.updateJukeboxStatus({ isFinished: false, isPlaying: true });
-
-    try {
-      if (track.youtubeId) {
-        // YouTube track - re-request with same metadata
-        await jukeboxApi.playYouTube(track.youtubeId, {
-          title: track.title,
-          artist: track.artist,
-          duration: track.duration
-        });
-      } else if (track.filepath) {
-        // Library track - re-request same file
-        await jukeboxApi.playLocal(track.filepath);
-      }
-    } catch (error) {
-      console.error('Error restarting track:', error);
-      // Revert on error
-      actions.updateJukeboxStatus({ isFinished: true, isPlaying: false });
-    }
-  }, [jukebox, restartCooldown, actions]);
-
-  // ============================================
   // SAVE MODAL HANDLERS
   // ============================================
 
@@ -160,37 +82,11 @@ function JukeboxSection() {
           Jukebox
           {isJukeboxActive && (
             <span className="ml-3 text-sm font-normal text-green-600 dark:text-green-400">
-              ● Playing
+              ● Active
             </span>
           )}
         </h2>
       </div>
-
-      {/* Transport Controls - Show when jukebox is active or has a track */}
-      {(isJukeboxActive || hasTrack) && (
-        <div className="mb-6">
-          <TransportControls
-            source="jukebox"
-            isActive={isJukeboxActive || hasTrack}
-            isPlaying={jukebox.isPlaying}
-            onPlayPause={handlePlayPause}
-            onNext={handleNext}
-            onStop={handleStop}
-            onRestart={handleRestart}
-            restartDisabled={restartCooldown}
-            playDisabled={isFinished}
-          />
-        </div>
-      )}
-
-      {/* Current Track Info - Simple display for now */}
-      {hasTrack && (
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Now Playing</p>
-          <p className="font-semibold dark:text-white">{jukebox.track.title || 'Unknown'}</p>
-          <p className="text-gray-600 dark:text-gray-300">{jukebox.track.artist || 'Unknown Artist'}</p>
-        </div>
-      )}
 
       {/* YouTube Search */}
       <YouTubeSearch onSaveRequest={handleSaveRequest} />

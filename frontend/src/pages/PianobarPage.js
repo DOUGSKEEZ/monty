@@ -21,9 +21,12 @@ function PianobarPage() {
   const [operationMessage, setOperationMessage] = useState('');
   const [buttonLocked, setButtonLocked] = useState(false);
   const [buttonAction, setButtonAction] = useState(null); // 'starting' or 'stopping'
-  
+
   // Love animation state
   const [isAnimatingLove, setIsAnimatingLove] = useState(false);
+
+  // Jukebox-specific state (for unified transport controls)
+  const [restartCooldown, setRestartCooldown] = useState(false);
 
   // Mode selector state
   const [showModeSelector, setShowModeSelector] = useState(false);
@@ -281,13 +284,16 @@ function PianobarPage() {
                 isPlaying: false,
                 status: { ...pianobar.status, status: 'stopped' }
               });
-              // Clear activeSource if pianobar was the active source
-              // (The new source will set activeSource optimistically when it starts)
-              actions.setActiveSource('none');
             } else if (killedSource === 'jukebox') {
               // Clear jukebox state
               actions.clearJukeboxTrack();
-              // Clear activeSource if jukebox was the active source
+            }
+
+            // Only reset activeSource if the killed source WAS the active source.
+            // This prevents clobbering an optimistic update from the NEW source.
+            // e.g., jukebox sets activeSource='jukebox', then source-killed:pianobar arrives
+            // — we should NOT reset to 'none' because jukebox already claimed it.
+            if (activeSource === killedSource) {
               actions.setActiveSource('none');
             }
             return;
@@ -395,11 +401,20 @@ function PianobarPage() {
               }
             });
 
+            // Set activeSource to pianobar when it's playing
+            // This ensures unified transport controls wire to pianobar handlers
+            if (newSharedState.isPlaying) {
+              actions.setActiveSource('pianobar');
+            }
+
             // Sync to backend
             debouncedSyncSharedState(newSharedState);
           }
           // Pianobar song updates
           else if (data.type === 'song') {
+            // Song update means pianobar is actively playing
+            actions.setActiveSource('pianobar');
+
             setTrackInfo(prev => {
               const newTitle = data.data.title || '';
               const newArtist = data.data.artist || '';
@@ -879,7 +894,94 @@ function PianobarPage() {
       setTrackInfo(prev => ({ ...prev, rating: 0 }));
     }
   };
-  
+
+  // ============================================
+  // JUKEBOX TRANSPORT HANDLERS (for unified controls)
+  // ============================================
+
+  const handleJukeboxPlayPause = async () => {
+    const wasPlaying = jukebox.isPlaying;
+    actions.updateJukeboxStatus({ isPlaying: !wasPlaying });
+
+    try {
+      if (wasPlaying) {
+        await jukeboxApi.pause();
+      } else {
+        await jukeboxApi.play();
+      }
+    } catch (error) {
+      console.error('Error toggling jukebox playback:', error);
+      actions.updateJukeboxStatus({ isPlaying: wasPlaying });
+    }
+  };
+
+  const handleJukeboxNext = async () => {
+    try {
+      await jukeboxApi.next();
+    } catch (error) {
+      console.error('Error skipping to next track:', error);
+    }
+  };
+
+  const handleJukeboxStop = async () => {
+    try {
+      await jukeboxApi.stop();
+      actions.clearJukeboxTrack();
+      actions.setActiveSource('none');
+    } catch (error) {
+      console.error('Error stopping jukebox:', error);
+    }
+  };
+
+  const handleJukeboxRestart = async () => {
+    if (restartCooldown) return;
+
+    const { track } = jukebox;
+    if (!track) return;
+
+    // 5 second cooldown for yt-dlp URL resolution
+    setRestartCooldown(true);
+    setTimeout(() => setRestartCooldown(false), 5000);
+
+    actions.updateJukeboxStatus({ isFinished: false, isPlaying: true });
+
+    try {
+      if (track.youtubeId) {
+        await jukeboxApi.playYouTube(track.youtubeId, {
+          title: track.title,
+          artist: track.artist,
+          duration: track.duration
+        });
+      } else if (track.filepath) {
+        await jukeboxApi.playLocal(track.filepath);
+      }
+    } catch (error) {
+      console.error('Error restarting track:', error);
+      actions.updateJukeboxStatus({ isFinished: true, isPlaying: false });
+    }
+  };
+
+  // ============================================
+  // UNIFIED TRANSPORT HANDLER DISPATCH
+  // ============================================
+  // These route to the correct handler based on activeSource
+
+  const handleUnifiedPlayPause = () => {
+    if (activeSource === 'pianobar') {
+      handlePlayPause();
+    } else if (activeSource === 'jukebox') {
+      handleJukeboxPlayPause();
+    }
+  };
+
+  const handleUnifiedNext = () => {
+    if (activeSource === 'pianobar') {
+      handleNext();
+    } else if (activeSource === 'jukebox') {
+      handleJukeboxNext();
+    }
+  };
+
   // Get current song info
   const getSongInfo = () => {
     if (!pianobar.status) {
@@ -1141,78 +1243,124 @@ function PianobarPage() {
           </div>
         )}
         
-        {/* Now Playing Section - Using shared component */}
-        <div>
-          <NowPlaying
-            source="pianobar"
-            title={trackInfo.title || song}
-            artist={trackInfo.artist || artist}
-            position={trackInfo.songPlayed || 0}
-            duration={trackInfo.songDuration || 0}
-            isActive={isPlayerOn()}
-            album={trackInfo.album || album}
-            stationName={trackInfo.stationName || station}
-            coverArt={trackInfo.coverArt}
-            rating={trackInfo.rating}
-            detailUrl={trackInfo.detailUrl}
-            onOpenModeSelector={() => setShowModeSelector(true)}
-            onRefresh={handleRefreshAll}
-          />
+        {/* ============================================ */}
+        {/* UNIFIED NOW PLAYING - Switches based on activeSource */}
+        {/* ============================================ */}
+        {(() => {
+          const isAnyActive = activeSource !== 'none';
+          const isPianobarActive = activeSource === 'pianobar';
+          const isJukeboxActive = activeSource === 'jukebox';
+          const hasJukeboxTrack = jukebox.track?.title || jukebox.track?.youtubeId;
+          const jukeboxIsFinished = jukebox.isFinished && !jukebox.isPlaying;
 
-          {/* Playback Controls - Using shared component */}
-          <TransportControls
-            source="pianobar"
-            isActive={isPlayerOn()}
-            isPlaying={isPlaying()}
-            onPlayPause={handlePlayPause}
-            onNext={handleNext}
-            isLoved={trackInfo.rating > 0}
-            isAnimatingLove={isAnimatingLove}
-            onLove={handleLove}
-          />
-          
-          {/* Station Selector */}
-          <div className={`mt-6 ${isPlayerOn() ? '' : 'opacity-50'}`}>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium dark:text-white">Select Station</label>
-              {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
-                <span className="text-xs text-amber-600">
-                  {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
-                </span>
+          // Determine which source to display (for props switching)
+          // Priority: active source > pianobar if on > idle
+          const displaySource = isAnyActive ? activeSource : (isPlayerOn() ? 'pianobar' : 'none');
+
+          return (
+            <div>
+              <NowPlaying
+                source={displaySource === 'none' ? 'pianobar' : displaySource}
+                title={
+                  isJukeboxActive ? (jukebox.track?.title || 'No song playing') :
+                  isPianobarActive ? (trackInfo.title || song || 'No song playing') :
+                  'No song playing'
+                }
+                artist={
+                  isJukeboxActive ? (jukebox.track?.artist || '') :
+                  isPianobarActive ? (trackInfo.artist || artist || '') :
+                  ''
+                }
+                position={
+                  isJukeboxActive ? (jukebox.track?.position || 0) :
+                  (trackInfo.songPlayed || 0)
+                }
+                duration={
+                  isJukeboxActive ? (jukebox.track?.duration || 0) :
+                  (trackInfo.songDuration || 0)
+                }
+                isActive={isAnyActive || isPlayerOn()}
+                // Pianobar-specific props
+                album={isPianobarActive ? (trackInfo.album || album) : undefined}
+                stationName={isPianobarActive ? (trackInfo.stationName || station) : undefined}
+                coverArt={isPianobarActive ? trackInfo.coverArt : undefined}
+                rating={isPianobarActive ? trackInfo.rating : undefined}
+                detailUrl={isPianobarActive ? trackInfo.detailUrl : undefined}
+                onOpenModeSelector={isPianobarActive ? () => setShowModeSelector(true) : undefined}
+                onRefresh={isPianobarActive ? handleRefreshAll : undefined}
+                // Jukebox-specific props
+                sourceType={isJukeboxActive ? (jukebox.track?.youtubeId ? 'youtube' : 'library') : undefined}
+                youtubeId={isJukeboxActive ? jukebox.track?.youtubeId : undefined}
+              />
+
+              {/* UNIFIED TRANSPORT CONTROLS - Switches based on activeSource */}
+              <TransportControls
+                source={displaySource === 'none' ? 'pianobar' : displaySource}
+                isActive={isAnyActive || isPlayerOn()}
+                isPlaying={
+                  isJukeboxActive ? jukebox.isPlaying :
+                  isPianobarActive ? isPlaying() :
+                  false
+                }
+                onPlayPause={handleUnifiedPlayPause}
+                onNext={handleUnifiedNext}
+                // Pianobar-specific props
+                isLoved={isPianobarActive ? trackInfo.rating > 0 : false}
+                isAnimatingLove={isPianobarActive ? isAnimatingLove : false}
+                onLove={isPianobarActive ? handleLove : undefined}
+                // Jukebox-specific props
+                onStop={isJukeboxActive ? handleJukeboxStop : undefined}
+                onRestart={(isJukeboxActive && hasJukeboxTrack) ? handleJukeboxRestart : undefined}
+                restartDisabled={restartCooldown}
+                playDisabled={isJukeboxActive && jukeboxIsFinished}
+              />
+
+              {/* Station Selector - Pianobar only (conditionally rendered) */}
+              {(isPianobarActive || (!isAnyActive && isPlayerOn())) && (
+                <div className={`mt-6 ${isPlayerOn() ? '' : 'opacity-50'}`}>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium dark:text-white">Select Station</label>
+                    {(!isPlayerOn() || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0) && (
+                      <span className="text-xs text-amber-600">
+                        {isPlayerOn() ? 'Waiting for stations...' : 'Turn on player to see your stations'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <select
+                      className={`block w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 ${!isPlayerOn() ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                      value={selectedStation}
+                      onChange={(e) => setSelectedStation(e.target.value)}
+                      disabled={!isPlayerOn() || pianobar.loading || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0}
+                    >
+                      <option value="" className="dark:bg-gray-700">Select a station...</option>
+                      {Array.isArray(pianobar.stations) && pianobar.stations.map((stationName, index) => (
+                        <option key={index} value={index} className="dark:bg-gray-700">{stationName}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleChangeStation}
+                      className={`px-4 py-2 rounded ${
+                        isPlayerOn() && selectedStation
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                          : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      }`}
+                      disabled={!isPlayerOn() || !selectedStation}
+                    >
+                      Change
+                    </button>
+                  </div>
+                  {/* Show current station count */}
+                  {isPlayerOn() && Array.isArray(pianobar.stations) && pianobar.stations.length > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {pianobar.stations.length} station{pianobar.stations.length !== 1 ? 's' : ''} available
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-            <div className="flex space-x-2">
-              <select
-                className={`block w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 ${!isPlayerOn() ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
-                value={selectedStation}
-                onChange={(e) => setSelectedStation(e.target.value)}
-                disabled={!isPlayerOn() || pianobar.loading || !Array.isArray(pianobar.stations) || pianobar.stations.length === 0}
-              >
-                <option value="" className="dark:bg-gray-700">Select a station...</option>
-                {Array.isArray(pianobar.stations) && pianobar.stations.map((station, index) => (
-                  <option key={index} value={index} className="dark:bg-gray-700">{station}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleChangeStation}
-                className={`px-4 py-2 rounded ${
-                  isPlayerOn() && selectedStation
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                }`}
-                disabled={!isPlayerOn() || !selectedStation}
-              >
-                Change
-              </button>
-            </div>
-            {/* Show current station count */}
-            {isPlayerOn() && Array.isArray(pianobar.stations) && pianobar.stations.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {pianobar.stations.length} station{pianobar.stations.length !== 1 ? 's' : ''} available
-              </p>
-            )}
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Jukebox Section - YouTube streaming + local music library */}
