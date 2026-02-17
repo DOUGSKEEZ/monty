@@ -185,14 +185,14 @@ function NowPlaying({
         {isJukebox && !youtubeId && (
           <div className="flex flex-col space-y-3">
             <div className={`flex-shrink-0 ${isActive ? '' : 'opacity-50'}`}>
-              <div className="w-32 h-24 rounded-lg shadow-lg bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center relative overflow-hidden">
+              <div className="w-32 h-32 rounded-lg shadow-lg bg-gradient-to-br from-green-400 to-teal-600 flex items-center justify-center relative overflow-hidden">
                 <span className="text-white text-3xl">🎵</span>
                 {filepath && (
                   <img
                     key={filepath}
                     src={`http://192.168.10.15:3001/api/jukebox/artwork?filepath=${encodeURIComponent(filepath)}`}
                     alt="Album art"
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover scale-[1.35]"
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 )}
