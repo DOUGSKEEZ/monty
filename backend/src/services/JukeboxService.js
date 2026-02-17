@@ -214,6 +214,80 @@ class JukeboxService {
   }
 
   /**
+   * Ensure mpv is healthy and responsive before playback
+   * Detects stale IPC socket after reboot/idle and reinitializes if needed
+   * @private
+   */
+  async _ensureMpvHealthy() {
+    if (!this.mpvPlayer) {
+      logger.debug('mpv: No player instance, skipping health check');
+      return true;
+    }
+
+    try {
+      // Query a simple property with timeout - stale sockets can hang forever
+      // (Same lesson learned from FIFO hang: always timeout IPC operations)
+      // 500ms is generous for local Unix socket on dedicated hardware - healthy mpv responds in <10ms
+      await Promise.race([
+        this.mpvPlayer.getProperty('idle-active'),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Health check timeout')), 500)
+        )
+      ]);
+      logger.debug('mpv: Health check passed');
+      return true;
+    } catch (err) {
+      logger.warn(`mpv: Unresponsive (${err.message}), reinitializing...`);
+      await this._reinitializeMpv();
+      // Wait for socket to fully establish after fresh spawn
+      // 500ms is generous - socket either establishes quickly or something is wrong
+      await new Promise(resolve => setTimeout(resolve, 500));
+      logger.debug('mpv: Socket settlement delay complete');
+      return true;
+    }
+  }
+
+  /**
+   * Tear down and reinitialize mpv player
+   * Called when IPC socket becomes stale after reboot/long idle
+   * @private
+   */
+  async _reinitializeMpv() {
+    logger.info('mpv: Reinitializing player...');
+
+    // Kill existing mpv process via pkill (quit() can hang on stale socket)
+    // Same pattern AudioBroker uses - OS-level kill is always reliable
+    try {
+      require('child_process').execSync('pkill -f "monty-jukebox.sock" || true', { timeout: 3000 });
+      logger.debug('mpv: Killed via pkill');
+    } catch (err) {
+      logger.debug(`mpv: pkill cleanup: ${err.message}`);
+    }
+    this.mpvPlayer = null;
+
+    // Clean up stale socket file if it exists
+    const fs = require('fs');
+    const socketPath = '/tmp/monty-jukebox.sock';
+    if (fs.existsSync(socketPath)) {
+      try {
+        fs.unlinkSync(socketPath);
+        logger.debug('mpv: Removed stale socket file');
+      } catch (err) {
+        logger.warn(`mpv: Could not remove socket file: ${err.message}`);
+      }
+    }
+
+    // Reset state
+    this.isInitialized = false;
+    this.isPlaying = false;
+    this.position = 0;
+
+    // Reinitialize
+    await this.initialize();
+    logger.info('mpv: Reinitialized successfully');
+  }
+
+  /**
    * Shutdown the service
    */
   async shutdown() {
@@ -252,6 +326,9 @@ class JukeboxService {
     if (!this.isInitialized) {
       await this.initialize();
     }
+
+    // Health check: verify mpv is responsive (catches stale socket after reboot/idle)
+    await this._ensureMpvHealthy();
 
     // Acquire playback (kills pianobar if active)
     if (this.audioBroker) {
@@ -296,6 +373,9 @@ class JukeboxService {
     if (!this.isInitialized) {
       await this.initialize();
     }
+
+    // Health check: verify mpv is responsive (catches stale socket after reboot/idle)
+    await this._ensureMpvHealthy();
 
     // SECURITY: Validate path doesn't escape library directory (path traversal protection)
     const resolvedPath = path.resolve(filepath);
