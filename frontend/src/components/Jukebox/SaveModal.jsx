@@ -71,6 +71,10 @@ function SaveModal() {
       );
 
       if (response.status === 'saving' || response.success) {
+        // Show "downloading" toast immediately
+        const displayName = `${trimmedArtist} — ${trimmedTitle}`;
+        actions.showToast('info', `Downloading ${displayName}... 🚀`, 5000);
+
         // Close modal immediately - download happens in background
         // WebSocket will deliver save-complete or save-failed event
         actions.closeSaveModal();
