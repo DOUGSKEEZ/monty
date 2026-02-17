@@ -989,6 +989,7 @@ class JukeboxService {
     if (!this.websocketService) return;
 
     const message = {
+      source: 'jukebox',
       type: 'save-complete',
       data: { filename }
     };
@@ -1004,6 +1005,7 @@ class JukeboxService {
     if (!this.websocketService) return;
 
     const message = {
+      source: 'jukebox',
       type: 'save-failed',
       data: { filename, error }
     };

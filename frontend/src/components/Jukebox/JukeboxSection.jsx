@@ -3,6 +3,9 @@ import { useAppContext } from '../../utils/AppContext';
 import { jukeboxApi } from '../../utils/api';
 import TransportControls from '../shared/TransportControls';
 import YouTubeSearch from './YouTubeSearch';
+import QueueDisplay from './QueueDisplay';
+import LibraryBrowser from './LibraryBrowser';
+import SaveModal from './SaveModal';
 
 /**
  * JukeboxSection Component
@@ -192,21 +195,14 @@ function JukeboxSection() {
       {/* YouTube Search */}
       <YouTubeSearch onSaveRequest={handleSaveRequest} />
 
-      {/* Placeholder: Queue Display (4.6) */}
-      <div className="mb-6 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded">
-        <p className="text-gray-500 dark:text-gray-400 text-center">
-          📋 Queue: On Deck / In The Hole (Coming in 4.6)
-        </p>
-      </div>
+      {/* Queue Display - On Deck / In the Hole */}
+      <QueueDisplay />
 
-      {/* Placeholder: Library Browser (4.7) */}
-      <div className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded">
-        <p className="text-gray-500 dark:text-gray-400 text-center">
-          📚 Library Browser (Coming in 4.7)
-        </p>
-      </div>
+      {/* Library Browser - saved tracks in ~/Music */}
+      <LibraryBrowser />
 
-      {/* SaveModal will be rendered conditionally when implemented (4.5) */}
+      {/* SaveModal - renders itself when saveModal.isOpen is true */}
+      <SaveModal />
     </div>
   );
 }

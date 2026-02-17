@@ -144,7 +144,8 @@ export const AppProvider = ({ children }) => {
       youtubeId: null,
       parsedArtist: '',
       parsedTitle: ''
-    }
+    },
+    toasts: []  // Array of { id, type, message }
   });
 
   // Removed complex currentSong state - now managed locally in components
@@ -1252,6 +1253,29 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
+  // Show a toast notification
+  // Types: 'success', 'error', 'info'
+  const showToast = (type, message, duration = 4000) => {
+    const id = Date.now();
+    setJukebox(prev => ({
+      ...prev,
+      toasts: [...prev.toasts, { id, type, message }]
+    }));
+
+    // Auto-dismiss after duration
+    if (duration > 0) {
+      setTimeout(() => dismissToast(id), duration);
+    }
+  };
+
+  // Dismiss a specific toast
+  const dismissToast = (id) => {
+    setJukebox(prev => ({
+      ...prev,
+      toasts: prev.toasts.filter(t => t.id !== id)
+    }));
+  };
+
   // Reset jukebox track state (e.g., after stop)
   const clearJukeboxTrack = () => {
     setJukebox(prev => ({
@@ -1350,6 +1374,8 @@ export const AppProvider = ({ children }) => {
     setJukeboxLibraryLoading,
     openSaveModal,
     closeSaveModal,
+    showToast,
+    dismissToast,
     clearJukeboxTrack,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []); // Functions are stable - intentionally omitted to prevent re-creation

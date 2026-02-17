@@ -5,6 +5,7 @@ import ModeSelector from '../components/ModeSelector';
 import NowPlaying from '../components/shared/NowPlaying';
 import TransportControls from '../components/shared/TransportControls';
 import JukeboxSection from '../components/Jukebox/JukeboxSection';
+import Toast from '../components/shared/Toast';
 
 // Backend API base URL (same as api.js)
 const API_BASE_URL = 'http://192.168.10.15:3001/api';
@@ -346,15 +347,15 @@ function PianobarPage() {
             // Save completed
             else if (data.type === 'save-complete') {
               console.log('✅ [WS] Save complete:', data.data);
-              // TODO: Show success toast when Toast component is implemented (4.9)
-              // For now, just refresh library
-              // jukeboxApi.getLibrary().then(res => actions.setJukeboxLibrary(res.data));
+              actions.showToast('success', `Saved: ${data.data.filename}`);
+              // Refresh library when implemented
+              // jukeboxApi.getLibrary().then(res => actions.setJukeboxLibrary(res.tracks));
             }
 
             // Save failed
             else if (data.type === 'save-failed') {
               console.log('❌ [WS] Save failed:', data.data);
-              // TODO: Show error toast when Toast component is implemented (4.9)
+              actions.showToast('error', `Save failed: ${data.data.error || 'Unknown error'}`);
             }
 
             // Queue updated
@@ -1233,6 +1234,9 @@ function PianobarPage() {
         onClose={() => setShowModeSelector(false)}
         stationName={trackInfo.stationName || station}
       />
+
+      {/* Toast Notifications */}
+      <Toast />
     </div>
   );
 }
