@@ -479,8 +479,8 @@ class JukeboxService {
   async searchYouTube(query, offset = 0) {
     logger.info(`Searching YouTube: "${query}"`);
 
-    // Request 8 results, filter out non-videos, return up to 5
-    const searchQuery = `ytsearch8:${query}`;
+    // Request 10 results, filter out non-videos, return up to 7
+    const searchQuery = `ytsearch10:${query}`;
 
     return new Promise((resolve, reject) => {
       // Use spawn with array args to prevent shell injection
@@ -556,8 +556,8 @@ class JukeboxService {
           })
           // Remove internal field before returning
           .map(({ _ieKey, ...result }) => result)
-          // Limit to 5 results (we fetched 8 to have room for filtering)
-          .slice(0, 5);
+          // Limit to 7 results (we fetched 10 to have room for filtering)
+          .slice(0, 7);
 
         logger.info(`Found ${results.length} results for "${query}"`);
         resolve(results);

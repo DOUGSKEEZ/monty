@@ -145,19 +145,19 @@ function YouTubeSearch({ onSaveRequest }) {
       {/* Results */}
       {searchResults.length > 0 && (
         <div className="space-y-2">
-          {/* Results header */}
-          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-2">
-            <span>{searchResults.length} results</span>
-            <button
-              onClick={handleClearResults}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center space-x-1"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              <span>Clear</span>
-            </button>
-          </div>
+          {/* Clear bar - above results */}
+          <button
+            onClick={handleClearResults}
+            className="w-full flex items-center justify-center py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span className="mx-3 text-sm">Clear {searchResults.length} Results</span>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
 
           {/* Result list */}
           {searchResults.map((result) => (
@@ -169,6 +169,20 @@ function YouTubeSearch({ onSaveRequest }) {
               isPlaying={isResultPlaying(result)}
             />
           ))}
+
+          {/* Clear bar - below results */}
+          <button
+            onClick={handleClearResults}
+            className="w-full flex items-center justify-center py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span className="mx-3 text-sm">Clear Results</span>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
 
