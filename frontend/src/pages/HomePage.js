@@ -33,6 +33,11 @@ function HomePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshSuccess, setRefreshSuccess] = useState(null);
 
+  // Wake-on-LAN state for Media PC
+  const [isWolSending, setIsWolSending] = useState(false);
+  const [wolStatus, setWolStatus] = useState(null); // null, 'success', 'error'
+  const [wolCooldown, setWolCooldown] = useState(false);
+
   // Guest alarm state
   const [guestAlarm, setGuestAlarm] = useState({
     loading: true,
@@ -512,6 +517,39 @@ function HomePage() {
     }
   };
 
+  // Handle Wake-on-LAN for Media PC (with 5-second cooldown)
+  const handleWakeOnLan = async () => {
+    if (wolCooldown) return;
+
+    try {
+      setIsWolSending(true);
+      setWolStatus(null);
+
+      const response = await fetch('http://192.168.10.15:3001/api/system/wol', {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setWolStatus('success');
+        setWolCooldown(true);
+        setTimeout(() => {
+          setWolStatus(null);
+          setWolCooldown(false);
+        }, 7000);
+      } else {
+        setWolStatus('error');
+        setTimeout(() => setWolStatus(null), 3000);
+      }
+    } catch (error) {
+      console.error('WOL request failed:', error);
+      setWolStatus('error');
+      setTimeout(() => setWolStatus(null), 3000);
+    } finally {
+      setIsWolSending(false);
+    }
+  };
+
   // Get weather description
   const getWeatherDescription = () => {
     if (weather.loading || !weather.current) {
@@ -886,6 +924,36 @@ function HomePage() {
             >
               Set Wake Up Time
             </button>
+
+            {/* Wake-on-LAN for Great Room Media PC */}
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-[auto_1fr] items-center">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Great Room - Media PC</span>
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleWakeOnLan}
+                    disabled={isWolSending || wolCooldown}
+                    className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      wolStatus === 'success'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                        : wolStatus === 'error'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                        : isWolSending || wolCooldown
+                        ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0" />
+                    </svg>
+                    {wolStatus === 'success' ? 'Sent!' : wolStatus === 'error' ? 'Failed' : isWolSending ? '...' : 'Wake'}
+                    {wolStatus === 'success' && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 rounded-full animate-ping" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

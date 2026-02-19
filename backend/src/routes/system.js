@@ -51,4 +51,32 @@ router.get('/timezone', async (req, res) => {
 // Note: Timezone management should be done at the system level by administrators
 // Web applications should only display the current timezone, not change it
 
+// Wake-on-LAN for Media PC - calls external script that contains MAC address
+router.post('/wol', async (req, res) => {
+  try {
+    logger.info('Sending Wake-on-LAN signal via /usr/local/bin/wol-mediapc.sh');
+
+    const { stdout, stderr } = await execPromise('/usr/local/bin/wol-mediapc.sh');
+
+    if (stderr) {
+      logger.warn(`WOL stderr: ${stderr}`);
+    }
+
+    logger.info(`WOL signal sent successfully: ${stdout.trim()}`);
+
+    res.json({
+      success: true,
+      message: 'Wake-on-LAN signal sent to Media PC',
+      output: stdout.trim()
+    });
+  } catch (error) {
+    logger.error(`Failed to send WOL signal: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send Wake-on-LAN signal',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
