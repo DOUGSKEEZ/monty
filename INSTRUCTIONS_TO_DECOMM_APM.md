@@ -1,7 +1,9 @@
 # APM & Monitoring Infrastructure - Documentation & Decommissioning Guide
 
-> **Status:** ACTIVE (as of February 2026)
+> **Status:** PARTIALLY DECOMMISSIONED (as of 2026-02-20)
 > **Purpose:** This document serves as both a showcase of the enterprise-grade monitoring architecture implemented in Monty, and a practical guide for decommissioning when ready.
+>
+> **2026-02-20 Update:** Datadog APM system-level injection was removed to resolve yt-dlp/Deno compatibility issues. The Datadog agent's `/etc/ld.so.preload` hook was conflicting with Deno's runtime (required by yt-dlp for YouTube JS challenge solving). Services disabled: `datadog-agent`, `datadog-agent-trace`. The application-level monitoring (Prometheus, Grafana, New Relic) remains functional.
 
 ---
 
