@@ -9,7 +9,12 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
+const util = require('util');
 const logger = require('../utils/logger').getModuleLogger('jukebox-routes');
+
+// Promisified exec for async/await usage
+const execPromise = util.promisify(exec);
 
 // Lazy-loaded service references
 let jukeboxService = null;
@@ -410,6 +415,94 @@ router.delete('/queue/:slot', async (req, res) => {
   } catch (error) {
     logger.error(`Queue remove error: ${error.message}`);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== EMERGENCY KILL ====================
+
+/**
+ * POST /api/jukebox/kill
+ * 🚨 NUCLEAR OPTION: Force kill all mpv processes and reset state
+ * Use when normal stop doesn't work or jukebox is stuck
+ */
+router.post('/kill', async (req, res) => {
+  try {
+    logger.warn('🚨 NUCLEAR OPTION: Force killing all jukebox/mpv processes');
+
+    // Step 1: Force kill all mpv processes
+    let killedCount = 0;
+    try {
+      const { stdout } = await execPromise('pgrep -f "monty-jukebox.sock"');
+      const pids = stdout.trim().split('\n').filter(Boolean);
+      killedCount = pids.length;
+
+      if (pids.length > 0) {
+        await execPromise('pkill -9 -f "monty-jukebox.sock"');
+        logger.info(`Force killed ${pids.length} mpv process(es)`);
+      }
+    } catch (error) {
+      // pgrep returns exit code 1 if no processes found - that's OK
+      logger.debug('No mpv processes found to kill');
+    }
+
+    // Step 2: Clean up the IPC socket file (critical for clean restart)
+    const socketPath = '/tmp/monty-jukebox.sock';
+    if (fs.existsSync(socketPath)) {
+      fs.unlinkSync(socketPath);
+      logger.info('Removed stale IPC socket file');
+    }
+
+    // Step 3: Reset JukeboxService internal state
+    const JukeboxService = require('../services/JukeboxService');
+    const service = JukeboxService.getExistingInstance();
+    if (service) {
+      service.mpvPlayer = null;
+      service.isInitialized = false;
+      service.currentTrack = null;
+      service.position = 0;
+      service.duration = 0;
+      service.isPlaying = false;
+      service.lastInitTime = 0;
+      logger.info('Reset JukeboxService internal state');
+    }
+
+    // Step 4: Release playback via AudioBroker
+    const AudioBroker = require('../services/AudioBroker');
+    const broker = AudioBroker.getInstance();
+    broker.releasePlayback('jukebox');
+    logger.info('Released jukebox playback via AudioBroker');
+
+    // Step 5: Broadcast WebSocket update so frontend clears immediately
+    const { getWebSocketServiceInstance } = require('../services/PianobarWebsocketIntegration');
+    const wsService = getWebSocketServiceInstance();
+    if (wsService) {
+      wsService.broadcast({
+        type: 'source-killed',
+        source: 'jukebox',
+        data: {
+          killedSource: 'jukebox',
+          processesKilled: killedCount,
+          timestamp: Date.now()
+        }
+      });
+      logger.debug('Broadcast jukebox kill notification');
+    }
+
+    res.json({
+      success: true,
+      message: `Jukebox killed successfully${killedCount > 0 ? ` (${killedCount} process${killedCount > 1 ? 'es' : ''})` : ''}`,
+      processesKilled: killedCount,
+      socketCleaned: true,
+      stateReset: true
+    });
+
+  } catch (error) {
+    logger.error(`Error in jukebox nuclear kill: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Jukebox kill failed'
+    });
   }
 });
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../utils/AppContext';
+import { jukeboxApi } from '../utils/api';
 import AwayManager from '../components/AwayManager';
 import AwayDatePicker from '../components/AwayDatePicker';
 import AwayCalendarDisplay from '../components/AwayCalendarDisplay';
@@ -1185,37 +1186,65 @@ function SettingsPage() {
         </h2>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Pianobar Controls */}
+          {/* Music Emergency Kill Buttons */}
           <div>
-            <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-3">Pianobar 🎹 🎶</h3>
-          <br></br>
-          <button
-            onClick={async () => {
-              if (window.confirm('Are you sure you want to kill all Pianobar processes?\n\nThis will immediately terminate Pianobar and stop all music playback.')) {
-                try {
-                  setOperationMessage('Killing Pianobar processes...');
-                  setSaveSuccess('loading');
-                  
-                  const result = await actions.controlPianobar('kill');
-                  
-                  if (result) {
-                    showSuccess('Pianobar processes terminated successfully');
-                  } else {
-                    showError('Failed to kill Pianobar processes');
+            <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-3">Music 🎹 🎵</h3>
+
+            <button
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to kill Pianobar?\n\nThis will immediately terminate Pianobar and stop Pandora playback.')) {
+                  try {
+                    setOperationMessage('Killing Pianobar processes...');
+                    setSaveSuccess('loading');
+
+                    const result = await actions.controlPianobar('kill');
+
+                    if (result) {
+                      showSuccess('Pianobar processes terminated successfully');
+                    } else {
+                      showError('Failed to kill Pianobar processes');
+                    }
+                  } catch (error) {
+                    showError(`Error killing Pianobar: ${error.message}`);
                   }
-                } catch (error) {
-                  showError(`Error killing Pianobar: ${error.message}`);
                 }
-              }
-            }}
-            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
-          >
-            Kill Pianobar
-          </button>
-          
-          <p className="text-xs text-red-600 mt-2">
-            This button uses <code>kill -9</code> to forcefully terminate processes. <br></br>Use only when normal stop doesn't work.
-          </p>
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
+            >
+              Kill Pianobar
+            </button>
+            <p className="text-xs text-red-600 mt-2 mb-4">
+              This button uses <code>kill -9</code> to forcefully terminate processes.<br></br>
+              Use only when normal stop doesn't work.
+            </p>
+
+            <button
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to kill Jukebox?\n\nThis will forcefully terminate mpv and clear playback state.')) {
+                  try {
+                    setOperationMessage('Killing Jukebox processes...');
+                    setSaveSuccess('loading');
+
+                    const result = await jukeboxApi.kill();
+
+                    if (result.success) {
+                      showSuccess(`Jukebox killed successfully${result.processesKilled > 0 ? ` (${result.processesKilled} process${result.processesKilled > 1 ? 'es' : ''})` : ''}`);
+                    } else {
+                      showError(result.message || 'Failed to kill Jukebox');
+                    }
+                  } catch (error) {
+                    showError(`Error killing Jukebox: ${error.message}`);
+                  }
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
+            >
+              Kill Jukebox
+            </button>
+            <p className="text-xs text-red-600 mt-2">
+              This button uses <code>pkill -9</code> to forcefully terminate mpv.<br></br>
+              Also cleans up the IPC socket for fresh restart.
+            </p>
           </div>
 
           {/* ShadeCommander Controls */}

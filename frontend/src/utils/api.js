@@ -684,6 +684,15 @@ export const jukeboxApi = {
     fetchApi(`/jukebox/queue/${encodeURIComponent(slot)}`, {
       method: 'DELETE',
     }),
+
+  /**
+   * 🚨 NUCLEAR OPTION: Force kill all mpv processes and reset jukebox state
+   * @returns {Promise<Object>} - Result with processesKilled count
+   */
+  kill: () =>
+    fetchApi('/jukebox/kill', {
+      method: 'POST',
+    }),
 };
 
 // Config API endpoints
