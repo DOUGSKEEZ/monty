@@ -54,6 +54,10 @@ class JukeboxService {
     // MUST be set for both stop() AND next() calls
     this.skipAutoAdvance = false;
 
+    // Timestamp of last initialization - used to skip health check after fresh init
+    // (mpv socket takes time to establish; checking immediately causes false failures)
+    this.lastInitTime = 0;
+
     // Progress broadcast subscribers (WebSocket client tracking)
     this.progressSubscribers = new Set();
 
@@ -104,6 +108,7 @@ class JukeboxService {
       this._setupEventHandlers();
 
       this.isInitialized = true;
+      this.lastInitTime = Date.now();
       logger.info('JukeboxService initialized successfully');
 
     } catch (error) {
@@ -222,6 +227,15 @@ class JukeboxService {
   async _ensureMpvHealthy() {
     if (!this.mpvPlayer) {
       logger.debug('mpv: No player instance, skipping health check');
+      return true;
+    }
+
+    // Skip health check if we JUST initialized (within last 2 seconds)
+    // mpv socket takes time to establish; checking immediately causes false failures
+    // that trigger unnecessary reinitialize -> double spawn bugs
+    const timeSinceInit = Date.now() - this.lastInitTime;
+    if (timeSinceInit < 2000) {
+      logger.debug(`mpv: Skipping health check (initialized ${timeSinceInit}ms ago)`);
       return true;
     }
 
@@ -470,6 +484,8 @@ class JukeboxService {
     }
 
     this.currentTrack = null;
+    this.position = 0;
+    this.duration = 0;
 
     // Release playback
     if (this.audioBroker) {
@@ -1056,6 +1072,8 @@ class JukeboxService {
     } else {
       logger.debug('No track on deck, playback complete');
       this.currentTrack = null;
+      this.position = 0;
+      this.duration = 0;
 
       if (this.audioBroker) {
         this.audioBroker.releasePlayback('jukebox');
