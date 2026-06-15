@@ -5,9 +5,18 @@ import AwayManager from '../components/AwayManager';
 import AwayDatePicker from '../components/AwayDatePicker';
 import AwayCalendarDisplay from '../components/AwayCalendarDisplay';
 import AwayPeriodsList from '../components/AwayPeriodsList';
+import OffsetAdjuster from '../components/OffsetAdjuster';
 
 // Backend API base URL (same as api.js)
 const API_BASE_URL = 'http://192.168.10.15:3001/api';
+
+// Format a Date (or ms timestamp) as a local clock time, e.g. "9:18 PM".
+const formatClockTime = (dateOrMs) => {
+  if (dateOrMs === null || dateOrMs === undefined) return null;
+  const d = dateOrMs instanceof Date ? dateOrMs : new Date(dateOrMs);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+};
 
 function SettingsPage() {
   // Get state and actions from context
@@ -824,18 +833,18 @@ function SettingsPage() {
           <div>
             {/* Solar Noon Display */}
             {weather.sunTimes?.solarNoon && (
-              <div className="text-xs text-gray-400 mb-1">
-                Solar noon: {new Date(weather.sunTimes.solarNoon).toLocaleTimeString('en-US', { 
-                  hour: 'numeric', 
-                  minute: '2-digit', 
-                  hour12: true 
+              <div className="text-xs text-gray-400 mb-1 text-center">
+                Solar noon: {new Date(weather.sunTimes.solarNoon).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
                 })}
               </div>
             )}
-            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
+            <label className="block text-center text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
               Good Afternoon Time
             </label>
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-4 mb-3 justify-center">
               <input
                 type="time"
                 value={sceneDrafts.good_afternoon_time}
@@ -850,61 +859,59 @@ function SettingsPage() {
                 Update
               </button>
             </div>
-            <label className="flex items-center text-sm">
-              <input
-                type="checkbox"
-                checked={musicSettings.enabled_for_afternoon}
-                onChange={(e) => {
-                  const enabled = e.target.checked;
-                  setMusicSettings(prev => ({ ...prev, enabled_for_afternoon: enabled }));
-                  updateMusicSettings({ enabled_for_afternoon: enabled });
-                }}
-                className="mr-2"
-              />
-              <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
-            </label>
-            <label className="flex items-center text-sm mt-2">
-              <input
-                type="checkbox"
-                checked={skipSolarToday}
-                onChange={(e) => {
-                  updateSkipSolar(e.target.checked);
-                }}
-                className="mr-2"
-              />
-              <span className="text-gray-600 dark:text-gray-300">☁️ Skip solar shades today (cloudy/rainy)</span>
-            </label>
+            <div className="w-fit mx-auto">
+              <label className="flex items-center text-sm">
+                <input
+                  type="checkbox"
+                  checked={musicSettings.enabled_for_afternoon}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setMusicSettings(prev => ({ ...prev, enabled_for_afternoon: enabled }));
+                    updateMusicSettings({ enabled_for_afternoon: enabled });
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
+              </label>
+              <label className="flex items-center text-sm mt-2">
+                <input
+                  type="checkbox"
+                  checked={skipSolarToday}
+                  onChange={(e) => {
+                    updateSkipSolar(e.target.checked);
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-gray-600 dark:text-gray-300">☁️ Skip solar shades today (cloudy/rainy)</span>
+              </label>
+            </div>
           </div>
 
           <div>
-            {/* Sunset Time Display */}
-            {weather.sunTimes?.sunsetTime && (
-              <div className="text-xs text-gray-400 mb-1">
-                Sunset: {weather.sunTimes.sunsetTime}
-              </div>
-            )}
-            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
-              Good Evening (minutes before sunset)
-            </label>
-            <div className="flex gap-2 items-center mb-3">
-              <input
-                type="number"
-                min="0"
-                max="180"
-                step="15"
-                value={sceneDrafts.good_evening_offset_minutes}
-                onChange={(e) => handleSceneDraftChange('good_evening_offset_minutes', parseInt(e.target.value))}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline w-20"
-              />
-              <button
-                onClick={() => saveSceneSetting('good_evening_offset_minutes')}
-                disabled={saving || !sceneChanges.good_evening_offset_minutes}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-              >
-                Update
-              </button>
-            </div>
-            <label className="flex items-center text-sm">
+            <OffsetAdjuster
+              title="Good Evening"
+              referenceLabel="Sunset"
+              referenceTime={weather.sunTimes?.sunsetTime || null}
+              resultTime={
+                weather.sunTimes?.sunset
+                  ? formatClockTime(weather.sunTimes.sunset - sceneDrafts.good_evening_offset_minutes * 60000)
+                  : null
+              }
+              value={sceneDrafts.good_evening_offset_minutes}
+              min={0}
+              max={120}
+              step={1}
+              invert={true}
+              align="center"
+              leftLabel="earlier"
+              rightLabel="at sunset"
+              formatValue={(v) => (v === 0 ? 'at sunset' : `${v} min before sunset`)}
+              onChange={(val) => handleSceneDraftChange('good_evening_offset_minutes', val)}
+              onUpdate={() => saveSceneSetting('good_evening_offset_minutes')}
+              changed={sceneChanges.good_evening_offset_minutes}
+              saving={saving}
+            />
+            <label className="flex items-center justify-center text-sm">
               <input
                 type="checkbox"
                 checked={musicSettings.enabled_for_evening}
@@ -920,40 +927,44 @@ function SettingsPage() {
           </div>
           
           <div>
-            {/* Civil Twilight End Display */}
-            {weather.sunTimes?.civilTwilightEnd && (
-              <div className="text-xs text-gray-400 mb-1">
-                Civil twilight: {new Date(weather.sunTimes.civilTwilightEnd).toLocaleTimeString('en-US', { 
-                  hour: 'numeric', 
-                  minute: '2-digit', 
-                  hour12: true 
-                })}
-              </div>
-            )}
-            <label className="block text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
-              Good Night (civil twilight offset)
-            </label>
-            <div className="flex gap-2 items-center mb-3">
-              <input
-                type="number"
-                min="-120"
-                max="180"
-                step="5"
-                value={sceneDrafts.good_night_offset_minutes}
-                onChange={(e) => handleSceneDraftChange('good_night_offset_minutes', parseInt(e.target.value))}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline w-20"
-              />
-              <span className="text-sm text-gray-500 dark:text-gray-400">minutes</span>
-              <button
-                onClick={() => saveSceneSetting('good_night_offset_minutes')}
-                disabled={saving || !sceneChanges.good_night_offset_minutes}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-              >
-                Update
-              </button>
-            </div>
+            <OffsetAdjuster
+              title="Good Night"
+              referenceLabel="Civil twilight"
+              referenceTime={
+                weather.sunTimes?.civilTwilightEnd
+                  ? formatClockTime(weather.sunTimes.civilTwilightEnd)
+                  : null
+              }
+              resultTime={
+                weather.sunTimes?.civilTwilightEnd
+                  ? formatClockTime(
+                      new Date(weather.sunTimes.civilTwilightEnd).getTime() +
+                        sceneDrafts.good_night_offset_minutes * 60000
+                    )
+                  : null
+              }
+              value={sceneDrafts.good_night_offset_minutes}
+              min={-30}
+              max={30}
+              step={1}
+              centerLine={true}
+              align="right"
+              leftLabel="← before"
+              rightLabel="after →"
+              formatValue={(v) =>
+                v === 0
+                  ? 'at civil twilight'
+                  : v < 0
+                  ? `${Math.abs(v)} min before twilight`
+                  : `${v} min after twilight`
+              }
+              onChange={(val) => handleSceneDraftChange('good_night_offset_minutes', val)}
+              onUpdate={() => saveSceneSetting('good_night_offset_minutes')}
+              changed={sceneChanges.good_night_offset_minutes}
+              saving={saving}
+            />
             
-            <label className="flex items-center text-sm">
+            <label className="flex items-center justify-center text-sm max-w-[20rem] ml-auto">
               <input
                 type="checkbox"
                 checked={musicSettings.enabled_for_night}
