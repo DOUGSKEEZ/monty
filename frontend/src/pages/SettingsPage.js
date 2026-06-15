@@ -937,7 +937,7 @@ function SettingsPage() {
               <input
                 type="number"
                 min="-120"
-                max="60"
+                max="180"
                 step="5"
                 value={sceneDrafts.good_night_offset_minutes}
                 onChange={(e) => handleSceneDraftChange('good_night_offset_minutes', parseInt(e.target.value))}

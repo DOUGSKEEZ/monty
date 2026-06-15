@@ -430,15 +430,35 @@ router.post('/kill', async (req, res) => {
     logger.warn('🚨 NUCLEAR OPTION: Force killing all jukebox/mpv processes');
 
     // Step 1: Force kill all mpv processes
+    // Use specific pattern "mpv.*monty-jukebox" to match only mpv (not shells running pgrep)
     let killedCount = 0;
     try {
-      const { stdout } = await execPromise('pgrep -f "monty-jukebox.sock"');
+      const { stdout } = await execPromise('pgrep -f "mpv.*monty-jukebox"');
       const pids = stdout.trim().split('\n').filter(Boolean);
-      killedCount = pids.length;
 
       if (pids.length > 0) {
-        await execPromise('pkill -9 -f "monty-jukebox.sock"');
-        logger.info(`Force killed ${pids.length} mpv process(es)`);
+        logger.info(`Found ${pids.length} mpv process(es) to kill: PIDs ${pids.join(', ')}`);
+        await execPromise('pkill -9 -f "mpv.*monty-jukebox"');
+
+        // Brief wait for processes to actually die
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Verify kill by checking what's left
+        let remaining = 0;
+        try {
+          const { stdout: afterStdout } = await execPromise('pgrep -f "mpv.*monty-jukebox"');
+          remaining = afterStdout.trim().split('\n').filter(Boolean).length;
+        } catch (e) {
+          // pgrep exit 1 = no processes found = success
+          remaining = 0;
+        }
+
+        killedCount = pids.length - remaining;
+        if (remaining > 0) {
+          logger.warn(`Warning: ${remaining} mpv process(es) survived the kill`);
+        } else {
+          logger.info(`Successfully killed ${killedCount} mpv process(es)`);
+        }
       }
     } catch (error) {
       // pgrep returns exit code 1 if no processes found - that's OK
@@ -453,9 +473,14 @@ router.post('/kill', async (req, res) => {
     }
 
     // Step 3: Reset JukeboxService internal state
+    // CRITICAL: Set skipAutoAdvance BEFORE killing processes!
+    // When mpv processes die, they fire 'stopped' events. Without this flag,
+    // each event tries to auto-advance queue → initialize() → spawn new mpv.
+    // Multiple events racing = multiple mpv spawns (the zombie bug).
     const JukeboxService = require('../services/JukeboxService');
     const service = JukeboxService.getExistingInstance();
     if (service) {
+      service.skipAutoAdvance = true;  // Prevent stopped events from respawning
       service.mpvPlayer = null;
       service.isInitialized = false;
       service.currentTrack = null;

@@ -723,23 +723,35 @@ router.get('/config', async (req, res) => {
 router.put('/scenes', async (req, res) => {
   try {
     const { good_afternoon_time, good_evening_offset_minutes, good_night_offset_minutes } = req.body;
-    
+
+    // Validate input BEFORE entering the circuit breaker. Out-of-range input is a
+    // client (400) error, not a service failure. Throwing it inside execute() makes
+    // the breaker count a user typo as a failure, which opens the circuit and takes
+    // down the shared scheduler read endpoints (status/config) for ~30s as well.
+    if (good_afternoon_time && !/^\d{2}:\d{2}$/.test(good_afternoon_time)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Good afternoon time must be in 24-hour format (HH:MM)'
+      });
+    }
+
+    if (good_evening_offset_minutes !== undefined && (good_evening_offset_minutes < 0 || good_evening_offset_minutes > 180)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Good evening offset must be between 0 and 180 minutes'
+      });
+    }
+
+    if (good_night_offset_minutes !== undefined && (good_night_offset_minutes < -120 || good_night_offset_minutes > 180)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Good night offset must be between -120 and 180 minutes'
+      });
+    }
+
     const result = await schedulerCircuit.execute(async () => {
       const schedulerService = await getSchedulerService();
-      
-      // Validation
-      if (good_afternoon_time && !/^\d{2}:\d{2}$/.test(good_afternoon_time)) {
-        throw new Error('Good afternoon time must be in 24-hour format (HH:MM)');
-      }
-      
-      if (good_evening_offset_minutes !== undefined && (good_evening_offset_minutes < 0 || good_evening_offset_minutes > 180)) {
-        throw new Error('Good evening offset must be between 0 and 180 minutes');
-      }
-      
-      if (good_night_offset_minutes !== undefined && (good_night_offset_minutes < -120 || good_night_offset_minutes > 60)) {
-        throw new Error('Good night offset must be between -120 and 60 minutes');
-      }
-      
+
       // Updates with retry logic
       return await retryHelper.retryOperation(async () => {
         // Update configuration

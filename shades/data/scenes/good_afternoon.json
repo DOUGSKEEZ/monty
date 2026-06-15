@@ -3,6 +3,7 @@
   "description": "Lower all solar shades for afternoon sunshine",
   "commands": [
     {"shade_id": 28, "action": "d", "delay_ms": 1000},
+    {"shade_id": 27, "action": "u", "delay_ms": 1000},
     {"shade_id": 36, "action": "d", "delay_ms": 1000},
     {"shade_id": 45, "action": "d", "delay_ms": 1000}
   ],

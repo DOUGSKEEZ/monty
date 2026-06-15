@@ -1,7 +1,7 @@
 {
-  "status": "stopped",
-  "isPianobarRunning": false,
+  "status": "paused",
+  "isPianobarRunning": true,
   "isPlaying": false,
-  "updateTime": 1771118413040,
-  "stopTime": 1771118413040
+  "updateTime": 1781500548865,
+  "startTime": 1781500380080
 }
