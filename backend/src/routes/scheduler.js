@@ -10,19 +10,34 @@ const retryHelper = require('../utils/RetryHelper'); // Import singleton instanc
 const CircuitBreaker = require('../utils/CircuitBreaker');
 const { getTimezoneManager } = require('../utils/TimezoneManager');
 
-// Create circuit breaker for scheduler operations
-const schedulerCircuit = new CircuitBreaker({
-  name: 'scheduler-service',
-  failureThreshold: 3,
+// Shared fallback for all scheduler circuits.
+const schedulerFallback = async () => {
+  logger.warn(`Scheduler circuit breaker open, using fallback`);
+  return {
+    success: false,
+    error: 'Scheduler service temporarily unavailable',
+    fallback: true
+  };
+};
+
+// Separate circuit breakers for reads vs writes. Using ONE shared breaker meant a
+// failed write (or a transient save error) would open the circuit and blind the
+// read-only status/config endpoints for the whole resetTimeout. Splitting them keeps
+// the status display alive even when a write is failing.
+// Note: failureCountThreshold opens after 3 actual failures (not 3% — that's what the
+// old `failureThreshold: 3` was being misread as).
+const schedulerReadCircuit = new CircuitBreaker({
+  name: 'scheduler-read',
+  failureCountThreshold: 3,
   resetTimeout: 30000,
-  fallbackFunction: async (params) => {
-    logger.warn(`Scheduler circuit breaker open, using fallback`);
-    return {
-      success: false,
-      error: 'Scheduler service temporarily unavailable',
-      fallback: true
-    };
-  }
+  fallbackFunction: schedulerFallback
+});
+
+const schedulerWriteCircuit = new CircuitBreaker({
+  name: 'scheduler-write',
+  failureCountThreshold: 3,
+  resetTimeout: 30000,
+  fallbackFunction: schedulerFallback
 });
 
 /**
@@ -60,7 +75,7 @@ const getSchedulerService = async () => {
  */
 router.get('/status', async (req, res) => {
   try {
-    const result = await schedulerCircuit.execute(async () => {
+    const result = await schedulerReadCircuit.execute(async () => {
       const schedulerService = await getSchedulerService();
       return await schedulerService.healthCheck();
     }, 'health-check');
@@ -665,7 +680,7 @@ router.get('/schedules', async (req, res) => {
  */
 router.get('/config', async (req, res) => {
   try {
-    const result = await schedulerCircuit.execute(async () => {
+    const result = await schedulerReadCircuit.execute(async () => {
       const schedulerService = await getSchedulerService();
       const config = schedulerService.schedulerConfig;
       const health = await schedulerService.healthCheck();
@@ -749,7 +764,7 @@ router.put('/scenes', async (req, res) => {
       });
     }
 
-    const result = await schedulerCircuit.execute(async () => {
+    const result = await schedulerWriteCircuit.execute(async () => {
       const schedulerService = await getSchedulerService();
 
       // Updates with retry logic

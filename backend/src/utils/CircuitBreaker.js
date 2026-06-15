@@ -27,7 +27,8 @@ class CircuitBreaker extends EventEmitter {
    * Create a new CircuitBreaker
    * @param {Object} options - Configuration options
    * @param {string} options.name - Name of this circuit (for logging/metrics)
-   * @param {number} options.failureThreshold - Percentage of failures to trip circuit (default: 50)
+   * @param {number} options.failureThreshold - Percentage (0-100) of failures in the rolling window to trip circuit (default: 50)
+   * @param {number} options.failureCountThreshold - Absolute number of failures in the rolling window to trip circuit. When set, this takes precedence over failureThreshold (the percentage). Use this when you mean "open after N failures" rather than "open at N% failure rate" (default: null = use percentage)
    * @param {number} options.resetTimeout - Time in ms before testing service again (default: 30000)
    * @param {number} options.halfOpenSuccessThreshold - Successful requests in half-open to close circuit (default: 5)
    * @param {number} options.rollingWindowSize - Number of recent requests to track (default: 10)
@@ -38,6 +39,7 @@ class CircuitBreaker extends EventEmitter {
     
     this.name = options.name || 'unnamed-circuit';
     this.failureThreshold = options.failureThreshold !== undefined ? options.failureThreshold : 50;
+    this.failureCountThreshold = options.failureCountThreshold !== undefined ? options.failureCountThreshold : null;
     this.resetTimeout = options.resetTimeout !== undefined ? options.resetTimeout : 30000;
     this.halfOpenSuccessThreshold = options.halfOpenSuccessThreshold !== undefined ? options.halfOpenSuccessThreshold : 5;
     this.rollingWindowSize = options.rollingWindowSize !== undefined ? options.rollingWindowSize : 10;
@@ -141,10 +143,16 @@ class CircuitBreaker extends EventEmitter {
       } 
       // If in CLOSED state, check if we've hit the failure threshold
       else if (this.state === STATES.CLOSED) {
-        const failureRate = this.calculateFailureRate();
-        
-        if (failureRate >= this.failureThreshold) {
-          this.openCircuit(`Failure rate ${failureRate.toFixed(1)}% exceeded threshold ${this.failureThreshold}%`);
+        // Count-based threshold takes precedence over the percentage when configured.
+        const tripped = this.failureCountThreshold !== null
+          ? this.countRecentFailures() >= this.failureCountThreshold
+          : this.calculateFailureRate() >= this.failureThreshold;
+
+        if (tripped) {
+          const reason = this.failureCountThreshold !== null
+            ? `Failure count ${this.countRecentFailures()} reached threshold ${this.failureCountThreshold}`
+            : `Failure rate ${this.calculateFailureRate().toFixed(1)}% exceeded threshold ${this.failureThreshold}%`;
+          this.openCircuit(reason);
           
           // Use fallback since we just opened the circuit
           try {
@@ -232,6 +240,14 @@ class CircuitBreaker extends EventEmitter {
     
     const failures = this.rollingWindow.filter(entry => !entry.success).length;
     return (failures / this.rollingWindow.length) * 100;
+  }
+
+  /**
+   * Count the failures currently in the rolling window
+   * @returns {number} - Absolute number of failed entries in the rolling window
+   */
+  countRecentFailures() {
+    return this.rollingWindow.filter(entry => !entry.success).length;
   }
   
   /**
@@ -447,7 +463,9 @@ class CircuitBreaker extends EventEmitter {
         failureRate: failureRate.toFixed(1) + '%'
       },
       config: {
-        failureThreshold: this.failureThreshold + '%',
+        failureThreshold: this.failureCountThreshold !== null
+          ? `${this.failureCountThreshold} failures`
+          : this.failureThreshold + '%',
         resetTimeout: this.resetTimeout + 'ms',
         halfOpenSuccessThreshold: this.halfOpenSuccessThreshold,
         rollingWindowSize: this.rollingWindowSize
