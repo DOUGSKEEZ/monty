@@ -1017,6 +1017,45 @@ function PianobarPage() {
     setShowOperationMessage(false);
   };
 
+  // Emergency kill handlers (mirrors the buttons on the Settings page)
+  const handleKillPianobar = async () => {
+    if (!window.confirm('Are you sure you want to kill Pianobar?\n\nThis will immediately terminate Pianobar and stop Pandora playback.')) {
+      return;
+    }
+    showOperation('Killing Pianobar processes...');
+    try {
+      const result = await actions.controlPianobar('kill');
+      if (result) {
+        actions.showToast('success', 'Pianobar processes terminated successfully');
+      } else {
+        actions.showToast('error', 'Failed to kill Pianobar processes');
+      }
+    } catch (error) {
+      actions.showToast('error', `Error killing Pianobar: ${error.message}`);
+    } finally {
+      hideOperation();
+    }
+  };
+
+  const handleKillJukebox = async () => {
+    if (!window.confirm('Are you sure you want to kill Jukebox?\n\nThis will forcefully terminate mpv and clear playback state.')) {
+      return;
+    }
+    showOperation('Killing Jukebox processes...');
+    try {
+      const result = await jukeboxApi.kill();
+      if (result.success) {
+        actions.showToast('success', `Jukebox killed successfully${result.processesKilled > 0 ? ` (${result.processesKilled} process${result.processesKilled > 1 ? 'es' : ''})` : ''}`);
+      } else {
+        actions.showToast('error', result.message || 'Failed to kill Jukebox');
+      }
+    } catch (error) {
+      actions.showToast('error', `Error killing Jukebox: ${error.message}`);
+    } finally {
+      hideOperation();
+    }
+  };
+
   // Bluetooth connection handlers
   const handleConnectBluetooth = async () => {
     // Don't allow multiple connection attempts
@@ -1379,6 +1418,24 @@ function PianobarPage() {
 
       {/* Jukebox Section - YouTube streaming + local music library */}
       <JukeboxSection />
+
+      {/* Emergency Kill Buttons (also available on the Settings page) */}
+      <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+        <div className="flex flex-wrap gap-3 justify-center">
+          <button
+            onClick={handleKillPianobar}
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
+          >
+            Kill Pianobar 🎹
+          </button>
+          <button
+            onClick={handleKillJukebox}
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
+          >
+            Kill Jukebox 🎵
+          </button>
+        </div>
+      </div>
 
       {/* Mode Selector Modal */}
       <ModeSelector
