@@ -6,7 +6,7 @@
  * functionality from music playback concerns.
  */
 
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 const IBluetoothService = require('../interfaces/IBluetoothService');
@@ -38,6 +38,11 @@ class BluetoothService extends IBluetoothService {
     this.autoDisconnectDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
     this.pianobarIsRunning = false;
 
+    // Keepalive: continuous silent stream to keep the speaker out of hardware auto-standby
+    this.keepaliveProcess = null;
+    this.keepaliveSupervisor = null;
+    this.keepaliveSupervisorIntervalMs = 30 * 1000;
+
     // Register with ServiceRegistry
     this.serviceRegistry.register('BluetoothService', {
       instance: this,
@@ -68,6 +73,11 @@ class BluetoothService extends IBluetoothService {
       .catch(err => {
         logger.error(`Error checking Bluetooth script: ${err.message}`);
       });
+
+    // If keepConnected was persisted ON, resume the keepalive supervisor on startup
+    if (this._keepConnectedEnabled()) {
+      this._startKeepaliveSupervisor();
+    }
   }
 
   /**
@@ -195,8 +205,9 @@ class BluetoothService extends IBluetoothService {
             
             prometheusMetrics.recordOperation('bluetooth-connect', true);
             prometheusMetrics.setServiceHealth('BluetoothService', 'ok');
-            
+
             this.connectionInProgress = false;
+            this._reconcileKeepalive();
             return {
               success: true,
               audioReady: success,
@@ -272,7 +283,8 @@ class BluetoothService extends IBluetoothService {
       async () => {
         try {
           logger.info('Disconnecting from Bluetooth speakers...');
-          
+          this._stopKeepalive();
+
           const scriptAvailable = await this.checkScriptAccess();
           if (!scriptAvailable) {
             return {
@@ -375,7 +387,8 @@ class BluetoothService extends IBluetoothService {
               pianobarIsRunning: this.pianobarIsRunning,
               autoDisconnectPending: this.autoDisconnectTimer !== null,
               autoDisconnectDelayMinutes: this.autoDisconnectDelay / 1000 / 60,
-              keepConnected: this._keepConnectedEnabled()
+              keepConnected: this._keepConnectedEnabled(),
+              keepaliveActive: this.keepaliveProcess !== null
             }
           };
         } catch (error) {
@@ -644,6 +657,7 @@ class BluetoothService extends IBluetoothService {
     logger.info('Pianobar started - canceling any pending auto-disconnect');
     this.pianobarIsRunning = true;
     this._cancelAutoDisconnectTimer();
+    this._reconcileKeepalive();
   }
 
   /**
@@ -654,6 +668,7 @@ class BluetoothService extends IBluetoothService {
     logger.info('Pianobar stopped - scheduling Bluetooth auto-disconnect in 5 minutes');
     this.pianobarIsRunning = false;
     this._scheduleAutoDisconnect();
+    this._reconcileKeepalive();
   }
 
   /**
@@ -676,6 +691,128 @@ class BluetoothService extends IBluetoothService {
    */
   _keepConnectedEnabled() {
     return this.configManager.get('music.keepConnected', false) === true;
+  }
+
+  /**
+   * Resolve the current Bluetooth (bluez) PulseAudio sink name, or null if absent.
+   * The sink only exists while the speaker is connected.
+   * @private
+   */
+  async _resolveBluezSink() {
+    try {
+      const { stdout } = await execPromise('pactl list sinks short');
+      const line = stdout.split('\n').find(l => l.includes('bluez_sink'));
+      return line ? line.split(/\s+/)[1] : null;
+    } catch (error) {
+      logger.debug(`Could not resolve bluez sink: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Whether any audio source is currently active (playing or paused).
+   * Uses the AudioBroker as the single source of truth for Pianobar + Jukebox.
+   * @private
+   */
+  _isPlaybackActive() {
+    try {
+      return require('./AudioBroker').getInstance().getActiveSource() !== 'none';
+    } catch (error) {
+      return this.pianobarIsRunning;
+    }
+  }
+
+  /**
+   * Start the keepalive: a continuous inaudible stream to the Bluetooth sink so the
+   * speaker never sees "no signal" and stays out of its hardware auto-standby.
+   * No-op if already running or if no Bluetooth sink is present.
+   * @private
+   */
+  async _startKeepalive() {
+    if (this.keepaliveProcess) return;
+
+    const sink = await this._resolveBluezSink();
+    if (!sink) {
+      logger.debug('Keepalive not started - no Bluetooth sink present');
+      return;
+    }
+
+    try {
+      this.keepaliveProcess = spawn('ffmpeg', [
+        '-nostdin', '-loglevel', 'error',
+        '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+        '-f', 'pulse', '-device', sink, 'monty-bt-keepalive'
+      ], { stdio: 'ignore', env: process.env });
+
+      this.keepaliveProcess.on('exit', () => { this.keepaliveProcess = null; });
+      this.keepaliveProcess.on('error', (e) => {
+        logger.warn(`Bluetooth keepalive error: ${e.message}`);
+        this.keepaliveProcess = null;
+      });
+
+      logger.info(`Bluetooth keepalive started (silent stream to ${sink})`);
+    } catch (error) {
+      logger.warn(`Failed to start Bluetooth keepalive: ${error.message}`);
+      this.keepaliveProcess = null;
+    }
+  }
+
+  /**
+   * Stop the keepalive stream if running.
+   * @private
+   */
+  _stopKeepalive() {
+    if (this.keepaliveProcess) {
+      try {
+        this.keepaliveProcess.kill('SIGTERM');
+      } catch (error) {
+        logger.debug(`Error stopping keepalive: ${error.message}`);
+      }
+      this.keepaliveProcess = null;
+      logger.info('Bluetooth keepalive stopped');
+    }
+  }
+
+  /**
+   * Reconcile desired vs actual keepalive state: run the stream only when
+   * keepConnected is ON, the speaker is connected, and nothing is playing.
+   * @private
+   */
+  async _reconcileKeepalive() {
+    const desired = this._keepConnectedEnabled() && this.isConnected && !this._isPlaybackActive();
+    if (desired && !this.keepaliveProcess) {
+      await this._startKeepalive();
+    } else if (!desired && this.keepaliveProcess) {
+      this._stopKeepalive();
+    }
+  }
+
+  /**
+   * Start the keepalive supervisor: periodically reconciles state so the stream
+   * follows playback transitions (including Jukebox) and self-heals if it dies.
+   * @private
+   */
+  _startKeepaliveSupervisor() {
+    if (this.keepaliveSupervisor) return;
+    this.keepaliveSupervisor = setInterval(
+      () => { this._reconcileKeepalive().catch(() => {}); },
+      this.keepaliveSupervisorIntervalMs
+    );
+    logger.info('Bluetooth keepalive supervisor started');
+    this._reconcileKeepalive().catch(() => {});
+  }
+
+  /**
+   * Stop the keepalive supervisor and any running keepalive stream.
+   * @private
+   */
+  _stopKeepaliveSupervisor() {
+    if (this.keepaliveSupervisor) {
+      clearInterval(this.keepaliveSupervisor);
+      this.keepaliveSupervisor = null;
+      logger.info('Bluetooth keepalive supervisor stopped');
+    }
+    this._stopKeepalive();
   }
 
   /**
@@ -748,9 +885,11 @@ class BluetoothService extends IBluetoothService {
 
     if (on) {
       this._cancelAutoDisconnectTimer();
+      this._startKeepaliveSupervisor();
       logger.info('keepConnected enabled - auto-disconnect suppressed');
     } else {
       logger.info('keepConnected disabled - normal auto-disconnect restored');
+      this._stopKeepaliveSupervisor();
       if (!this.pianobarIsRunning) {
         this._scheduleAutoDisconnect();
       }
