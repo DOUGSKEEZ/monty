@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../utils/AppContext';
-import { jukeboxApi } from '../utils/api';
+import { jukeboxApi, bluetoothApi } from '../utils/api';
 import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
 import ModeSelector from '../components/ModeSelector';
 import NowPlaying from '../components/shared/NowPlaying';
@@ -17,6 +17,7 @@ function PianobarPage() {
   
   // Component state
   const [selectedStation, setSelectedStation] = useState('');
+  const [keepBtConnected, setKeepBtConnected] = useState(false);
   const [showOperationMessage, setShowOperationMessage] = useState(false);
   const [operationMessage, setOperationMessage] = useState('');
   const [buttonLocked, setButtonLocked] = useState(false);
@@ -1056,6 +1057,31 @@ function PianobarPage() {
     }
   };
 
+  // Keep the "BT Pinned" toggle in sync with the polled Bluetooth status
+  useEffect(() => {
+    const polled = bluetooth?.status?.details?.keepConnected;
+    if (polled !== undefined) setKeepBtConnected(!!polled);
+  }, [bluetooth?.status?.details?.keepConnected]);
+
+  // Toggle the "keep Bluetooth connected" (BT Pinned) preference
+  const handleToggleKeepBtConnected = async (enabled) => {
+    setKeepBtConnected(enabled); // optimistic
+    try {
+      const r = await bluetoothApi.setKeepConnected(enabled);
+      if (r?.success) {
+        actions.showToast('success', enabled
+          ? 'Bluetooth pinned - will stay connected when music stops'
+          : 'Bluetooth will auto-disconnect 5 min after music stops');
+      } else {
+        setKeepBtConnected(!enabled); // revert on failure
+        actions.showToast('error', `Failed to update Bluetooth setting: ${r?.error}`);
+      }
+    } catch (error) {
+      setKeepBtConnected(!enabled); // revert on error
+      actions.showToast('error', `Error updating Bluetooth setting: ${error.message}`);
+    }
+  };
+
   // Bluetooth connection handlers
   const handleConnectBluetooth = async () => {
     // Don't allow multiple connection attempts
@@ -1156,7 +1182,11 @@ function PianobarPage() {
           <div>
             <div className="flex items-center">
               <h2 className="text-xl font-semibold dark:text-white">
-                Status: <span className="font-bold">{isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off'}</span>
+                Status: <span className="font-bold">{
+                  activeSource === 'jukebox'
+                    ? (jukebox.isPlaying ? 'Playing' : 'Paused')
+                    : (isPlayerOn() ? (isPlaying() ? 'Playing' : 'Paused') : 'Off')
+                }</span>
               </h2>
               {/* Bluetooth Signal Strength Icon */}
               <BluetoothSignalStrength mode="icon" />
@@ -1172,6 +1202,9 @@ function PianobarPage() {
               </span>
               {/* Bluetooth Signal Strength Text */}
               <BluetoothSignalStrength mode="text" />
+              {keepBtConnected && (
+                <span className="text-xs text-blue-500 ml-2">📌 BT Pinned</span>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-3">
@@ -1434,6 +1467,17 @@ function PianobarPage() {
           >
             Kill Jukebox 🎵
           </button>
+        </div>
+        <div className="flex justify-center mt-4">
+          <label className="flex items-center text-sm">
+            <input
+              type="checkbox"
+              checked={keepBtConnected}
+              onChange={(e) => handleToggleKeepBtConnected(e.target.checked)}
+              className="mr-2"
+            />
+            <span className="text-gray-600 dark:text-gray-300">📌 Keep Bluetooth connected when music stops (BT Pinned)</span>
+          </label>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../utils/AppContext';
-import { jukeboxApi } from '../utils/api';
+import { jukeboxApi, bluetoothApi } from '../utils/api';
 import AwayManager from '../components/AwayManager';
 import AwayDatePicker from '../components/AwayDatePicker';
 import AwayCalendarDisplay from '../components/AwayCalendarDisplay';
@@ -68,6 +68,7 @@ function SettingsPage() {
     enabled_for_night: false
   });
   const [skipSolarToday, setSkipSolarToday] = useState(false);
+  const [keepBtConnected, setKeepBtConnected] = useState(false);
   const [timezoneSettings, setTimezoneSettings] = useState({
     current: 'America/Denver',
     display: 'America/Denver (Mountain Time)',
@@ -120,6 +121,9 @@ function SettingsPage() {
     loadArduinoStatus();
     loadSystemTimezone();
     loadGuestAlarms();
+    bluetoothApi.getKeepConnected()
+      .then(r => { if (r?.success) setKeepBtConnected(!!r.keepConnected); })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Mount-only: intentionally run once to initialize page
 
@@ -332,6 +336,26 @@ function SettingsPage() {
       }
     } catch (err) {
       showError(`Error updating skip solar setting: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Update "keep Bluetooth connected" preference
+  const updateKeepBtConnected = async (enabled) => {
+    try {
+      setSaving(true);
+      const r = await bluetoothApi.setKeepConnected(enabled);
+      if (r?.success) {
+        setKeepBtConnected(enabled);
+        showSuccess(enabled
+          ? 'Bluetooth will stay connected when music stops'
+          : 'Bluetooth will auto-disconnect 5 min after music stops');
+      } else {
+        showError(`Failed to update Bluetooth setting: ${r?.error}`);
+      }
+    } catch (err) {
+      showError(`Error updating Bluetooth setting: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -1256,6 +1280,16 @@ function SettingsPage() {
               This button uses <code>pkill -9</code> to forcefully terminate mpv.<br></br>
               Also cleans up the IPC socket for fresh restart.
             </p>
+
+            <label className="flex items-center text-sm mt-4">
+              <input
+                type="checkbox"
+                checked={keepBtConnected}
+                onChange={(e) => updateKeepBtConnected(e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-gray-600 dark:text-gray-300">🔵 Keep Bluetooth connected when music stops</span>
+            </label>
           </div>
 
           {/* ShadeCommander Controls */}

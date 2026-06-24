@@ -374,7 +374,8 @@ class BluetoothService extends IBluetoothService {
               lastConnectionAttempt: this.lastConnectionAttempt,
               pianobarIsRunning: this.pianobarIsRunning,
               autoDisconnectPending: this.autoDisconnectTimer !== null,
-              autoDisconnectDelayMinutes: this.autoDisconnectDelay / 1000 / 60
+              autoDisconnectDelayMinutes: this.autoDisconnectDelay / 1000 / 60,
+              keepConnected: this._keepConnectedEnabled()
             }
           };
         } catch (error) {
@@ -668,13 +669,29 @@ class BluetoothService extends IBluetoothService {
   }
 
   /**
+   * Whether the user has opted to keep Bluetooth connected when music stops.
+   * Read lazily from config so toggling takes effect live (no restart) and an
+   * already-armed timer can be neutralized at fire time.
+   * @private
+   */
+  _keepConnectedEnabled() {
+    return this.configManager.get('music.keepConnected', false) === true;
+  }
+
+  /**
    * Schedule auto-disconnect after 5 minutes
    * @private
    */
   _scheduleAutoDisconnect() {
     // Cancel any existing timer first
     this._cancelAutoDisconnectTimer();
-    
+
+    // Respect the user setting: keep Bluetooth connected even when music stops
+    if (this._keepConnectedEnabled()) {
+      logger.info('Auto-disconnect suppressed - keepConnected is ON');
+      return;
+    }
+
     // Only schedule if we're actually connected
     if (!this.isConnected) {
       logger.debug('Not scheduling auto-disconnect - not connected to Bluetooth');
@@ -685,6 +702,12 @@ class BluetoothService extends IBluetoothService {
     
     this.autoDisconnectTimer = setTimeout(async () => {
       try {
+        // Re-check the keep-connected flag in case it was toggled on after the timer was armed
+        if (this._keepConnectedEnabled()) {
+          logger.info('Auto-disconnect canceled at fire time - keepConnected is ON');
+          return;
+        }
+
         // Double-check conditions before disconnecting
         if (this.pianobarIsRunning) {
           logger.info('Auto-disconnect canceled - Pianobar is running again');
@@ -710,6 +733,30 @@ class BluetoothService extends IBluetoothService {
         this.autoDisconnectTimer = null;
       }
     }, this.autoDisconnectDelay);
+  }
+
+  /**
+   * Enable/disable the "keep Bluetooth connected" preference.
+   * Persists immediately; on enable cancels any pending auto-disconnect timer;
+   * on disable re-arms normal auto-disconnect if music is already stopped.
+   * @param {boolean} enabled
+   */
+  async setKeepConnected(enabled) {
+    const on = enabled === true;
+    this.configManager.set('music.keepConnected', on);
+    this.configManager.saveConfig(); // persist immediately (not a critical-path key)
+
+    if (on) {
+      this._cancelAutoDisconnectTimer();
+      logger.info('keepConnected enabled - auto-disconnect suppressed');
+    } else {
+      logger.info('keepConnected disabled - normal auto-disconnect restored');
+      if (!this.pianobarIsRunning) {
+        this._scheduleAutoDisconnect();
+      }
+    }
+
+    return { success: true, keepConnected: on };
   }
 
   /**

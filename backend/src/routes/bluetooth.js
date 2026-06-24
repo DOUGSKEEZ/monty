@@ -124,6 +124,31 @@ router.post('/disconnect', async (req, res) => {
   }
 });
 
+// Get the "keep Bluetooth connected" preference
+router.get('/keep-connected', async (req, res) => {
+  try {
+    res.json({ success: true, keepConnected: getBluetoothService()._keepConnectedEnabled() });
+  } catch (error) {
+    logger.error(`Error reading keepConnected: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Set the "keep Bluetooth connected" preference
+router.post('/keep-connected', async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'Body must include boolean "enabled"' });
+    }
+    const result = await getBluetoothService().setKeepConnected(enabled);
+    res.json(result);
+  } catch (error) {
+    logger.error(`Error setting keepConnected: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Get Bluetooth status
 router.get('/status', async (req, res) => {
   const routeStartTime = Date.now();

@@ -57,7 +57,8 @@ const DEFAULT_CONFIG = {
   music: {
     defaultStation: '128737420597291214', // Jazz Fruits Music Radio station ID
     wakeUpWithMusic: false,
-    wakeUpVolume: 50  // Volume level 0-100
+    wakeUpVolume: 50,  // Volume level 0-100
+    keepConnected: false  // When true, suppress Bluetooth auto-disconnect after music stops
   }
 };
 

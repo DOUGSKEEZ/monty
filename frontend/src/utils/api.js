@@ -302,8 +302,26 @@ export const bluetoothApi = {
    * Get Bluetooth diagnostics
    * @returns {Promise<Object>} - Diagnostic information
    */
-  getDiagnostics: () => 
+  getDiagnostics: () =>
     fetchApi('/bluetooth/diagnostics'),
+
+  /**
+   * Get the "keep Bluetooth connected" preference
+   * @returns {Promise<Object>} - { success, keepConnected }
+   */
+  getKeepConnected: () =>
+    fetchApi('/bluetooth/keep-connected'),
+
+  /**
+   * Set the "keep Bluetooth connected" preference
+   * @param {boolean} enabled
+   * @returns {Promise<Object>} - { success, keepConnected }
+   */
+  setKeepConnected: (enabled) =>
+    fetchApi('/bluetooth/keep-connected', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
 };
 
 // Music API endpoints (redirected to pianobar for compatibility)
