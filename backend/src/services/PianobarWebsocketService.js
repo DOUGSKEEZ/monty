@@ -180,7 +180,11 @@ class PianobarWebsocketService {
           logger.error(`Error processing status file: ${error.message}`);
         }
       });
-      
+
+      statusWatcher.on('error', (error) => {
+        logger.error(`Status file watcher error: ${error.message}`);
+      });
+
       // Watch event directory for new event files
       const absoluteEventDir = path.resolve(this.eventDir);
       logger.info(`Setting up file watcher for: ${absoluteEventDir}`);
@@ -198,93 +202,170 @@ class PianobarWebsocketService {
 
 
       eventWatcher
-        .on('add', (filePath) => {
-          if (!filePath.endsWith('.json')) return;
-
-          try {
-            // Read and clean the JSON content to handle problematic characters
-            let fileContent = fs.readFileSync(filePath, 'utf8');
-            // Remove curly quotes entirely - they break JSON when inside string values
-            // Use explicit Unicode escapes to avoid accidentally matching straight quotes
-            // U+201C = left double curly quote, U+201D = right double curly quote
-            // U+2018 = left single curly quote, U+2019 = right single curly quote
-            fileContent = fileContent.replace(/[\u201C\u201D]/g, '').replace(/[\u2018\u2019]/g, "'");
-
-            const eventData = JSON.parse(fileContent);
-            
-            // Simple event processing
-            if (eventData.eventType === 'songstart') {
-              this.currentTrack = {
-                title: eventData.title || '',
-                artist: eventData.artist || '',
-                album: eventData.album || '',
-                stationName: eventData.stationName || '',
-                songDuration: parseInt(eventData.songDuration) || 0,
-                songPlayed: parseInt(eventData.songPlayed) || 0,
-                rating: parseInt(eventData.rating) || 0,
-                coverArt: eventData.coverArt || '',
-                detailUrl: eventData.detailUrl || ''
-              };
-              
-              this.broadcast({
-                type: 'song',
-                source: 'pianobar',
-                data: this.currentTrack
-              });
-              
-              // Also update backend shared state for cross-device sync
-              this.updateBackendSharedState(this.currentTrack);
-            }
-            else if (eventData.eventType === 'songlove') {
-              this.broadcast({ type: 'love', source: 'pianobar', data: {} });
-            }
-            else if (eventData.eventType === 'usergetstations') {
-              const stations = eventData.stations || [];
-
-              // Broadcast to WebSocket clients
-              this.broadcast({
-                type: 'stations',
-                source: 'pianobar',
-                data: { stations: stations }
-              });
-
-              // Update the stations file for the /stations API endpoint
-              this.updateStationsFile(stations);
-            }
-            // Handle pause event - track when pause started
-            else if (eventData.eventType === 'playbackpause') {
-              this.broadcast({
-                type: 'status',
-                source: 'pianobar',
-                data: { isPlaying: false, isPaused: true }
-              });
-              this.updatePauseState(true);
-            }
-            // Handle resume event - accumulate paused time
-            else if (eventData.eventType === 'playbackstart') {
-              this.broadcast({
-                type: 'status',
-                source: 'pianobar',
-                data: { isPlaying: true, isPaused: false }
-              });
-              this.updatePauseState(false);
-            }
-
-            // Clean up
-            fs.unlinkSync(filePath);
-          } catch (error) {
-            logger.error(`Error processing event file: ${error.message}`);
-          }
-        })
+        .on('add', (filePath) => this.processEventFile(filePath))
         .on('ready', () => {
           logger.info(`Event file watcher ready, watching: ${absoluteEventDir}`);
         })
         .on('error', (error) => {
+          // Don't swallow errors: log them. Recovery is handled by the periodic
+          // sweep below, which processes events even if this watcher goes deaf.
+          logger.error(`Event file watcher error (periodic sweep will keep events flowing): ${error.message}`);
         });
-      
+
+      // Backstop for a silently-dead watcher. chokidar/inotify can stop
+      // delivering 'add' events WITHOUT emitting an 'error' (observed in
+      // production: 600+ event files piled up while the UI froze on
+      // "No song playing"). This timer drains the event directory on a fixed
+      // cadence so song updates keep flowing and files never accumulate.
+      this.startEventSweep();
+
       logger.info('File watchers set up for status and events');
     } catch (error) {
       logger.error(`Error setting up file watchers: ${error.message}`);
+    }
+  }
+
+  /**
+   * Start the periodic event-directory sweep. This is the recovery mechanism
+   * for a silently-dead file watcher: it reprocesses any event files the
+   * watcher missed. Cheap because the directory is normally empty.
+   */
+  startEventSweep() {
+    if (this._eventSweepInterval) clearInterval(this._eventSweepInterval);
+    this._eventSweepInterval = setInterval(() => this.sweepEventDir(), 10000);
+  }
+
+  /**
+   * Process any event files sitting in the event directory (oldest first, so
+   * currentTrack ends on the most recent event). Recent files are processed
+   * normally; stale leftovers (e.g. a backlog accumulated while the watcher
+   * was dead) are drained quietly without replaying ancient "now playing"
+   * broadcasts.
+   */
+  sweepEventDir() {
+    let files;
+    try {
+      files = fs.readdirSync(this.eventDir).filter((f) => f.endsWith('.json'));
+    } catch (error) {
+      logger.error(`Event dir sweep failed to read directory: ${error.message}`);
+      return;
+    }
+    if (files.length === 0) return;
+
+    const STALE_MS = 5 * 60 * 1000; // don't replay events older than 5 minutes
+    const cutoff = Date.now() - STALE_MS;
+    let staleDeleted = 0;
+
+    files
+      .map((f) => path.join(this.eventDir, f))
+      .sort((a, b) => {
+        try { return fs.statSync(a).mtimeMs - fs.statSync(b).mtimeMs; }
+        catch (e) { return 0; }
+      })
+      .forEach((filePath) => {
+        let mtimeMs;
+        try { mtimeMs = fs.statSync(filePath).mtimeMs; }
+        catch (e) { return; } // vanished (processed by the watcher) - skip
+        if (mtimeMs < cutoff) {
+          try { fs.unlinkSync(filePath); staleDeleted++; } catch (e) {}
+        } else {
+          this.processEventFile(filePath);
+        }
+      });
+
+    if (staleDeleted > 0) {
+      logger.info(`Event dir sweep cleared ${staleDeleted} stale event file(s)`);
+    }
+  }
+
+  /**
+   * Parse a single pianobar event file, broadcast the matching update, then
+   * delete it. Shared by the real-time watcher and the periodic sweep; the
+   * in-flight guard prevents the two paths from double-processing one file.
+   */
+  processEventFile(filePath) {
+    if (!filePath.endsWith('.json')) return;
+
+    this._processingFiles = this._processingFiles || new Set();
+    if (this._processingFiles.has(filePath)) return;
+    this._processingFiles.add(filePath);
+
+    try {
+      // Read and clean the JSON content to handle problematic characters
+      let fileContent = fs.readFileSync(filePath, 'utf8');
+      // Remove curly quotes entirely - they break JSON when inside string values
+      // U+201C/U+201D = curly double quotes, U+2018/U+2019 = curly single quotes
+      fileContent = fileContent.replace(/[“”]/g, '').replace(/[‘’]/g, "'");
+
+      const eventData = JSON.parse(fileContent);
+
+      // Simple event processing
+      if (eventData.eventType === 'songstart') {
+        this.currentTrack = {
+          title: eventData.title || '',
+          artist: eventData.artist || '',
+          album: eventData.album || '',
+          stationName: eventData.stationName || '',
+          songDuration: parseInt(eventData.songDuration) || 0,
+          songPlayed: parseInt(eventData.songPlayed) || 0,
+          rating: parseInt(eventData.rating) || 0,
+          coverArt: eventData.coverArt || '',
+          detailUrl: eventData.detailUrl || ''
+        };
+
+        this.broadcast({
+          type: 'song',
+          source: 'pianobar',
+          data: this.currentTrack
+        });
+
+        // Also update backend shared state for cross-device sync
+        this.updateBackendSharedState(this.currentTrack);
+      }
+      else if (eventData.eventType === 'songlove') {
+        this.broadcast({ type: 'love', source: 'pianobar', data: {} });
+      }
+      else if (eventData.eventType === 'usergetstations') {
+        const stations = eventData.stations || [];
+
+        // Broadcast to WebSocket clients
+        this.broadcast({
+          type: 'stations',
+          source: 'pianobar',
+          data: { stations: stations }
+        });
+
+        // Update the stations file for the /stations API endpoint
+        this.updateStationsFile(stations);
+      }
+      // Handle pause event - track when pause started
+      else if (eventData.eventType === 'playbackpause') {
+        this.broadcast({
+          type: 'status',
+          source: 'pianobar',
+          data: { isPlaying: false, isPaused: true }
+        });
+        this.updatePauseState(true);
+      }
+      // Handle resume event - accumulate paused time
+      else if (eventData.eventType === 'playbackstart') {
+        this.broadcast({
+          type: 'status',
+          source: 'pianobar',
+          data: { isPlaying: true, isPaused: false }
+        });
+        this.updatePauseState(false);
+      }
+
+      // Clean up
+      fs.unlinkSync(filePath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        // ENOENT just means the other path (watcher vs sweep) already removed it.
+        logger.error(`Error processing event file: ${error.message}`);
+      }
+    } finally {
+      this._processingFiles.delete(filePath);
     }
   }
   

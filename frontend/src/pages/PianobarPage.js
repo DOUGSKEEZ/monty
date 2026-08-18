@@ -1369,7 +1369,7 @@ function PianobarPage() {
                 rating={isPianobarActive ? trackInfo.rating : undefined}
                 detailUrl={isPianobarActive ? trackInfo.detailUrl : undefined}
                 onOpenModeSelector={isPianobarActive ? () => setShowModeSelector(true) : undefined}
-                onRefresh={isPianobarActive ? handleRefreshAll : undefined}
+                onRefresh={isPlayerOn() ? handleRefreshAll : undefined}
                 // Jukebox-specific props
                 sourceType={isJukeboxActive ? (jukebox.track?.youtubeId ? 'youtube' : 'library') : undefined}
                 youtubeId={isJukeboxActive ? jukebox.track?.youtubeId : undefined}

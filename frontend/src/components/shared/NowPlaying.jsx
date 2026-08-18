@@ -288,9 +288,11 @@ function NowPlaying({
             </div>
           )}
 
-          {/* Progress Bar - Shared (when duration > 0) */}
-          {duration > 0 && (
+          {/* Progress Bar + Force Sync — render if we have a duration OR a refresh action available.
+              Keeps the Force Sync button reachable even when no song is detected (duration === 0). */}
+          {(duration > 0 || (isPianobar && onRefresh)) && (
             <div className="mt-4 flex items-center space-x-3">
+              {duration > 0 && (
               <div className={`flex-1 ${isActive ? '' : 'opacity-50'}`}>
                 <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mb-1">
                   <span>{formatTime(position)}</span>
@@ -305,6 +307,7 @@ function NowPlaying({
                   />
                 </div>
               </div>
+              )}
 
               {/* Force Sync Button - Pianobar only */}
               {isPianobar && onRefresh && (
