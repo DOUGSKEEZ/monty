@@ -22,6 +22,15 @@ class PianobarWebsocketService {
     this.eventDir = config.eventDir ||
       path.join(process.env.HOME || '/home/monty', '.config/pianobar/event_data');
 
+    // Session-scoped play history (bounded ring buffer, persisted to disk).
+    // Keyed by pianobar's startTime so it resets on a new pianobar session but
+    // survives a backend-only restart (the orphaned-pianobar case).
+    this.historyFile = config.historyFile ||
+      path.join(process.env.HOME || '/home/monty', 'monty/data/cache/pianobar_history.json');
+    this.MAX_HISTORY = 50;
+    this.sessionStartTime = null;
+    this.history = [];
+
 
     // Create WebSocket server
     this.wss = new WebSocket.Server({
@@ -38,6 +47,7 @@ class PianobarWebsocketService {
     this.setupWebSocketHandlers();
     this.setupWatchers();
     this.ensureEventDirectory();
+    this.loadHistory();
 
     logger.info('Simple PianobarWebsocketService initialized');
   }
@@ -301,6 +311,10 @@ class PianobarWebsocketService {
 
       // Simple event processing
       if (eventData.eventType === 'songstart') {
+        // Record the song that just ended into session history BEFORE we
+        // overwrite currentTrack, so history holds "previously played" only.
+        this.recordPreviousSong();
+
         this.currentTrack = {
           title: eventData.title || '',
           artist: eventData.artist || '',
@@ -366,6 +380,114 @@ class PianobarWebsocketService {
       }
     } finally {
       this._processingFiles.delete(filePath);
+    }
+  }
+
+  /**
+   * Determine the current pianobar session id (its startTime). Prefers the
+   * in-memory status (kept current by the status watcher); falls back to
+   * reading the status file. Returns null if unknown.
+   */
+  getSessionStartTime() {
+    if (this.currentStatus && this.currentStatus.startTime) {
+      return this.currentStatus.startTime;
+    }
+    try {
+      const s = JSON.parse(fs.readFileSync(this.statusFile, 'utf8'));
+      return s.startTime || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Push the outgoing track (this.currentTrack) onto the session history.
+   * Resets the buffer when a new pianobar session is detected. Bounded to
+   * MAX_HISTORY, dedupes consecutive repeats, persists, and broadcasts.
+   */
+  recordPreviousSong() {
+    const session = this.getSessionStartTime();
+
+    // New pianobar session -> start history fresh, dropping the prior-session track.
+    if (session !== this.sessionStartTime) {
+      this.sessionStartTime = session;
+      this.history = [];
+      this.saveHistoryFile();
+      this.broadcastHistory();
+      return;
+    }
+
+    const prev = this.currentTrack;
+    if (!prev || !prev.title) return; // nothing was playing yet this session
+
+    // Skip consecutive duplicates (e.g. an event file re-processed by the sweep)
+    const last = this.history[this.history.length - 1];
+    if (last && last.title === prev.title && last.artist === prev.artist) return;
+
+    this.history.push({
+      title: prev.title,
+      artist: prev.artist || '',
+      album: prev.album || '',
+      stationName: prev.stationName || '',
+      coverArt: prev.coverArt || '',
+      detailUrl: prev.detailUrl || '',
+      playedAt: Date.now()
+    });
+
+    // Bounded ring buffer: never grows past MAX_HISTORY entries.
+    if (this.history.length > this.MAX_HISTORY) {
+      this.history = this.history.slice(-this.MAX_HISTORY);
+    }
+
+    this.saveHistoryFile();
+    this.broadcastHistory();
+  }
+
+  /**
+   * Broadcast the current session history to all WebSocket clients.
+   */
+  broadcastHistory() {
+    this.broadcast({
+      type: 'history',
+      source: 'pianobar',
+      data: { sessionStartTime: this.sessionStartTime, songs: this.history }
+    });
+  }
+
+  /**
+   * Load persisted history on startup so it survives a backend-only restart
+   * (pianobar keeps running as an orphan; same session -> history continues).
+   */
+  loadHistory() {
+    try {
+      if (fs.existsSync(this.historyFile)) {
+        const data = JSON.parse(fs.readFileSync(this.historyFile, 'utf8'));
+        this.sessionStartTime = data.sessionStartTime || null;
+        this.history = Array.isArray(data.songs) ? data.songs.slice(-this.MAX_HISTORY) : [];
+        logger.info(`Loaded ${this.history.length} pianobar history entries for session ${this.sessionStartTime}`);
+      }
+    } catch (error) {
+      logger.warn(`Could not load pianobar history: ${error.message}`);
+      this.history = [];
+    }
+  }
+
+  /**
+   * Persist history atomically (write temp + rename) so a crash mid-write can
+   * never leave a half-written file. This is a fixed-size snapshot, not an
+   * append log, so the file stays bounded (<= MAX_HISTORY entries, ~30KB).
+   */
+  saveHistoryFile() {
+    try {
+      const tmp = `${this.historyFile}.tmp`;
+      const payload = JSON.stringify({
+        sessionStartTime: this.sessionStartTime,
+        songs: this.history
+      }, null, 2);
+      fs.writeFileSync(tmp, payload, 'utf8');
+      fs.renameSync(tmp, this.historyFile);
+    } catch (error) {
+      logger.error(`Error saving pianobar history: ${error.message}`);
     }
   }
   

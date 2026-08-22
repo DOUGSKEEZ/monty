@@ -5,6 +5,7 @@ import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
 import ModeSelector from '../components/ModeSelector';
 import NowPlaying from '../components/shared/NowPlaying';
 import TransportControls from '../components/shared/TransportControls';
+import SessionHistory from '../components/shared/SessionHistory';
 import JukeboxSection from '../components/Jukebox/JukeboxSection';
 import Toast from '../components/shared/Toast';
 
@@ -31,6 +32,33 @@ function PianobarPage() {
 
   // Mode selector state
   const [showModeSelector, setShowModeSelector] = useState(false);
+
+  // Session play history (previously-played songs this pianobar session)
+  const [pianobarHistory, setPianobarHistory] = useState([]);
+
+  // Fetch session history from the backend (source of truth on reload / new device)
+  const fetchPianobarHistory = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pianobar/history`);
+      if (res.ok) {
+        const data = await res.json();
+        setPianobarHistory(Array.isArray(data.songs) ? data.songs : []);
+      }
+    } catch (error) {
+      console.warn('Error fetching pianobar history:', error);
+    }
+  };
+
+  // Replay a history entry: search it on YouTube via the Jukebox, then scroll there.
+  const handleReplayInJukebox = (query) => {
+    if (!query) return;
+    actions.requestJukeboxSearch(query);
+    // Give React a tick to render, then bring the Jukebox into view.
+    setTimeout(() => {
+      const el = document.getElementById('monty-jukebox');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
 
   // Cache version for forcing refreshes when needed
   const CACHE_VERSION = '2025-06-01-v1';
@@ -224,7 +252,10 @@ function PianobarPage() {
         
         // 3. Sync our current state to backend
         await syncSharedState();
-        
+
+        // 4. Load session play history
+        await fetchPianobarHistory();
+
         console.log('✅ Fresh data loaded successfully on page mount');
       } catch (error) {
         console.warn('Error during mount refresh:', error);
@@ -445,6 +476,9 @@ function PianobarPage() {
             if (stationList && stationList.length > 0) {
               actions.updatePianobarStations(stationList.map(station => station.name));
             }
+          }
+          else if (data.type === 'history') {
+            setPianobarHistory(Array.isArray(data.data?.songs) ? data.data.songs : []);
           }
         };
         
@@ -1449,8 +1483,13 @@ function PianobarPage() {
         })()}
       </div>
 
+      {/* Session History - previously-played songs this pianobar session */}
+      <SessionHistory songs={pianobarHistory} onReplay={handleReplayInJukebox} />
+
       {/* Jukebox Section - YouTube streaming + local music library */}
-      <JukeboxSection />
+      <div id="monty-jukebox">
+        <JukeboxSection />
+      </div>
 
       {/* Emergency Kill Buttons (also available on the Settings page) */}
       <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">

@@ -136,6 +136,7 @@ export const AppProvider = ({ children }) => {
     },
     searchResults: [],
     searchLoading: false,
+    pendingSearchQuery: null,  // Set by "replay" actions (e.g. Session History) → consumed by YouTubeSearch
     queue: { onDeck: null, inTheHole: null },
     library: [],
     libraryLoading: false,
@@ -1196,6 +1197,23 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
+  // Request a YouTube search from elsewhere in the app (e.g. Session History
+  // "replay" link). YouTubeSearch watches pendingSearchQuery, runs the search,
+  // then clears it.
+  const requestJukeboxSearch = (query) => {
+    setJukebox(prev => ({
+      ...prev,
+      pendingSearchQuery: query
+    }));
+  };
+
+  const clearPendingSearch = () => {
+    setJukebox(prev => ({
+      ...prev,
+      pendingSearchQuery: null
+    }));
+  };
+
   // Update queue (onDeck / inTheHole)
   const updateJukeboxQueue = (queue) => {
     setJukebox(prev => ({
@@ -1365,6 +1383,8 @@ export const AppProvider = ({ children }) => {
     updateJukeboxStatus,
     setJukeboxSearchResults,
     setJukeboxSearchLoading,
+    requestJukeboxSearch,
+    clearPendingSearch,
     updateJukeboxQueue,
     setJukeboxLibrary,
     setJukeboxLibraryLoading,

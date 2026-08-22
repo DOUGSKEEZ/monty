@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../utils/AppContext';
 import { jukeboxApi } from '../../utils/api';
 import SearchResult from './SearchResult';
@@ -20,8 +20,9 @@ function YouTubeSearch({ onSaveRequest }) {
 
   const { searchResults, searchLoading } = jukebox;
 
-  const handleSearch = async () => {
-    const trimmedQuery = query.trim();
+  const handleSearch = async (overrideQuery) => {
+    // onClick passes a PointerEvent, so only treat a real string as an override.
+    const trimmedQuery = (typeof overrideQuery === 'string' ? overrideQuery : query).trim();
     if (!trimmedQuery) return;
 
     actions.setJukeboxSearchLoading(true);
@@ -45,6 +46,18 @@ function YouTubeSearch({ onSaveRequest }) {
       handleSearch();
     }
   };
+
+  // Consume a search request triggered elsewhere (e.g. Session History "replay").
+  // Fill the box with the requested query, clear the request, and run the search.
+  useEffect(() => {
+    if (jukebox.pendingSearchQuery) {
+      const q = jukebox.pendingSearchQuery;
+      setQuery(q);
+      actions.clearPendingSearch();
+      handleSearch(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jukebox.pendingSearchQuery]);
 
   const handlePlay = async (youtubeId, metadata) => {
     // Optimistic update - set jukebox as active source immediately

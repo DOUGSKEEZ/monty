@@ -1232,6 +1232,27 @@ router.get('/sync-state', (req, res) => {
   }
 });
 
+// GET session play history (bounded, resets each pianobar session).
+// Reads the file the WebSocket service maintains, so it works for a fresh
+// page load or a second device even if no WebSocket 'history' push was seen.
+router.get('/history', (req, res) => {
+  try {
+    const historyFile = path.join(process.env.HOME || '/home/monty', 'monty/data/cache/pianobar_history.json');
+    if (!fs.existsSync(historyFile)) {
+      return res.json({ success: true, sessionStartTime: null, songs: [] });
+    }
+    const data = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+    res.json({
+      success: true,
+      sessionStartTime: data.sessionStartTime || null,
+      songs: Array.isArray(data.songs) ? data.songs : []
+    });
+  } catch (error) {
+    logger.error(`Error reading pianobar history: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST update shared state for cross-device sync
 router.post('/sync-state', (req, res) => {
   try {
