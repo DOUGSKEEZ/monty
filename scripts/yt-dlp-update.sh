@@ -43,6 +43,29 @@ else
     log "No existing yt-dlp found, performing fresh install"
 fi
 
+# Lightweight pre-check: resolve the latest published version WITHOUT downloading
+# the ~40MB binary. Follow the /releases/latest redirect with a HEAD request and
+# read the version tag from the final URL. This hits github.com (not the
+# rate-limited api.github.com) and pulls no response body.
+# If the version matches what we have, skip the download entirely. If the check
+# fails for any reason, fall through to the full download (the post-download
+# verification below is still the source of truth).
+LATEST_URL=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/yt-dlp/yt-dlp/releases/latest" 2>/dev/null) || LATEST_URL=""
+LATEST_VERSION="${LATEST_URL##*/tag/}"
+if [[ "$LATEST_VERSION" == "$LATEST_URL" ]]; then
+    LATEST_VERSION=""  # redirect didn't contain /tag/ — treat as unknown
+fi
+
+if [[ -n "$LATEST_VERSION" ]]; then
+    log "Latest published version: $LATEST_VERSION"
+    if [[ "$LATEST_VERSION" == "$CURRENT_VERSION" ]]; then
+        log "Already at latest version: $CURRENT_VERSION (skipped download)"
+        exit 0
+    fi
+else
+    log "WARN: Could not resolve latest version via redirect; proceeding with full download"
+fi
+
 # Download latest binary
 log "Downloading latest yt-dlp..."
 TEMP_FILE=$(mktemp)
