@@ -46,6 +46,81 @@ function getJukeboxService() {
   return jukeboxService;
 }
 
+// ==================== YT-DLP VERSION ====================
+
+// Cache the GitHub "latest" lookup so many page loads / devices don't each hit
+// GitHub. The installed version is cheap to read live, so it isn't cached.
+let ytDlpLatestCache = { version: null, checkedAt: 0 };
+const YT_DLP_LATEST_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+// Read the installed version from the SAME binary the Jukebox runs (bare
+// `yt-dlp`, PATH-resolved) so the display always matches reality.
+async function getInstalledYtDlpVersion() {
+  try {
+    const { stdout } = await execPromise('yt-dlp --version', { timeout: 5000 });
+    return stdout.trim() || null;
+  } catch (error) {
+    logger.warn(`Could not read installed yt-dlp version: ${error.message}`);
+    return null;
+  }
+}
+
+// Resolve the latest published version WITHOUT downloading the binary: follow
+// the /releases/latest redirect (HEAD) and read the /tag/<version> from the
+// final URL. Cached; returns null on any failure so the UI can stay neutral
+// rather than falsely showing "out of date".
+async function getLatestYtDlpVersion() {
+  const now = Date.now();
+  if (ytDlpLatestCache.version && (now - ytDlpLatestCache.checkedAt) < YT_DLP_LATEST_TTL_MS) {
+    return ytDlpLatestCache.version;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch('https://github.com/yt-dlp/yt-dlp/releases/latest', {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: controller.signal
+    });
+    const version = response.url.includes('/tag/') ? response.url.split('/tag/')[1] : null;
+    if (version) {
+      ytDlpLatestCache = { version, checkedAt: now };
+    }
+    return version;
+  } catch (error) {
+    logger.warn(`Could not resolve latest yt-dlp version: ${error.message}`);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * GET /api/jukebox/yt-dlp-version
+ * Reports the installed vs latest yt-dlp version for the Jukebox status line.
+ * upToDate is null when latest is unknown (e.g. GitHub unreachable) so the UI
+ * shows a neutral state instead of a false "update available".
+ */
+router.get('/yt-dlp-version', async (req, res) => {
+  try {
+    const [installed, latest] = await Promise.all([
+      getInstalledYtDlpVersion(),
+      getLatestYtDlpVersion()
+    ]);
+    const upToDate = (installed && latest) ? (installed === latest) : null;
+    res.json({
+      success: true,
+      installed,
+      latest,
+      upToDate,
+      checkedAt: ytDlpLatestCache.checkedAt || null
+    });
+  } catch (error) {
+    logger.error(`Error getting yt-dlp version: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ==================== SEARCH ====================
 
 /**

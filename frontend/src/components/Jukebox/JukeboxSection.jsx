@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../utils/AppContext';
 import { jukeboxApi } from '../../utils/api';
 import YouTubeSearch from './YouTubeSearch';
@@ -19,6 +19,9 @@ function JukeboxSection() {
   const { activeSource, actions } = useAppContext();
 
   const isJukeboxActive = activeSource === 'jukebox';
+
+  // yt-dlp version status for the header line ({ installed, latest, upToDate })
+  const [ytDlp, setYtDlp] = useState(null);
 
   // ============================================
   // SYNC STATE ON MOUNT
@@ -58,6 +61,15 @@ function JukeboxSection() {
     syncJukeboxState();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch yt-dlp version status once on mount (backend caches the GitHub lookup)
+  useEffect(() => {
+    let cancelled = false;
+    jukeboxApi.getYtDlpVersion()
+      .then((data) => { if (!cancelled) setYtDlp(data); })
+      .catch((error) => console.debug('yt-dlp version check skipped:', error.message));
+    return () => { cancelled = true; };
+  }, []);
+
   // ============================================
   // SAVE MODAL HANDLERS
   // ============================================
@@ -74,16 +86,38 @@ function JukeboxSection() {
   return (
     <div className="mt-8 bg-white dark:bg-gray-800 p-6 rounded shadow">
       {/* Section Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold dark:text-white flex items-center">
-          <span className="mr-2">🎵</span>
-          Monty's Jukebox
-          {isJukeboxActive && (
-            <span className="ml-3 text-sm font-normal text-green-600 dark:text-green-400">
-              ● Active
-            </span>
-          )}
-        </h2>
+      <div className="mb-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold dark:text-white flex items-center">
+            <span className="mr-2">🎵</span>
+            Monty's Jukebox
+            {isJukeboxActive && (
+              <span className="ml-3 text-sm font-normal text-green-600 dark:text-green-400">
+                ● Active
+              </span>
+            )}
+          </h2>
+        </div>
+
+        {/* yt-dlp version status line (blue = current, red = update available,
+            gray = latest unknown / GitHub unreachable) */}
+        {ytDlp && ytDlp.installed && (
+          <div className="flex items-center mt-1 text-xs">
+            {ytDlp.upToDate === false ? (
+              <span className="text-red-600 dark:text-red-400">
+                yt-dlp {ytDlp.installed} → {ytDlp.latest} available
+              </span>
+            ) : ytDlp.upToDate === true ? (
+              <span className="text-blue-600 dark:text-blue-400">
+                yt-dlp {ytDlp.installed} · up to date
+              </span>
+            ) : (
+              <span className="text-gray-500 dark:text-gray-400">
+                yt-dlp {ytDlp.installed}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* YouTube Search */}

@@ -637,6 +637,13 @@ export const jukeboxApi = {
   getStatus: (silent = false) =>
     fetchApi('/jukebox/status', {}, silent),
 
+  /**
+   * Get installed vs latest yt-dlp version for the Jukebox status line.
+   * @returns {Promise<Object>} - { installed, latest, upToDate, checkedAt }
+   */
+  getYtDlpVersion: () =>
+    fetchApi('/jukebox/yt-dlp-version'),
+
   // ============================================
   // LIBRARY
   // ============================================
