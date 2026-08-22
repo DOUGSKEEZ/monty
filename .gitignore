@@ -73,6 +73,8 @@ frontend/public/config/birthdays.json
 # Cache files
 **/cache/api_usage.json
 **/cache/pianobar_stations.json
+**/cache/pianobar_status.json
+**/cache/pianobar_history.json
 **/cache/sun_times_cache.json
 
 # Personal documentation
