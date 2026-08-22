@@ -99,22 +99,33 @@ function JukeboxSection() {
           </h2>
         </div>
 
-        {/* yt-dlp version status line (blue = current, red = update available,
-            gray = latest unknown / GitHub unreachable) */}
+        {/* yt-dlp version line. Version number is always neutral gray; the status
+            carries color. Up to date → blue; out of date → red "(new version)
+            available" with a gray admin hint on a second line. ml-7 lines it up
+            under "Monty's", not the 🎵 emoji. */}
         {ytDlp && ytDlp.installed && (
-          <div className="flex items-center mt-1 text-xs">
+          <div className="mt-1 text-xs ml-7">
             {ytDlp.upToDate === false ? (
-              <span className="text-red-600 dark:text-red-400">
-                yt-dlp {ytDlp.installed} → {ytDlp.latest} available
-              </span>
+              <>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    yt-dlp {ytDlp.installed} (current) →
+                  </span>
+                  <span className="text-red-600 dark:text-red-400">
+                    {' '}{ytDlp.latest} (new version) available
+                  </span>
+                </div>
+                <div className="text-gray-500 dark:text-gray-400">
+                  <span className="font-bold">Admin Update Required</span> -- or wait until scheduled update tomorrow morning
+                </div>
+              </>
             ) : ytDlp.upToDate === true ? (
-              <span className="text-blue-600 dark:text-blue-400">
-                yt-dlp {ytDlp.installed} · up to date
-              </span>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">yt-dlp {ytDlp.installed} · </span>
+                <span className="text-blue-600 dark:text-blue-400">up to date</span>
+              </div>
             ) : (
-              <span className="text-gray-500 dark:text-gray-400">
-                yt-dlp {ytDlp.installed}
-              </span>
+              <span className="text-gray-500 dark:text-gray-400">yt-dlp {ytDlp.installed}</span>
             )}
           </div>
         )}
