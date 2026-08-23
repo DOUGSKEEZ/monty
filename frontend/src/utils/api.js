@@ -806,8 +806,8 @@ export const stateApi = {
 };
 
 // ShadeCommander API configuration with fallback
-console.log('Environment variable REACT_APP_SHADECOMMANDER_URL:', process.env.REACT_APP_SHADECOMMANDER_URL);
-const SHADECOMMANDER_URL = process.env.REACT_APP_SHADECOMMANDER_URL || 'http://192.168.10.15:8000';
+console.log('Environment variable REACT_APP_SHADECOMMANDER_URL:', import.meta.env.REACT_APP_SHADECOMMANDER_URL);
+const SHADECOMMANDER_URL = import.meta.env.REACT_APP_SHADECOMMANDER_URL || 'http://192.168.10.15:8000';
 console.log('Final SHADECOMMANDER_URL:', SHADECOMMANDER_URL);
 
 // Direct ShadeCommander API calls (FastAPI external service)
