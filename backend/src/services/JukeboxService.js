@@ -97,7 +97,7 @@ class JukeboxService {
         time_update: 1  // Enable timeposition events (fires every 1 second)
       }, [
         '--no-video',
-        '--volume=80',           // Comfortable default level
+        '--volume=100',          // Unity gain — matches Pianobar's full source level
         '--volume-max=100',      // Absolute ceiling (software safety net)
         '--ytdl=no',             // Disable mpv's built-in ytdl_hook (broken with pip yt-dlp)
         '--no-config',
