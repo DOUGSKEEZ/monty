@@ -70,7 +70,16 @@ class ServiceRegistry {
       this.logger.warn(`Tried to update status for unregistered service: ${name}`);
       return false;
     }
-    
+
+    // Normalize 'ok' (returned by some checkHealth() implementations) to the
+    // canonical 'ready'. Without this, _checkServiceHealth sets 'ready' then
+    // updateHealth re-sets the raw 'ok', flapping the status every poll — which
+    // spammed "is ready" logs and dropped these services from getSystemHealth's
+    // ready/warning/error/initializing/pending buckets.
+    if (status === 'ok') {
+      status = 'ready';
+    }
+
     const service = this.services.get(name);
     const statusChanged = service.status !== status;
 
