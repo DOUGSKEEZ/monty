@@ -321,7 +321,7 @@ function HomePage() {
     const iconStyle = iconMap[scene.icon] || { bg: 'bg-gray-100', text: 'text-gray-600' };
     
     return (
-      <div className={`flex items-center justify-center h-12 w-12 rounded-full ${iconStyle.bg} ${iconStyle.text} text-xl`}>
+      <div className={`flex items-center justify-center h-10 w-10 rounded-full ${iconStyle.bg} ${iconStyle.text} text-lg`}>
         {scene.icon}
       </div>
     );
@@ -630,14 +630,29 @@ function HomePage() {
             </div>
           </div>
 
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold mb-2">House Temperatures</h3>
+          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold mb-1">House Temperatures</h3>
             {weather.temperatures ? (
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Main Floor: {formatTemp(weather.temperatures.mainFloor)}°F</div>
-                <div>Bedroom: {formatTemp(weather.temperatures.masterBedroom)}°F</div>
-                <div>Garage: {formatTemp(weather.temperatures.garage)}°F</div>
-                <div>Guest Room: {formatTemp(weather.temperatures.guestBedroom)}°F</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm leading-tight">
+                {[
+                  { key: 'mainFloor', label: 'Main Floor' },
+                  { key: 'masterBedroom', label: 'Bedroom' },
+                  { key: 'garage', label: 'Garage' },
+                  { key: 'guestBedroom', label: 'Guest Room' },
+                  { key: 'humidor', label: 'Humidor' },
+                  { key: 'outdoor', label: 'Outdoor' },
+                ].map(({ key, label }) => {
+                  const temp = weather.temperatures[key];
+                  const humidity = weather.temperatures.humidity?.[key];
+                  const tempColor = temp == null ? '' : temp > 80 ? 'text-red-500' : temp < 68 ? 'text-blue-500' : '';
+                  return (
+                    <div key={key} className="flex items-baseline">
+                      <span className="w-24 shrink-0">{label}:</span>
+                      <span className={`font-bold ${tempColor}`}>{formatTemp(temp)}°F</span>
+                      {humidity != null && <span className="text-gray-500 dark:text-gray-400 ml-1">· {Math.round(humidity)}%</span>}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p>No temperature data available</p>
@@ -735,11 +750,11 @@ function HomePage() {
             )}
 
             {/* Current Shade Automation State */}
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
+            <div className="bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg mb-3">
               <div className="flex items-center">
                 {/* Icon based on time of day */}
                 {getTimeBasedIcon()}
-                <div className="ml-4">
+                <div className="ml-3">
                   <h3 className="text-lg font-semibold dark:text-white">{getCurrentSceneText()}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">{getCurrentSceneDescription()}</p>
                 </div>

@@ -70,6 +70,9 @@ config/config.json
 config/config.json.backup
 frontend/public/config/birthdays.json
 
+# Govee sensor runtime readings (rewritten every ~15s by govee-reader.service)
+data/govee_readings.json
+
 # Cache files
 **/cache/api_usage.json
 **/cache/pianobar_stations.json

@@ -1,6 +1,13 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const { createWeatherService } = require('../utils/ServiceFactory');
+
+// Path to the readings file written by the Govee BLE reader service (govee/govee_reader.py)
+const GOVEE_READINGS_PATH = path.join(__dirname, '..', '..', '..', 'data', 'govee_readings.json');
+// A sensor reading older than this (ms) is considered stale (reader writes every ~15s)
+const GOVEE_STALE_MS = 5 * 60 * 1000;
 // Lazy-load weather service to avoid initialization timing issues
 let weatherService = null;
 const getWeatherService = () => {
@@ -89,28 +96,60 @@ router.get('/sun-times', async (req, res) => {
   }
 });
 
+// Read the latest Govee sensor readings written by the BLE reader service.
+// Returns { rooms: {...} } or null if the file is missing/unreadable.
+function readGoveeReadings() {
+  try {
+    const raw = fs.readFileSync(GOVEE_READINGS_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    logger.warn(`Govee readings unavailable: ${err.message}`);
+    return null;
+  }
+}
+
 // Get temperatures from all sources (weather + Govee sensors)
 router.get('/temperatures', async (req, res) => {
   try {
-    // First get current weather for outdoor temperature
+    // Outdoor air temperature comes from the weather service (authoritative for outside air).
     const weatherResult = await getWeatherService().getCurrentWeather();
-    const outdoorTemp = weatherResult?.temperature?.current || null;
-    
-    // TODO: Implement Govee sensor integration in the future
-    // For now, return mock data for the Govee sensors
-    const temps = {
-      outdoor: outdoorTemp,
-      mainFloor: 72, // Mock data
-      masterBedroom: 70, // Mock data
-      garage: 68, // Mock data
-      guestBedroom: 71, // Mock data
-      humidor: 69 // Mock data
-    };
-    
+    const outdoorTemp = weatherResult?.temperature?.current ?? null;
+
+    // Indoor/outdoor sensor readings come from the Govee BLE reader.
+    const govee = readGoveeReadings();
+    const rooms = govee?.rooms || {};
+    const now = Date.now();
+
+    // Backward-compatible flat temperature map (numbers) the existing UI reads.
+    const temps = { outdoor: outdoorTemp };
+    // Parallel humidity map and rich per-sensor detail (battery, staleness, signal).
+    const humidity = {};
+    const sensors = {};
+
+    for (const [room, r] of Object.entries(rooms)) {
+      temps[room] = r.temp_f ?? null;
+      humidity[room] = r.humidity ?? null;
+      const ageMs = r.last_seen ? now - new Date(r.last_seen).getTime() : null;
+      sensors[room] = {
+        label: r.label,
+        temp_f: r.temp_f ?? null,
+        humidity: r.humidity ?? null,
+        battery: r.battery ?? null,
+        rssi: r.rssi ?? null,
+        lastSeen: r.last_seen ?? null,
+        stale: ageMs == null || ageMs > GOVEE_STALE_MS,
+      };
+    }
+
     res.json({
       success: true,
-      data: temps,
-      note: "Indoor temperatures are mock data. Govee integration pending."
+      data: {
+        ...temps,
+        humidity,
+        sensors,
+        updated: govee?.updated ?? null,
+      },
+      note: govee ? undefined : 'Govee reader offline — indoor sensor data unavailable.'
     });
   } catch (error) {
     logger.error(`Error getting temperatures: ${error.message}`);

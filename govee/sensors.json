@@ -1,0 +1,11 @@
+{
+  "_comment": "Maps Govee H5100 BLE radio IDs to Monty rooms. Built via govee/identify.py proximity/Faraday method.",
+  "sensors": {
+    "GVH5100_194E": { "room": "mainFloor",     "label": "Main Floor",     "mac": "D1:06:06:46:19:4E" },
+    "GVH5100_3819": { "room": "masterBedroom",  "label": "Bedroom",        "mac": "D4:0E:84:06:38:19" },
+    "GVH5100_446E": { "room": "guestBedroom",   "label": "Guest Rooms",    "mac": "D1:06:00:C6:44:6E" },
+    "GVH5100_4F21": { "room": "garage",         "label": "Garage",         "mac": "D4:0E:84:86:4F:21" },
+    "GVH5100_6815": { "room": "outdoor",        "label": "Outdoor",        "mac": "D1:06:01:06:68:15" },
+    "GVH5100_3720": { "room": "humidor",        "label": "Humidor",        "mac": "D4:0E:84:C6:37:20" }
+  }
+}

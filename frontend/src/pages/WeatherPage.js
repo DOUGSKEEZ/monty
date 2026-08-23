@@ -578,6 +578,56 @@ function WeatherPage() {
     return <WeatherMap />;
   };
 
+  // Rooms shown in the House Temperatures grid. Outdoor temp comes from the
+  // weather service; the rest (and all humidity) come from Govee BLE sensors.
+  const HOUSE_ROOMS = [
+    { key: 'outdoor', label: 'Outdoor', source: 'Govee Sensor', accent: true },
+    { key: 'mainFloor', label: 'Main Floor', source: 'Govee Sensor' },
+    { key: 'masterBedroom', label: 'Master Bedroom', source: 'Govee Sensor' },
+    { key: 'guestBedroom', label: 'Guest Bedroom', source: 'Govee Sensor' },
+    { key: 'garage', label: 'Garage', source: 'Govee Sensor' },
+    { key: 'humidor', label: 'Humidor', source: 'Govee Sensor' },
+  ];
+
+  // Absolute moisture scale, same for every room: dry / comfortable / humid.
+  const humidityBadge = (humidity) => {
+    const h = Math.round(humidity);
+    const emoji = h <= 30 ? '🏜️' : h <= 60 ? '💧' : '☔️';
+    return `${emoji} ${h}% humidity`;
+  };
+
+  // The humidor targets ~62-72% RH for cigars; outside that range warrants a ⚠️.
+  const humidorOutOfRange = (humidity) => humidity != null && (humidity < 62 || humidity > 72);
+
+  // Render one room card (temperature + humidity + sensor health).
+  const renderRoomCard = ({ key, label, source, accent }) => {
+    const temp = weather.temperatures?.[key];
+    const humidity = weather.temperatures?.humidity?.[key];
+    const sensor = weather.temperatures?.sensors?.[key];
+    const bg = accent ? 'bg-blue-50 dark:bg-blue-900' : 'bg-gray-50 dark:bg-gray-700';
+    return (
+      <div key={key} className={`${bg} rounded-lg p-4`}>
+        <h4 className="text-lg font-medium mb-2 dark:text-white">
+          {label}
+          {key === 'humidor' && humidorOutOfRange(humidity) && (
+            <span title="Humidor outside ideal 62-72% RH for cigars"> ⚠️</span>
+          )}
+        </h4>
+        <p className="text-3xl font-bold dark:text-white">{formatTemp(temp)}°F</p>
+        {humidity != null && (
+          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{humidityBadge(humidity)}</p>
+        )}
+        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 flex items-center gap-2">
+          <span>{source}</span>
+          {sensor?.stale && <span className="text-amber-500" title="Reading is stale">⚠ stale</span>}
+          {sensor?.battery != null && sensor.battery <= 20 && (
+            <span className="text-red-500" title="Low battery">🔋 {sensor.battery}%</span>
+          )}
+        </p>
+      </div>
+    );
+  };
+
   // Render house temperatures section
   const renderHouseTemperatures = () => {
     return (
@@ -591,36 +641,7 @@ function WeatherPage() {
 
         {weather.temperatures ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2 dark:text-white">Outdoor</h4>
-              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.outdoor)}°F</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">From Weather Service</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2 dark:text-white">Main Floor</h4>
-              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.mainFloor)}°F</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2 dark:text-white">Master Bedroom</h4>
-              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.masterBedroom)}°F</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2 dark:text-white">Guest Bedroom</h4>
-              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.guestBedroom)}°F</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2 dark:text-white">Garage</h4>
-              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.garage)}°F</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h4 className="text-lg font-medium mb-2 dark:text-white">Humidor</h4>
-              <p className="text-3xl font-bold dark:text-white">{formatTemp(weather.temperatures.humidor)}°F</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Govee Sensor</p>
-            </div>
+            {HOUSE_ROOMS.map(renderRoomCard)}
           </div>
         ) : (
           <div className="text-center py-10">
@@ -628,9 +649,9 @@ function WeatherPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Govee integration pending</p>
           </div>
         )}
-        
+
         <div className="mt-4 text-center">
-          <button 
+          <button
             onClick={handleRefresh}
             className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
             disabled={isRefreshing}

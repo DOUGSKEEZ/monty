@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""
+Govee H5100 BLE reader — Monty production service.
+
+Passively/actively listens for the six H5100 thermo-hygrometer broadcasts,
+decodes temperature/humidity/battery, maps each sensor (by MAC) to its room
+via govee/sensors.json, and writes the latest reading per room to
+data/govee_readings.json for the Express backend to serve.
+
+No cloud, no API key, no pairing — it only listens to advertisements the
+sensors already emit, so it does not disturb the Govee gateway/app.
+
+Run:  govee/.venv/bin/python govee/govee_reader.py
+Runs forever; intended to be managed by systemd (govee-reader.service).
+"""
+import asyncio
+import json
+import os
+import sys
+from datetime import datetime
+
+from bleak import BleakScanner
+
+GOVEE_COMPANY_ID = 0x0001
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(HERE, "sensors.json")
+OUTPUT_PATH = os.path.join(HERE, "..", "data", "govee_readings.json")
+WRITE_INTERVAL = 15          # seconds between file writes
+SCAN_MODE = os.environ.get("GOVEE_SCAN_MODE", "active")  # "active" or "passive"
+
+# room -> latest reading dict, kept in memory and flushed to disk periodically
+latest = {}
+
+
+def load_mac_map():
+    """Build {MAC(upper): {room, label, radio_id}} from sensors.json."""
+    with open(CONFIG_PATH) as f:
+        cfg = json.load(f)
+    mac_map = {}
+    for radio_id, info in cfg.get("sensors", {}).items():
+        mac = (info.get("mac") or "").upper()
+        if mac:
+            mac_map[mac] = {"room": info["room"], "label": info["label"], "radio_id": radio_id}
+    return mac_map
+
+
+def decode(mfg):
+    """H5100: bytes2..4 = packed temp/humidity, byte5 = battery. Returns dict or None."""
+    if len(mfg) < 6:
+        return None
+    packed = int.from_bytes(mfg[2:5], "big")
+    negative = bool(packed & 0x800000)
+    packed &= 0x7FFFFF
+    temp_c = (packed / 10000.0) * (-1 if negative else 1)
+    humidity = (packed % 1000) / 10.0
+    battery = mfg[5]
+    # Sanity clamp: reject obviously corrupt packets rather than surfacing garbage.
+    temp_f = temp_c * 9 / 5 + 32
+    if not (-40 <= temp_f <= 160) or not (0 <= humidity <= 100):
+        return None
+    return {"temp_f": round(temp_f, 1), "humidity": round(humidity, 1), "battery": battery}
+
+
+def make_callback(mac_map, log_unknown):
+    def cb(device, adv):
+        mfg = adv.manufacturer_data.get(GOVEE_COMPANY_ID)
+        if mfg is None:
+            return
+        mac = device.address.upper()
+        info = mac_map.get(mac)
+        if info is None:
+            name = adv.local_name or ""
+            if name.startswith("GVH5100") and mac not in log_unknown:
+                log_unknown.add(mac)
+                print(f"[warn] Unmapped Govee sensor {name} ({mac}) — add it to sensors.json", flush=True)
+            return
+        reading = decode(mfg)
+        if reading is None:
+            return
+        reading.update({
+            "room": info["room"],
+            "label": info["label"],
+            "radio_id": info["radio_id"],
+            "rssi": adv.rssi,
+            "last_seen": datetime.now().isoformat(timespec="seconds"),
+        })
+        latest[info["room"]] = reading
+    return cb
+
+
+def write_output():
+    """Atomically write the current readings to data/govee_readings.json."""
+    payload = {
+        "updated": datetime.now().isoformat(timespec="seconds"),
+        "rooms": latest,
+    }
+    tmp = OUTPUT_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(payload, f, indent=2)
+    os.replace(tmp, OUTPUT_PATH)
+
+
+async def writer_loop():
+    while True:
+        await asyncio.sleep(WRITE_INTERVAL)
+        try:
+            write_output()
+        except Exception as e:  # never let a write error kill the scanner
+            print(f"[error] write failed: {e}", flush=True)
+
+
+async def main():
+    mac_map = load_mac_map()
+    if not mac_map:
+        print("[fatal] no mapped sensors in sensors.json", flush=True)
+        sys.exit(1)
+    print(f"Loaded {len(mac_map)} sensors. Scanning ({SCAN_MODE} mode). Writing {OUTPUT_PATH} every {WRITE_INTERVAL}s.", flush=True)
+
+    scanner = BleakScanner(detection_callback=make_callback(mac_map, set()), scanning_mode=SCAN_MODE)
+    await scanner.start()
+    try:
+        await writer_loop()
+    finally:
+        await scanner.stop()
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

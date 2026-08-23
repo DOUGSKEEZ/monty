@@ -1,0 +1,32 @@
+[Unit]
+Description=Govee H5100 BLE Reader (writes data/govee_readings.json for Monty)
+After=bluetooth.target network-online.target
+Wants=network-online.target
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+User=monty
+Group=monty
+WorkingDirectory=/home/monty/monty
+
+# Scan mode: "active" (proven, richer) or "passive" (lighter on the shared
+# BT radio if music/A2DP audio glitches during scans).
+Environment=GOVEE_SCAN_MODE=active
+
+ExecStart=/home/monty/monty/govee/.venv/bin/python /home/monty/monty/govee/govee_reader.py
+
+# Always keep the listener alive; it's a long-running passive scanner.
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=govee-reader
+
+# Security hardening (BLE scanning via BlueZ D-Bus needs no privilege escalation)
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
