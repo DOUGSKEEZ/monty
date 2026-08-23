@@ -594,27 +594,28 @@ function HomePage() {
             </button>
           </div>
           
-          <p className="text-md mb-2">
-            {weather.current?.location?.name || 'Silverthorne'}, 
+          <p className="text-md mb-1">
+            {weather.current?.location?.name || 'Silverthorne'},
             {weather.current?.location?.country || 'CO'}
           </p>
           
           <div className="flex items-center">
-            <span className="px-1 text-5xl font-bold">
-              {formatTemp(weather.current?.temperature?.current)}°F
-            </span>
-            <AnimatedWeatherIcon 
-              iconCode={weather.current?.weather?.icon} 
+            <div className="flex flex-col">
+              <span className="px-1 text-5xl font-bold">
+                {formatTemp(weather.current?.temperature?.current)}°F
+              </span>
+              <p className="px-1 capitalize">{description}</p>
+            </div>
+            <AnimatedWeatherIcon
+              iconCode={weather.current?.weather?.icon}
               alt={description}
-              className="h-20 w-20 ml-7"
+              className="h-28 w-28 ml-7"
             />
           </div>
-          
-          <p className="capitalize">{description}</p>
-          
-          <div className="flex justify-between mt-2 text-sm text-gray-600 dark:text-gray-300">
+
+          <div className="flex justify-between mt-0.5 text-sm text-gray-600 dark:text-gray-300">
             <div>
-              <span className="font-semibold">Feels like:</span> {formatTemp(weather.current?.temperature?.feelsLike)}°F
+              <span className="font-semibold">Feels like:</span> <span className="font-bold text-base">{formatTemp(weather.current?.temperature?.feelsLike)}°F</span>
             </div>
             <div>
               <span className="font-semibold">Humidity:</span> {weather.current?.humidity || '--'}%
