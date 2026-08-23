@@ -35,6 +35,9 @@ ADAPTER_MAC = os.environ.get("GOVEE_ADAPTER_MAC", "").upper()
 
 # room -> latest reading dict, kept in memory and flushed to disk periodically
 latest = {}
+# MAC(upper) -> sensor info incl. calibration offsets; reloaded each write cycle
+MAC_MAP = {}
+UNKNOWN = set()
 
 
 def resolve_adapter():
@@ -64,14 +67,24 @@ def resolve_adapter():
 
 
 def load_mac_map():
-    """Build {MAC(upper): {room, label, radio_id}} from sensors.json."""
+    """Build {MAC(upper): {room, label, radio_id, temp_offset_f, humidity_offset}} from sensors.json.
+
+    Offsets are our own calibration (the Govee app's calibration is cloud-side
+    and never reaches the raw BLE broadcast we read). Both default to 0.
+    """
     with open(CONFIG_PATH) as f:
         cfg = json.load(f)
     mac_map = {}
     for radio_id, info in cfg.get("sensors", {}).items():
         mac = (info.get("mac") or "").upper()
         if mac:
-            mac_map[mac] = {"room": info["room"], "label": info["label"], "radio_id": radio_id}
+            mac_map[mac] = {
+                "room": info["room"],
+                "label": info["label"],
+                "radio_id": radio_id,
+                "temp_offset_f": float(info.get("temp_offset_f", 0) or 0),
+                "humidity_offset": float(info.get("humidity_offset", 0) or 0),
+            }
     return mac_map
 
 
@@ -92,22 +105,27 @@ def decode(mfg):
     return {"temp_f": round(temp_f, 1), "humidity": round(humidity, 1), "battery": battery}
 
 
-def make_callback(mac_map, log_unknown):
+def make_callback():
     def cb(device, adv):
         mfg = adv.manufacturer_data.get(GOVEE_COMPANY_ID)
         if mfg is None:
             return
         mac = device.address.upper()
-        info = mac_map.get(mac)
+        info = MAC_MAP.get(mac)
         if info is None:
             name = adv.local_name or ""
-            if name.startswith("GVH5100") and mac not in log_unknown:
-                log_unknown.add(mac)
+            if name.startswith("GVH5100") and mac not in UNKNOWN:
+                UNKNOWN.add(mac)
                 print(f"[warn] Unmapped Govee sensor {name} ({mac}) — add it to sensors.json", flush=True)
             return
         reading = decode(mfg)
         if reading is None:
             return
+        # Apply our per-sensor calibration offsets (raw broadcast is uncalibrated).
+        if info["temp_offset_f"]:
+            reading["temp_f"] = round(reading["temp_f"] + info["temp_offset_f"], 1)
+        if info["humidity_offset"]:
+            reading["humidity"] = round(min(100.0, max(0.0, reading["humidity"] + info["humidity_offset"])), 1)
         reading.update({
             "room": info["room"],
             "label": info["label"],
@@ -132,8 +150,13 @@ def write_output():
 
 
 async def writer_loop():
+    global MAC_MAP
     while True:
         await asyncio.sleep(WRITE_INTERVAL)
+        try:  # hot-reload mapping/calibration edits without a restart
+            MAC_MAP = load_mac_map()
+        except Exception as e:
+            print(f"[error] config reload failed: {e}", flush=True)
         try:
             write_output()
         except Exception as e:  # never let a write error kill the scanner
@@ -141,8 +164,9 @@ async def writer_loop():
 
 
 async def main():
-    mac_map = load_mac_map()
-    if not mac_map:
+    global MAC_MAP
+    MAC_MAP = load_mac_map()
+    if not MAC_MAP:
         print("[fatal] no mapped sensors in sensors.json", flush=True)
         sys.exit(1)
 
@@ -150,10 +174,10 @@ async def main():
     if ADAPTER_MAC and adapter is None:
         print(f"[warn] adapter {ADAPTER_MAC} not found; falling back to default adapter", flush=True)
     adapter_desc = f"{adapter} ({ADAPTER_MAC})" if adapter else "default adapter"
-    print(f"Loaded {len(mac_map)} sensors. Scanning ({SCAN_MODE} mode) on {adapter_desc}. "
+    print(f"Loaded {len(MAC_MAP)} sensors. Scanning ({SCAN_MODE} mode) on {adapter_desc}. "
           f"Writing {OUTPUT_PATH} every {WRITE_INTERVAL}s.", flush=True)
 
-    scanner = BleakScanner(detection_callback=make_callback(mac_map, set()),
+    scanner = BleakScanner(detection_callback=make_callback(),
                            scanning_mode=SCAN_MODE, adapter=adapter)
     await scanner.start()
     try:
