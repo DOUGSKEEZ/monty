@@ -16,6 +16,8 @@ Runs forever; intended to be managed by systemd (govee-reader.service).
 import asyncio
 import json
 import os
+import re
+import subprocess
 import sys
 from datetime import datetime
 
@@ -27,9 +29,38 @@ CONFIG_PATH = os.path.join(HERE, "sensors.json")
 OUTPUT_PATH = os.path.join(HERE, "..", "data", "govee_readings.json")
 WRITE_INTERVAL = 15          # seconds between file writes
 SCAN_MODE = os.environ.get("GOVEE_SCAN_MODE", "active")  # "active" or "passive"
+# Pin scanning to a specific radio BY MAC (hci numbers shuffle across reboots).
+# Empty = use BlueZ default adapter.
+ADAPTER_MAC = os.environ.get("GOVEE_ADAPTER_MAC", "").upper()
 
 # room -> latest reading dict, kept in memory and flushed to disk periodically
 latest = {}
+
+
+def resolve_adapter():
+    """Return the hciN name whose MAC matches ADAPTER_MAC, or None for default.
+
+    We resolve at runtime so a reboot that renumbers hci0/hci1/hci2 still binds
+    us to the correct physical radio (the onboard one dedicated to scanning),
+    never the dongle carrying audio.
+    """
+    if not ADAPTER_MAC:
+        return None
+    # The BD address isn't in sysfs on this kernel, so parse `hciconfig`.
+    try:
+        out = subprocess.run(["hciconfig"], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return None
+    current = None
+    for line in out.splitlines():
+        m = re.match(r"^(hci\d+):", line)
+        if m:
+            current = m.group(1)
+        elif "BD Address:" in line and current:
+            mac = line.split("BD Address:")[1].split()[0].strip().upper()
+            if mac == ADAPTER_MAC:
+                return current
+    return None
 
 
 def load_mac_map():
@@ -114,9 +145,16 @@ async def main():
     if not mac_map:
         print("[fatal] no mapped sensors in sensors.json", flush=True)
         sys.exit(1)
-    print(f"Loaded {len(mac_map)} sensors. Scanning ({SCAN_MODE} mode). Writing {OUTPUT_PATH} every {WRITE_INTERVAL}s.", flush=True)
 
-    scanner = BleakScanner(detection_callback=make_callback(mac_map, set()), scanning_mode=SCAN_MODE)
+    adapter = resolve_adapter()
+    if ADAPTER_MAC and adapter is None:
+        print(f"[warn] adapter {ADAPTER_MAC} not found; falling back to default adapter", flush=True)
+    adapter_desc = f"{adapter} ({ADAPTER_MAC})" if adapter else "default adapter"
+    print(f"Loaded {len(mac_map)} sensors. Scanning ({SCAN_MODE} mode) on {adapter_desc}. "
+          f"Writing {OUTPUT_PATH} every {WRITE_INTERVAL}s.", flush=True)
+
+    scanner = BleakScanner(detection_callback=make_callback(mac_map, set()),
+                           scanning_mode=SCAN_MODE, adapter=adapter)
     await scanner.start()
     try:
         await writer_loop()

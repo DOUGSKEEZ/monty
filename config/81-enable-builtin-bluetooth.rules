@@ -1,0 +1,6 @@
+# Re-enable the onboard RTL8821CE Bluetooth radio (0bda:c821) so it stays
+# authorized across reboots/replugs. It is dedicated to BLE sensor scanning
+# (Govee reader, pinned by MAC BC:2B:02:24:A2:27); music stays on the TP-Link
+# UB500 dongle (hci0). This is the inverse of the old, now-disabled
+# 81-disable-builtin-bluetooth.rules.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="c821", ENV{ID_USB_INTERFACES}=="*:e00101:*", ATTR{authorized}="1"

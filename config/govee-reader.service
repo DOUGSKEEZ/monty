@@ -10,9 +10,12 @@ User=monty
 Group=monty
 WorkingDirectory=/home/monty/monty
 
-# Scan mode: "active" (proven, richer) or "passive" (lighter on the shared
-# BT radio if music/A2DP audio glitches during scans).
+# Scan mode: "active" (proven, richer) or "passive" (lighter on the radio).
 Environment=GOVEE_SCAN_MODE=active
+# Pin scanning to the ONBOARD Realtek 8821 radio by MAC, keeping the TP-Link
+# dongle (hci0) free for music/A2DP. Resolved to the right hciN at runtime,
+# so it survives hci renumbering across reboots.
+Environment=GOVEE_ADAPTER_MAC=BC:2B:02:24:A2:27
 
 ExecStart=/home/monty/monty/govee/.venv/bin/python /home/monty/monty/govee/govee_reader.py
 
