@@ -644,7 +644,9 @@ function HomePage() {
                 ].map(({ key, label }) => {
                   const temp = weather.temperatures[key];
                   const humidity = weather.temperatures.humidity?.[key];
-                  const tempColor = temp == null ? '' : temp > 80 ? 'text-red-500' : temp < 68 ? 'text-blue-500' : '';
+                  // Color the DISPLAYED (rounded) value: red at 80+, blue at 67-.
+                  const shown = temp == null ? null : Math.round(temp);
+                  const tempColor = shown == null ? '' : shown >= 80 ? 'text-red-500' : shown <= 67 ? 'text-blue-500' : '';
                   return (
                     <div key={key} className="flex items-baseline">
                       <span className="w-24 shrink-0">{label}:</span>

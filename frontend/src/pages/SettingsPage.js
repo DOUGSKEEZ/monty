@@ -1041,9 +1041,9 @@ function SettingsPage() {
               </label>
             </div>
 
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
-              <p className="font-medium mb-1">Current:</p>
-              <p className="text-gray-700">
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded text-xs">
+              <p className="font-medium mb-1 dark:text-gray-100">Current:</p>
+              <p className="text-gray-700 dark:text-gray-300">
                 {theme.currentTheme === 'default' ? '🔵 Default' :
                  theme.currentTheme === 'xmas' ? (theme.mode === 'festive' ? '🎉 Christmas' : '🎄 Christmas') :
                  theme.currentTheme === 'northern-lights' ? (theme.mode === 'festive' ? '🎉 Northern Lights' : '🌌 Northern Lights') :

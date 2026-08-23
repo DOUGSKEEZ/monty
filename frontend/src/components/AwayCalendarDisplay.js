@@ -108,44 +108,44 @@ const AwayCalendarDisplay = ({ awayContext }) => {
   const monthStats = getMonthStats();
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
         <span className="mr-2">📅</span>
         Away Calendar
       </h3>
 
       {/* Loading State */}
       {awayContext.loading && (
-        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
           <div className="flex items-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-            <p className="text-sm text-gray-600">Loading calendar...</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Loading calendar...</p>
           </div>
         </div>
       )}
 
       {/* Error State */}
       {awayContext.error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-md">
           <div className="flex items-center">
             <span className="text-red-500 mr-2">❌</span>
-            <p className="text-sm text-red-700">Error: {awayContext.error}</p>
+            <p className="text-sm text-red-700 dark:text-red-300">Error: {awayContext.error}</p>
           </div>
         </div>
       )}
 
       {/* Month Statistics */}
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-md">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-blue-800">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
               {formatMonthYear('en-US', currentDate)}
             </p>
-            <p className="text-xs text-blue-600">
+            <p className="text-xs text-blue-600 dark:text-blue-400">
               {monthStats.awayDaysCount} away day{monthStats.awayDaysCount !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="flex items-center text-blue-600">
+          <div className="flex items-center text-blue-600 dark:text-blue-400">
             <span className="w-3 h-3 bg-red-400 rounded-full mr-1"></span>
             <span className="text-xs">Away</span>
           </div>
@@ -175,11 +175,11 @@ const AwayCalendarDisplay = ({ awayContext }) => {
 
       {/* Quick Stats */}
       {awayContext.awayPeriods.length > 0 && (
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-          <p className="text-sm font-medium text-green-800 mb-1">
+        <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/40 border border-green-200 dark:border-green-800 rounded-md">
+          <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
             Total Away Periods: {awayContext.awayPeriods.length}
           </p>
-          <p className="text-xs text-green-600">
+          <p className="text-xs text-green-600 dark:text-green-400">
             Total Days: {awayDatesSet.size}
           </p>
         </div>
@@ -187,11 +187,11 @@ const AwayCalendarDisplay = ({ awayContext }) => {
 
       {/* No periods message */}
       {awayContext.awayPeriods.length === 0 && !awayContext.loading && (
-        <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-center">
-          <p className="text-sm text-gray-500">
+        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-md text-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             No away periods scheduled
           </p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
             Use the date picker to add periods
           </p>
         </div>
@@ -230,6 +230,41 @@ const AwayCalendarDisplay = ({ awayContext }) => {
         /* Remove weekend color styling */
         .compact-calendar .react-calendar__month-view__days__day--weekend {
           color: inherit !important;
+        }
+
+        /* Dark mode overrides */
+        .dark .compact-calendar.react-calendar,
+        .dark .compact-calendar .react-calendar__navigation,
+        .dark .compact-calendar .react-calendar__viewContainer { background: #1f2937 !important; color: #e5e7eb !important; }
+        .dark .compact-calendar .react-calendar__tile { background: #1f2937 !important; color: #e5e7eb !important; }
+        .dark .compact-calendar .react-calendar__navigation button { color: #e5e7eb !important; background: #1f2937 !important; }
+        .dark .compact-calendar .react-calendar__navigation button:enabled:hover,
+        .dark .compact-calendar .react-calendar__navigation button:enabled:focus,
+        .dark .compact-calendar .react-calendar__tile:enabled:hover,
+        .dark .compact-calendar .react-calendar__tile:enabled:focus { background: #374151 !important; }
+        .dark .compact-calendar .react-calendar__month-view__weekdays__weekday { color: #9ca3af !important; }
+        .dark .compact-calendar .react-calendar__month-view__days__day--neighboringMonth { color: #6b7280 !important; }
+
+        /* Vivid highlights that pop on the dark background (not washed-out pastels) */
+        .dark .compact-calendar .react-calendar__tile.away-day {
+          background: #dc2626 !important;   /* red-600 */
+          border-color: #ef4444 !important;
+          color: #ffffff !important;
+        }
+        .dark .compact-calendar .react-calendar__tile.today-tile {
+          background: #2563eb !important;   /* blue-600 */
+          border-color: #60a5fa !important;
+          color: #ffffff !important;
+        }
+        .dark .compact-calendar .react-calendar__tile.today-tile.away-day {
+          background: #dc2626 !important;
+          border-color: #60a5fa !important;
+          box-shadow: inset 0 0 0 2px #3b82f6 !important;
+          color: #ffffff !important;
+        }
+        /* Don't over-mute past away/today highlights in dark mode */
+        .dark .compact-calendar .react-calendar__tile.past-day {
+          opacity: 0.7 !important;
         }
       `}</style>
     </div>

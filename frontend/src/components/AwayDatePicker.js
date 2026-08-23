@@ -207,44 +207,44 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
   const isValidSelection = selectedRange.length === 2 && !validationError;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
         <span className="mr-2">📅</span>
         Add Away Period
       </h3>
 
       {/* Date Picker Input */}
       <div className="mb-4">
-        <label className="block text-gray-700 text-sm font-bold mb-2">
+        <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
           Select Date Range
         </label>
         <input
           ref={flatpickrRef}
           type="text"
           placeholder="Select start and end dates..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
           readOnly
         />
       </div>
 
       {/* Selected Range Display */}
       {selectedRange.length === 2 && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-800">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
                 Selected Range:
               </p>
-              <p className="text-sm text-blue-700">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
                 {formatDate(selectedRange[0])} - {formatDate(selectedRange[1])}
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                 {getDaysInRange()} days
               </p>
             </div>
             <button
               onClick={handleClear}
-              className="text-blue-600 hover:text-blue-800 text-sm underline"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 text-sm underline"
               disabled={isAdding}
             >
               Clear
@@ -255,30 +255,30 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
 
       {/* Validation Error Display */}
       {validationError && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-md">
           <div className="flex items-center">
             <span className="text-red-500 mr-2">⚠️</span>
-            <p className="text-sm text-red-700">{validationError}</p>
+            <p className="text-sm text-red-700 dark:text-red-300">{validationError}</p>
           </div>
         </div>
       )}
 
       {/* Loading State */}
       {awayContext.loading && (
-        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
           <div className="flex items-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-            <p className="text-sm text-gray-600">Loading away periods...</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Loading away periods...</p>
           </div>
         </div>
       )}
 
       {/* Global Error Display */}
       {awayContext.error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-md">
           <div className="flex items-center">
             <span className="text-red-500 mr-2">❌</span>
-            <p className="text-sm text-red-700">Error: {awayContext.error}</p>
+            <p className="text-sm text-red-700 dark:text-red-300">Error: {awayContext.error}</p>
           </div>
         </div>
       )}
@@ -304,7 +304,7 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
           <button
             onClick={handleClear}
             disabled={isAdding}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors duration-200"
           >
             Clear
           </button>
@@ -312,12 +312,58 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
       </div>
 
       {/* Help Text */}
-      <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
-        <p className="text-xs text-gray-600">
+      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-md">
+        <p className="text-xs text-gray-600 dark:text-gray-300">
           💡 <strong>Tips:</strong> Select a start date, then an end date. 
           Away periods cannot overlap with existing periods and cannot exceed 365 days.
         </p>
       </div>
+
+      {/* Center the inline flatpickr, and give it a dark theme (its default CSS is light-only) */}
+      <style jsx>{`
+        .flatpickr-calendar.inline {
+          margin: 0 auto;
+        }
+        .dark .flatpickr-calendar {
+          background: #1f2937;
+          color: #e5e7eb;
+          border-color: #374151;
+          box-shadow: 0 3px 13px rgba(0, 0, 0, 0.5);
+        }
+        .dark .flatpickr-calendar.inline { background: #1f2937; }
+        .dark .flatpickr-months,
+        .dark .flatpickr-month,
+        .dark .flatpickr-weekdays,
+        .dark .flatpickr-days,
+        .dark .flatpickr-days .dayContainer { background: #1f2937; }
+        .dark .flatpickr-current-month,
+        .dark .flatpickr-current-month input.cur-year,
+        .dark .flatpickr-monthDropdown-months { color: #e5e7eb; background: #1f2937; }
+        .dark span.flatpickr-weekday { color: #9ca3af; background: #1f2937; }
+        .dark .flatpickr-day { color: #e5e7eb; }
+        .dark .flatpickr-day:hover,
+        .dark .flatpickr-day:focus { background: #374151; border-color: #374151; }
+        .dark .flatpickr-day.today { border-color: #60a5fa; }
+        .dark .flatpickr-day.selected,
+        .dark .flatpickr-day.startRange,
+        .dark .flatpickr-day.endRange {
+          background: #2563eb !important;
+          border-color: #2563eb !important;
+          color: #ffffff;
+        }
+        .dark .flatpickr-day.inRange {
+          background: #374151;
+          border-color: #374151;
+          box-shadow: -5px 0 0 #374151, 5px 0 0 #374151;
+        }
+        .dark .flatpickr-day.flatpickr-disabled,
+        .dark .flatpickr-day.prevMonthDay,
+        .dark .flatpickr-day.nextMonthDay { color: #6b7280; }
+        .dark .flatpickr-months .flatpickr-prev-month svg,
+        .dark .flatpickr-months .flatpickr-next-month svg { fill: #e5e7eb; }
+        .dark .flatpickr-months .flatpickr-prev-month:hover svg,
+        .dark .flatpickr-months .flatpickr-next-month:hover svg { fill: #60a5fa; }
+      `}</style>
     </div>
   );
 };
