@@ -589,6 +589,9 @@ export const AppProvider = ({ children }) => {
         case 'skipSolar':
           result = await schedulerApi.updateSkipSolar(settings.skip_solar_today);
           break;
+        case 'solarShades':
+          result = await schedulerApi.updateSolarShades(settings);
+          break;
         default:
           throw new Error(`Unknown config type: ${configType}`);
       }
@@ -604,6 +607,21 @@ export const AppProvider = ({ children }) => {
       }
     } catch (error) {
       console.error(`Error updating scheduler ${configType}:`, error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Record a horizon-profile calibration point from a live observation
+  const calibrateRidge = async (body) => {
+    try {
+      const result = await schedulerApi.calibrateRidge(body);
+      if (result.success) {
+        await loadSchedulerData(false);
+        return { success: true, data: result.data };
+      }
+      return { success: false, error: result.error };
+    } catch (error) {
+      console.error('Error calibrating ridge:', error);
       return { success: false, error: error.message };
     }
   };
@@ -1366,6 +1384,7 @@ export const AppProvider = ({ children }) => {
     setWakeUpTime,
     clearWakeUpAlarm,
     updateSchedulerConfig,
+    calibrateRidge,
     testSchedulerScene,
     controlMusic,
     controlPianobar,

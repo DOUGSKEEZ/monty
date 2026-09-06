@@ -9,6 +9,60 @@ const { container } = require('../utils/ServiceFactory');
 const retryHelper = require('../utils/RetryHelper'); // Import singleton instance
 const CircuitBreaker = require('../utils/CircuitBreaker');
 const { getTimezoneManager } = require('../utils/TimezoneManager');
+const SolarShadeTimes = require('../services/SolarShadeTimes');
+
+// Ensure the solar_shades config block exists (for configs that predate the feature).
+const ensureSolarConfig = (schedulerService) => {
+  const cfg = schedulerService.schedulerConfig;
+  if (!cfg.solar_shades) cfg.solar_shades = { enabled: false };
+  if (!cfg.solar_shades.lower) cfg.solar_shades.lower = { trigger_azimuth_deg: 202 };
+  if (!cfg.solar_shades.raise) cfg.solar_shades.raise = {};
+  const r = cfg.solar_shades.raise;
+  if (!Number.isFinite(r.viewing_lead_degrees)) r.viewing_lead_degrees = 6;
+  if (!Number.isFinite(r.default_ridge_altitude_deg)) r.default_ridge_altitude_deg = 3.0;
+  if (!Array.isArray(r.horizon_profile)) r.horizon_profile = [];
+  return cfg.solar_shades;
+};
+
+// Format a Date as a local "1:52 PM" label.
+const fmtLocalClock = (date) => {
+  const h = date.getHours(), m = date.getMinutes();
+  const h12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+  return `${h12}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+};
+
+// --- Ridge observation CSV mirror (a durable, spreadsheet-friendly backup) ---
+// This log is APPEND/UPSERT-ONLY: recording an observation overwrites the row for
+// that bearing (±3°); deleting a point in the app never removes it from here.
+const RIDGE_CSV_PATH = path.join(__dirname, '../../../data/ridge_observations.csv');
+const RIDGE_CSV_HEADER = 'observed_local,observed_iso,azimuth_deg,altitude_deg,source';
+
+const readRidgeCsv = () => {
+  if (!fs.existsSync(RIDGE_CSV_PATH)) return [];
+  return fs.readFileSync(RIDGE_CSV_PATH, 'utf8').trim().split('\n').slice(1).filter(Boolean).map((line) => {
+    const [observed_local, observed_iso, az, alt, source] = line.split(',');
+    return { observed_local, observed_iso, azimuth: parseFloat(az), altitude: parseFloat(alt), source };
+  });
+};
+
+// Merge the current JSON profile points into the CSV (upsert by bearing ±3°), keeping
+// any rows already present that are no longer in the profile (i.e. deleted-in-app points).
+const syncRidgeCsv = (profile) => {
+  const rows = readRidgeCsv();
+  const pad = (n) => String(n).padStart(2, '0');
+  for (const pt of profile) {
+    if (!pt || !pt.observedAt || !Number.isFinite(pt.azimuth)) continue;
+    const d = new Date(pt.observedAt);
+    if (isNaN(d.getTime())) continue;
+    const observed_local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const row = { observed_local, observed_iso: pt.observedAt, azimuth: pt.azimuth, altitude: pt.altitude, source: pt.calibratedFrom || 'gone' };
+    const idx = rows.findIndex((r) => Math.abs(r.azimuth - pt.azimuth) <= 3);
+    if (idx >= 0) rows[idx] = row; else rows.push(row);
+  }
+  rows.sort((a, b) => a.azimuth - b.azimuth);
+  const body = rows.map((r) => `${r.observed_local},${r.observed_iso},${r.azimuth},${r.altitude},${r.source}`).join('\n');
+  fs.writeFileSync(RIDGE_CSV_PATH, `${RIDGE_CSV_HEADER}\n${body}\n`);
+};
 
 // Shared fallback for all scheduler circuits.
 const schedulerFallback = async () => {
@@ -715,6 +769,7 @@ router.get('/config', async (req, res) => {
           enabled_for_afternoon: config.music.enabled_for_afternoon !== undefined ? config.music.enabled_for_afternoon : false,
           enabled_for_night: config.music.enabled_for_night !== undefined ? config.music.enabled_for_night : false
         },
+        solar_shades: config.solar_shades || null,
         // home_away data moved to main config.json under homeStatus.awayPeriods
         nextSceneTimes: health.metrics.nextSceneTimes,
         serviceHealth: {
@@ -824,6 +879,213 @@ router.put('/scenes', async (req, res) => {
       success: false,
       error: 'Failed to update scene settings'
     });
+  }
+});
+
+/**
+ * Update solar-shade sun-tracking settings (enable, thresholds, horizon profile).
+ * Mirrors PUT /scenes: validate before the breaker, then save + reschedule.
+ */
+router.put('/solar-shades', async (req, res) => {
+  try {
+    const {
+      enabled, trigger_azimuth_deg, viewing_lead_degrees,
+      default_ridge_altitude_deg, horizon_profile, delete_azimuth
+    } = req.body;
+
+    // Validate BEFORE the breaker (client errors must not trip the shared circuit).
+    if (enabled !== undefined && typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'enabled must be a boolean' });
+    }
+    if (trigger_azimuth_deg !== undefined && (typeof trigger_azimuth_deg !== 'number' || trigger_azimuth_deg < 0 || trigger_azimuth_deg > 360)) {
+      return res.status(400).json({ success: false, error: 'trigger_azimuth_deg must be a number 0–360' });
+    }
+    if (viewing_lead_degrees !== undefined && (typeof viewing_lead_degrees !== 'number' || viewing_lead_degrees < 0 || viewing_lead_degrees > 30)) {
+      return res.status(400).json({ success: false, error: 'viewing_lead_degrees must be a number 0–30' });
+    }
+    if (default_ridge_altitude_deg !== undefined && (typeof default_ridge_altitude_deg !== 'number' || default_ridge_altitude_deg < -5 || default_ridge_altitude_deg > 90)) {
+      return res.status(400).json({ success: false, error: 'default_ridge_altitude_deg must be a number -5–90' });
+    }
+    if (horizon_profile !== undefined) {
+      if (!Array.isArray(horizon_profile)) {
+        return res.status(400).json({ success: false, error: 'horizon_profile must be an array' });
+      }
+      for (const p of horizon_profile) {
+        if (!p || typeof p.azimuth !== 'number' || typeof p.altitude !== 'number') {
+          return res.status(400).json({ success: false, error: 'each horizon_profile point needs numeric azimuth and altitude' });
+        }
+      }
+    }
+    if (delete_azimuth !== undefined && typeof delete_azimuth !== 'number') {
+      return res.status(400).json({ success: false, error: 'delete_azimuth must be a number' });
+    }
+
+    const result = await schedulerWriteCircuit.execute(async () => {
+      const schedulerService = await getSchedulerService();
+      return await retryHelper.retryOperation(async () => {
+        const cfg = ensureSolarConfig(schedulerService);
+
+        if (enabled !== undefined) cfg.enabled = enabled;
+        if (trigger_azimuth_deg !== undefined) cfg.lower.trigger_azimuth_deg = trigger_azimuth_deg;
+        if (viewing_lead_degrees !== undefined) cfg.raise.viewing_lead_degrees = viewing_lead_degrees;
+        if (default_ridge_altitude_deg !== undefined) cfg.raise.default_ridge_altitude_deg = default_ridge_altitude_deg;
+        if (Array.isArray(horizon_profile)) {
+          cfg.raise.horizon_profile = horizon_profile
+            .map(p => ({ azimuth: p.azimuth, altitude: p.altitude, calibratedFrom: p.calibratedFrom || 'gone' }))
+            .sort((a, b) => a.azimuth - b.azimuth);
+        }
+        if (delete_azimuth !== undefined) {
+          cfg.raise.horizon_profile = (cfg.raise.horizon_profile || [])
+            .filter(p => Math.abs(p.azimuth - delete_azimuth) > 3);
+        }
+
+        schedulerService.saveSchedulerConfig();
+        try {
+          await schedulerService.scheduleAllScenes();
+        } catch (scheduleError) {
+          logger.warn('Scene rescheduling failed but solar config was saved:', scheduleError.message);
+        }
+        return cfg;
+      }, {
+        operationName: 'update-solar-shades',
+        isCritical: false,
+        shouldRetry: (error) => !error.message.includes('validation')
+      });
+    }, 'update-solar-shades');
+
+    if (result.fallback) return res.status(503).json(result);
+
+    res.json({ success: true, message: 'Solar shade settings updated', data: result });
+  } catch (error) {
+    logger.error(`Error updating solar shade settings: ${error.message}`);
+    res.status(500).json({ success: false, error: 'Failed to update solar shade settings' });
+  }
+});
+
+/**
+ * Record a horizon-profile calibration point. The client sends the moment the sun
+ * was observed vanishing behind ('gone') or still above ('still_up') the ridge; the
+ * server computes the sun's az/alt at that instant and upserts a profile point.
+ */
+router.post('/calibrate-ridge', async (req, res) => {
+  try {
+    const { timestamp, state } = req.body;
+
+    if (state !== 'gone' && state !== 'still_up') {
+      return res.status(400).json({ success: false, error: "state must be 'gone' or 'still_up'" });
+    }
+    const when = timestamp ? new Date(timestamp) : new Date();
+    if (isNaN(when.getTime())) {
+      return res.status(400).json({ success: false, error: 'timestamp is not a valid date' });
+    }
+
+    const result = await schedulerWriteCircuit.execute(async () => {
+      const schedulerService = await getSchedulerService();
+      return await retryHelper.retryOperation(async () => {
+        const cfg = ensureSolarConfig(schedulerService);
+        const { altitude, azimuth } = schedulerService.solarShadeTimes.sunPosition(when);
+        const point = {
+          azimuth: Math.round(azimuth * 10) / 10,
+          altitude: Math.round(altitude * 10) / 10,
+          calibratedFrom: state,
+          observedAt: when.toISOString()
+        };
+
+        const profile = cfg.raise.horizon_profile;
+        const MERGE_DEG = 3;
+        const idx = profile.findIndex(p => Math.abs(p.azimuth - point.azimuth) <= MERGE_DEG);
+        if (idx >= 0) {
+          // 'still_up' is only an upper bound — never let it RAISE an existing ridge estimate.
+          const skip = state === 'still_up' && profile[idx].altitude <= point.altitude;
+          if (!skip) profile[idx] = point;
+        } else {
+          profile.push(point);
+        }
+        profile.sort((a, b) => a.azimuth - b.azimuth);
+
+        schedulerService.saveSchedulerConfig();
+        // Mirror to the durable CSV backup (append/upsert-only; never deleted from).
+        try {
+          syncRidgeCsv(profile);
+        } catch (csvErr) {
+          logger.warn(`Ridge CSV mirror update failed: ${csvErr.message}`);
+        }
+        try {
+          await schedulerService.scheduleAllScenes();
+        } catch (scheduleError) {
+          logger.warn(`Reschedule after calibration failed: ${scheduleError.message}`);
+        }
+        return { recorded: point, profile };
+      }, { operationName: 'calibrate-ridge', isCritical: false });
+    }, 'calibrate-ridge');
+
+    if (result.fallback) return res.status(503).json(result);
+
+    res.json({
+      success: true,
+      message: `Ridge point recorded at ${result.recorded.azimuth}° / ${result.recorded.altitude}° (${state})`,
+      data: result
+    });
+  } catch (error) {
+    logger.error(`Error calibrating ridge: ${error.message}`);
+    res.status(500).json({ success: false, error: 'Failed to calibrate ridge' });
+  }
+});
+
+/**
+ * Read-only preview: the sun's track for a day plus the computed lower/raise times.
+ * Powers the calibration graph and the live slider readouts (optional query overrides
+ * trigger_azimuth_deg / viewing_lead_degrees let the UI preview un-saved changes).
+ */
+router.get('/solar-preview', async (req, res) => {
+  try {
+    const schedulerService = await getSchedulerService();
+
+    // Optional date (YYYY-MM-DD): scan around LOCAL noon so times land on that day.
+    let date = new Date();
+    if (req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)) {
+      const [y, mo, d] = req.query.date.split('-').map(Number);
+      date = new Date(y, mo - 1, d, 12, 0, 0, 0);
+    }
+
+    // Build a preview config from the saved block plus any query overrides.
+    const base = schedulerService.schedulerConfig.solar_shades || {};
+    const override = {
+      ...base,
+      enabled: true,
+      lower: { ...(base.lower || {}) },
+      raise: { ...(base.raise || {}) }
+    };
+    if (req.query.trigger_azimuth_deg !== undefined) {
+      const v = Number(req.query.trigger_azimuth_deg);
+      if (Number.isFinite(v)) override.lower.trigger_azimuth_deg = v;
+    }
+    if (req.query.viewing_lead_degrees !== undefined) {
+      const v = Number(req.query.viewing_lead_degrees);
+      if (Number.isFinite(v)) override.raise.viewing_lead_degrees = v;
+    }
+
+    const previewSst = new SolarShadeTimes(() => ({ solar_shades: override }));
+    const times = previewSst.getTodaysTimes(date);
+    const track = previewSst.sunTrack(date);
+
+    res.json({
+      success: true,
+      data: {
+        date: date.toLocaleDateString('en-CA'),
+        lowerTime: times.lowerTime ? times.lowerTime.toISOString() : null,
+        raiseTime: times.raiseTime ? times.raiseTime.toISOString() : null,
+        lowerLabel: times.lowerTime ? fmtLocalClock(times.lowerTime) : null,
+        raiseLabel: times.raiseTime ? fmtLocalClock(times.raiseTime) : null,
+        trigger_azimuth_deg: override.lower.trigger_azimuth_deg ?? 202,
+        viewing_lead_degrees: override.raise.viewing_lead_degrees ?? 6,
+        profile: (base.raise && base.raise.horizon_profile) || [],
+        track
+      }
+    });
+  } catch (error) {
+    logger.error(`Error building solar preview: ${error.message}`);
+    res.status(500).json({ success: false, error: 'Failed to build solar preview' });
   }
 });
 

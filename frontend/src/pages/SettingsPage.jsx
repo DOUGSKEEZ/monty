@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../utils/AppContext';
-import { jukeboxApi, bluetoothApi } from '../utils/api';
+import { jukeboxApi, bluetoothApi, schedulerApi } from '../utils/api';
 import AwayManager from '../components/AwayManager';
 import AwayDatePicker from '../components/AwayDatePicker';
 import AwayCalendarDisplay from '../components/AwayCalendarDisplay';
 import AwayPeriodsList from '../components/AwayPeriodsList';
 import OffsetAdjuster from '../components/OffsetAdjuster';
+import RidgeCalibrator from '../components/RidgeCalibrator';
 
 // Backend API base URL (same as api.js)
 const API_BASE_URL = 'http://192.168.10.15:3001/api';
@@ -17,6 +18,34 @@ const formatClockTime = (dateOrMs) => {
   if (isNaN(d.getTime())) return null;
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
+
+// Convert a "HH:MM" 24h string to a "1:45 PM" clock label.
+const hmToClock = (hm) => {
+  if (!hm || !/^\d{1,2}:\d{2}$/.test(hm)) return null;
+  const [h, m] = hm.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+};
+
+// Uniform header for each scene column: title, prominent time, light info line.
+const SceneHeader = ({ title, timeLabel, info }) => (
+  <div className="text-center mb-2">
+    <div className="text-gray-700 dark:text-gray-200 text-sm font-bold">{title}</div>
+    <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-tight">
+      {timeLabel ? `at ${timeLabel}` : '—'}
+    </div>
+    <div className="text-xs text-gray-400 min-h-[1rem]">{info || ''}</div>
+  </div>
+);
+
+// Amber "sun-tracking is driving this scene" badge (the time lives in the header above).
+const SunTrackingBox = ({ detail }) => (
+  <div className="mb-3 max-w-[18rem] mx-auto text-center bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 rounded px-2 py-1.5">
+    <div className="text-xs font-semibold text-amber-700 dark:text-amber-400">☀️ Sun-Tracking Active</div>
+    <div className="text-[11px] text-amber-600 dark:text-amber-500 mt-0.5">{detail}</div>
+  </div>
+);
 
 function SettingsPage() {
   // Get state and actions from context
@@ -68,6 +97,10 @@ function SettingsPage() {
     enabled_for_night: false
   });
   const [skipSolarToday, setSkipSolarToday] = useState(false);
+  const [solarEnabled, setSolarEnabled] = useState(false);
+  const [showRidgeCalibrator, setShowRidgeCalibrator] = useState(false);
+  // Today's sun-derived lower/raise times, shown when sun-tracking is active.
+  const [solarTimes, setSolarTimes] = useState({ lowerLabel: null, raiseLabel: null });
   const [keepBtConnected, setKeepBtConnected] = useState(false);
   const [timezoneSettings, setTimezoneSettings] = useState({
     current: 'America/Denver',
@@ -111,8 +144,29 @@ function SettingsPage() {
 
       // Load skip solar setting
       setSkipSolarToday(config.scenes?.skip_solar_today || false);
+
+      // Load solar sun-tracking enabled state
+      setSolarEnabled(config.solar_shades?.enabled || false);
     }
   }, [scheduler.config]);
+
+  // When sun-tracking is active, fetch today's actual sun-derived lower/raise times
+  // so the (locked) manual controls can show what the sun is really doing.
+  useEffect(() => {
+    let cancelled = false;
+    if (solarEnabled) {
+      schedulerApi.getSolarPreview({})
+        .then((res) => {
+          if (!cancelled && res.success) {
+            setSolarTimes({ lowerLabel: res.data.lowerLabel, raiseLabel: res.data.raiseLabel });
+          }
+        })
+        .catch(() => {});
+    } else {
+      setSolarTimes({ lowerLabel: null, raiseLabel: null });
+    }
+    return () => { cancelled = true; };
+  }, [solarEnabled]);
 
   // Load configuration on mount
   useEffect(() => {
@@ -854,36 +908,43 @@ function SettingsPage() {
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div>
-            {/* Solar Noon Display */}
-            {weather.sunTimes?.solarNoon && (
-              <div className="text-xs text-gray-400 mb-1 text-center">
-                Solar noon: {new Date(weather.sunTimes.solarNoon).toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true
-                })}
+          <div className="flex flex-col h-full">
+            <SceneHeader
+              title="Good Afternoon"
+              timeLabel={solarEnabled ? solarTimes.lowerLabel : hmToClock(sceneDrafts.good_afternoon_time)}
+              info={weather.sunTimes?.solarNoon ? `Solar noon: ${formatClockTime(weather.sunTimes.solarNoon)}` : ''}
+            />
+            <div className="flex flex-col min-h-[6rem]">
+              <div className={`flex gap-3 justify-center ${solarEnabled ? 'opacity-50' : ''}`}>
+                <input
+                  type="time"
+                  value={sceneDrafts.good_afternoon_time}
+                  onChange={(e) => handleSceneDraftChange('good_afternoon_time', e.target.value)}
+                  disabled={solarEnabled}
+                  className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline disabled:cursor-not-allowed"
+                />
+                <button
+                  onClick={() => saveSceneSetting('good_afternoon_time')}
+                  disabled={saving || !sceneChanges.good_afternoon_time || solarEnabled}
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                >
+                  Update
+                </button>
               </div>
-            )}
-            <label className="block text-center text-gray-700 dark:text-gray-200 text-sm font-bold mb-2">
-              Good Afternoon Time
-            </label>
-            <div className="flex gap-4 mb-3 justify-center">
-              <input
-                type="time"
-                value={sceneDrafts.good_afternoon_time}
-                onChange={(e) => handleSceneDraftChange('good_afternoon_time', e.target.value)}
-                className="shadow appearance-none border rounded py-2 px-3 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600 leading-tight focus:outline-none focus:shadow-outline"
-              />
-              <button
-                onClick={() => saveSceneSetting('good_afternoon_time')}
-                disabled={saving || !sceneChanges.good_afternoon_time}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-              >
-                Update
-              </button>
+              <label className="flex items-center text-sm mt-auto w-fit mx-auto">
+                <input
+                  type="checkbox"
+                  checked={skipSolarToday}
+                  onChange={(e) => updateSkipSolar(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className="text-gray-600 dark:text-gray-300">☁️ Skip solar shades today (cloudy/rainy)</span>
+              </label>
             </div>
-            <div className="w-fit mx-auto">
+            <div className="mt-auto pt-3 flex flex-col items-center gap-2">
+              {solarEnabled && (
+                <SunTrackingBox detail={`by sun position (${scheduler.config?.solar_shades?.lower?.trigger_azimuth_deg ?? 202}° bearing) · manual time paused`} />
+              )}
               <label className="flex items-center text-sm">
                 <input
                   type="checkbox"
@@ -897,36 +958,25 @@ function SettingsPage() {
                 />
                 <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
               </label>
-              <label className="flex items-center text-sm mt-2">
-                <input
-                  type="checkbox"
-                  checked={skipSolarToday}
-                  onChange={(e) => {
-                    updateSkipSolar(e.target.checked);
-                  }}
-                  className="mr-2"
-                />
-                <span className="text-gray-600 dark:text-gray-300">☁️ Skip solar shades today (cloudy/rainy)</span>
-              </label>
             </div>
           </div>
 
-          <div>
+          <div className="flex flex-col h-full">
+            <SceneHeader
+              title="Good Evening"
+              timeLabel={solarEnabled ? solarTimes.raiseLabel : (weather.sunTimes?.sunset ? formatClockTime(weather.sunTimes.sunset - sceneDrafts.good_evening_offset_minutes * 60000) : null)}
+              info={weather.sunTimes?.sunsetTime ? `Sunset: ${weather.sunTimes.sunsetTime}` : ''}
+            />
             <OffsetAdjuster
               title="Good Evening"
-              referenceLabel="Sunset"
-              referenceTime={weather.sunTimes?.sunsetTime || null}
-              resultTime={
-                weather.sunTimes?.sunset
-                  ? formatClockTime(weather.sunTimes.sunset - sceneDrafts.good_evening_offset_minutes * 60000)
-                  : null
-              }
+              hideHeader
               value={sceneDrafts.good_evening_offset_minutes}
               min={0}
               max={120}
               step={1}
               invert={true}
               align="center"
+              disabled={solarEnabled}
               leftLabel="earlier"
               rightLabel="at sunset"
               formatValue={(v) => (v === 0 ? 'at sunset' : `${v} min before sunset`)}
@@ -935,44 +985,41 @@ function SettingsPage() {
               changed={sceneChanges.good_evening_offset_minutes}
               saving={saving}
             />
-            <label className="flex items-center justify-center text-sm">
-              <input
-                type="checkbox"
-                checked={musicSettings.enabled_for_evening}
-                onChange={(e) => {
-                  const enabled = e.target.checked;
-                  setMusicSettings(prev => ({ ...prev, enabled_for_evening: enabled }));
-                  updateMusicSettings({ enabled_for_evening: enabled });
-                }}
-                className="mr-2"
-              />
-              <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
-            </label>
+            <div className="mt-auto pt-3 flex flex-col items-center gap-2">
+              {solarEnabled && (
+                <SunTrackingBox detail={`${scheduler.config?.solar_shades?.raise?.viewing_lead_degrees ?? 6}° above the ridge · sunset offset paused`} />
+              )}
+              <label className="flex items-center text-sm">
+                <input
+                  type="checkbox"
+                  checked={musicSettings.enabled_for_evening}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setMusicSettings(prev => ({ ...prev, enabled_for_evening: enabled }));
+                    updateMusicSettings({ enabled_for_evening: enabled });
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
+              </label>
+            </div>
           </div>
           
-          <div>
+          <div className="flex flex-col h-full">
+            <SceneHeader
+              title="Good Night"
+              timeLabel={weather.sunTimes?.civilTwilightEnd ? formatClockTime(new Date(weather.sunTimes.civilTwilightEnd).getTime() + sceneDrafts.good_night_offset_minutes * 60000) : null}
+              info={weather.sunTimes?.civilTwilightEnd ? `Civil twilight: ${formatClockTime(weather.sunTimes.civilTwilightEnd)}` : ''}
+            />
             <OffsetAdjuster
               title="Good Night"
-              referenceLabel="Civil twilight"
-              referenceTime={
-                weather.sunTimes?.civilTwilightEnd
-                  ? formatClockTime(weather.sunTimes.civilTwilightEnd)
-                  : null
-              }
-              resultTime={
-                weather.sunTimes?.civilTwilightEnd
-                  ? formatClockTime(
-                      new Date(weather.sunTimes.civilTwilightEnd).getTime() +
-                        sceneDrafts.good_night_offset_minutes * 60000
-                    )
-                  : null
-              }
+              hideHeader
               value={sceneDrafts.good_night_offset_minutes}
               min={-30}
               max={30}
               step={1}
               centerLine={true}
-              align="right"
+              align="center"
               leftLabel="← before"
               rightLabel="after →"
               formatValue={(v) =>
@@ -987,23 +1034,67 @@ function SettingsPage() {
               changed={sceneChanges.good_night_offset_minutes}
               saving={saving}
             />
-            
-            <label className="flex items-center justify-center text-sm max-w-[20rem] ml-auto">
-              <input
-                type="checkbox"
-                checked={musicSettings.enabled_for_night}
-                onChange={(e) => {
-                  const enabled = e.target.checked;
-                  setMusicSettings(prev => ({ ...prev, enabled_for_night: enabled }));
-                  updateMusicSettings({ enabled_for_night: enabled });
-                }}
-                className="mr-2"
-              />
-              <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
-            </label>
+            <div className="mt-auto pt-3 flex flex-col items-center gap-2">
+              <label className="flex items-center text-sm">
+                <input
+                  type="checkbox"
+                  checked={musicSettings.enabled_for_night}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setMusicSettings(prev => ({ ...prev, enabled_for_night: enabled }));
+                    updateMusicSettings({ enabled_for_night: enabled });
+                  }}
+                  className="mr-2"
+                />
+                <span className="text-gray-600 dark:text-gray-300">🎵 Start music automatically</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Solar Shade Sun-Tracking Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+          <span className="mr-2">☀️</span>
+          Solar Shade Sun-Tracking
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+          Drive <strong>Good Afternoon</strong> (lower) and <strong>Good Evening</strong> (raise) from the
+          sun's real position instead of fixed times — lower once the afternoon sun swings onto the west
+          windows, and raise a set number of degrees before it dips behind the mountain ridge.
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={solarEnabled}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setSolarEnabled(v);
+                actions.updateSchedulerConfig('solarShades', { enabled: v });
+              }}
+              className="mr-2"
+            />
+            <span className="text-gray-700 dark:text-gray-200 font-medium">Enable sun-position timing</span>
+          </label>
+          <button
+            onClick={() => setShowRidgeCalibrator(true)}
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            📈 Calibrate &amp; Tune Ridge…
+          </button>
+        </div>
+        {!solarEnabled && (
+          <p className="text-xs text-gray-400 mt-2">
+            Currently using the fixed Good Afternoon time and sunset-offset Good Evening above.
+          </p>
+        )}
+      </div>
+
+      {showRidgeCalibrator && (
+        <RidgeCalibrator onClose={() => setShowRidgeCalibrator(false)} />
+      )}
 
       {/* Theme Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">

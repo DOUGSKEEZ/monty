@@ -5,14 +5,14 @@
   },
   "scenes": {
     "good_afternoon_time": "13:45",
-    "good_evening_offset_minutes": -48,
+    "good_evening_offset_minutes": -33,
     "good_night_timing": "civil_twilight_end",
     "good_night_offset_minutes": -7
   },
   "wake_up": {
     "enabled": false,
-    "time": "08:05",
-    "last_triggered": "2026-08-13T14:05:00.025Z",
+    "time": "07:30",
+    "last_triggered": "2026-09-04T13:30:00.020Z",
     "good_morning_delay_minutes": 5
   },
   "guest_alarms": {
@@ -34,5 +34,29 @@
     "bluetooth_retry_delay_seconds": 30,
     "enabled_for_afternoon": false,
     "enabled_for_night": true
+  },
+  "solar_shades": {
+    "enabled": true,
+    "lower": {
+      "trigger_azimuth_deg": 199
+    },
+    "raise": {
+      "viewing_lead_degrees": 8,
+      "default_ridge_altitude_deg": 3,
+      "horizon_profile": [
+        {
+          "azimuth": 283.3,
+          "altitude": 2.1,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-08-24T01:35:00.000Z"
+        },
+        {
+          "azimuth": 296.2,
+          "altitude": 5.2,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-06-28T02:00:00.000Z"
+        }
+      ]
+    }
   }
 }

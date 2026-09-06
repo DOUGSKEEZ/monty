@@ -240,6 +240,41 @@ export const schedulerApi = {
     }),
 
   /**
+   * Update solar-shade sun-tracking settings (enable, thresholds, horizon profile)
+   * @param {Object} settings - { enabled?, trigger_azimuth_deg?, viewing_lead_degrees?,
+   *                              default_ridge_altitude_deg?, horizon_profile?, delete_azimuth? }
+   * @returns {Promise<Object>} - Result with updated solar_shades block
+   */
+  updateSolarShades: (settings) =>
+    fetchApi('/scheduler/solar-shades', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
+  /**
+   * Record a horizon-profile calibration point from an observation
+   * @param {Object} body - { state: 'gone'|'still_up', timestamp? }
+   * @returns {Promise<Object>} - Result with recorded point + updated profile
+   */
+  calibrateRidge: (body) =>
+    fetchApi('/scheduler/calibrate-ridge', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Read-only sun track + computed lower/raise times for a day (powers the graph)
+   * @param {Object} [params] - { date?, trigger_azimuth_deg?, viewing_lead_degrees? }
+   * @returns {Promise<Object>} - Preview data
+   */
+  getSolarPreview: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null)
+    ).toString();
+    return fetchApi(`/scheduler/solar-preview${qs ? `?${qs}` : ''}`);
+  },
+
+  /**
    * Test a scene manually
    * @param {string} sceneName - Scene name to test
    * @returns {Promise<Object>} - Result

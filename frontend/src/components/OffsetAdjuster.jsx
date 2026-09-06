@@ -29,14 +29,16 @@ function OffsetAdjuster({
   invert = false,   // reverse the slider so max sits on the left, min on the right
   centerLine = false, // draw a vertical marker at the track midpoint (e.g. value 0)
   align = 'left',   // horizontal placement within the parent column: 'left' | 'center' | 'right'
+  disabled = false, // dim + lock the control (e.g. when another system is overriding it)
+  hideHeader = false, // skip the reference/title/result lines (parent renders its own header)
   onChange,
   onUpdate,
   changed,
   saving,
 }) {
   const safeValue = Number.isFinite(value) ? value : min;
-  const atMin = safeValue <= min;
-  const atMax = safeValue >= max;
+  const atMin = disabled || safeValue <= min;
+  const atMax = disabled || safeValue >= max;
 
   const nudge = (delta) => onChange(clamp(safeValue + delta, min, max));
 
@@ -50,23 +52,25 @@ function OffsetAdjuster({
   const alignClass = align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : '';
 
   return (
-    <div className={`max-w-[20rem] ${alignClass}`}>
-      {referenceTime && (
+    <div className={`max-w-[20rem] ${alignClass} ${disabled ? 'opacity-50' : ''}`}>
+      {!hideHeader && referenceTime && !disabled && (
         <div className="text-xs text-gray-400 mb-1 text-center">
           {referenceLabel}: {referenceTime}
         </div>
       )}
 
-      <div className="mb-2 text-center">
-        <div className="text-gray-700 dark:text-gray-200 text-sm font-bold">
-          {title}
-        </div>
-        {resultTime && (
-          <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-            at {resultTime}
+      {!hideHeader && (
+        <div className="mb-2 text-center">
+          <div className="text-gray-700 dark:text-gray-200 text-sm font-bold">
+            {title}
           </div>
-        )}
-      </div>
+          {resultTime && !disabled && (
+            <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+              at {resultTime}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <button
@@ -94,8 +98,9 @@ function OffsetAdjuster({
             step={step}
             value={safeValue}
             onChange={(e) => onChange(parseInt(e.target.value, 10))}
+            disabled={disabled}
             aria-label={`${title} offset`}
-            className="w-full accent-blue-500 cursor-pointer touch-manipulation"
+            className="w-full accent-blue-500 cursor-pointer touch-manipulation disabled:cursor-not-allowed"
           />
         </div>
 
@@ -122,7 +127,7 @@ function OffsetAdjuster({
         <button
           type="button"
           onClick={onUpdate}
-          disabled={saving || !changed}
+          disabled={saving || !changed || disabled}
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
         >
           Update
