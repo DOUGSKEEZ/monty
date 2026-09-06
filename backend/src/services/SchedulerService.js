@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const chokidar = require('chokidar');
 const logger = require('../utils/logger').getModuleLogger('scheduler-service');
+const SolarShadeTimes = require('./SolarShadeTimes');
 
 class SchedulerService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, weatherService, timezoneManager, alarmNotificationService) {
@@ -32,7 +33,11 @@ class SchedulerService {
     // Configuration
     this.schedulerConfigPath = path.join(__dirname, '../../../config/scheduler.json');
     this.schedulerConfig = this.loadSchedulerConfig();
-    
+
+    // Sun-position-driven timing for solar shade scenes (opt-in via config).
+    // Given a live config getter so it always sees the hot-reloaded config.
+    this.solarShadeTimes = new SolarShadeTimes(() => this.schedulerConfig);
+
     // State
     this.scheduledJobs = new Map();
     this.sunsetCache = new Map();
@@ -187,7 +192,30 @@ class SchedulerService {
       times.good_night = new Date(baseGoodNightTime.getTime() + (userOffset * 60 * 1000));
       
       logger.debug(`Applied user offset of ${userOffset} minutes to good_night: ${this.timezoneManager.formatForDisplay(times.good_night)}`);
-      
+
+      // Solar-position override (opt-in). Replaces the fixed good_afternoon (lower)
+      // and sunset-offset good_evening (raise) with sun-derived times. A solar failure
+      // never breaks the schedule: getTodaysTimes() returns nulls on error and this
+      // block is wrapped, so the fixed/offset values computed above simply stand.
+      try {
+        if (this.solarShadeTimes && this.solarShadeTimes.isEnabled()) {
+          const solar = this.solarShadeTimes.getTodaysTimes(date);
+          if (solar.lowerTime) {
+            times.good_afternoon = solar.lowerTime;
+            const lh = solar.lowerTime.getHours();
+            const lm = solar.lowerTime.getMinutes();
+            const lh12 = lh === 0 ? 12 : (lh > 12 ? lh - 12 : lh);
+            times.good_afternoon_display = `${lh12}:${lm.toString().padStart(2, '0')} ${lh >= 12 ? 'PM' : 'AM'}`;
+          }
+          if (solar.raiseTime) {
+            times.good_evening = solar.raiseTime;
+          }
+          logger.info(`Solar shade timing active: lower=${times.good_afternoon_display}, raise=${this.timezoneManager.formatForDisplay(times.good_evening)}`);
+        }
+      } catch (solarErr) {
+        logger.warn(`Solar shade timing failed, using fixed/offset times: ${solarErr.message}`);
+      }
+
       this.nextSceneTimes = times;
       
       // No need to store separate display format - let TimezoneManager handle formatting consistently
@@ -423,19 +451,24 @@ class SchedulerService {
       // Clear existing schedules
       this.clearAllSchedules();
       
-      // Schedule Good Afternoon (static time daily)
-      const afternoonTime = this.schedulerConfig.scenes.good_afternoon_time || "14:30";
-      const [hours, minutes] = afternoonTime.split(':').map(Number);
-      const afternoonCron = `${minutes} ${hours} * * *`;
-      
-      const afternoonJob = cron.schedule(afternoonCron, () => {
-        this.executeScene('good_afternoon');
-      }, {
-        scheduled: true
-      });
-      
-      this.scheduledJobs.set('good_afternoon', afternoonJob);
-      logger.info(`Scheduled Good Afternoon scene at ${afternoonTime} daily`);
+      // Schedule Good Afternoon (static time daily).
+      // When solar timing is ON, the lower time drifts day to day, so good_afternoon
+      // is instead scheduled as a one-time dated job in scheduleSunsetBasedScenes()
+      // (recomputed each midnight). Skip the fixed recurring cron in that case.
+      if (!(this.solarShadeTimes && this.solarShadeTimes.isEnabled())) {
+        const afternoonTime = this.schedulerConfig.scenes.good_afternoon_time || "14:30";
+        const [hours, minutes] = afternoonTime.split(':').map(Number);
+        const afternoonCron = `${minutes} ${hours} * * *`;
+
+        const afternoonJob = cron.schedule(afternoonCron, () => {
+          this.executeScene('good_afternoon');
+        }, {
+          scheduled: true
+        });
+
+        this.scheduledJobs.set('good_afternoon', afternoonJob);
+        logger.info(`Scheduled Good Afternoon scene at ${afternoonTime} daily`);
+      }
       
       // Schedule daily sunset calculation and dynamic scene scheduling
       const midnightJob = cron.schedule('0 0 * * *', () => {
@@ -466,7 +499,37 @@ class SchedulerService {
     try {
       const times = await this.calculateSceneTimes();
       const now = new Date();
-      
+
+      // Stop any existing dated jobs before re-creating them. This function is
+      // called both at (re)schedule time AND after every scene execution
+      // (see executeScene), so without this it would append a new cron job each
+      // time and orphan the old one — stacking duplicate jobs that all fire at
+      // once (e.g. good_night firing 12x and spawning 12 pianobars). Making it
+      // idempotent guarantees at most one live job per scene. Mirrors the
+      // stop-before-schedule pattern in calculateAndScheduleDynamicScenes().
+      for (const key of ['good_afternoon_today', 'good_evening_today', 'good_night_today']) {
+        if (this.scheduledJobs.has(key)) {
+          this.scheduledJobs.get(key).stop();
+          this.scheduledJobs.delete(key);
+        }
+      }
+
+      // Solar Good Afternoon (lower) — dynamic daily time, scheduled as a one-time
+      // dated job when solar timing is on (mirrors the good_evening pattern below).
+      if (this.solarShadeTimes && this.solarShadeTimes.isEnabled() && times.good_afternoon > now) {
+        const afternoonDate = times.good_afternoon;
+        const afternoonCron = `${afternoonDate.getMinutes()} ${afternoonDate.getHours()} ${afternoonDate.getDate()} ${afternoonDate.getMonth() + 1} *`;
+
+        const afternoonJob = cron.schedule(afternoonCron, () => {
+          this.executeScene('good_afternoon');
+        }, {
+          scheduled: true
+        });
+
+        this.scheduledJobs.set('good_afternoon_today', afternoonJob);
+        logger.info(`Scheduled solar Good Afternoon scene at ${this.timezoneManager.formatForDisplay(afternoonDate, 'datetime')}`);
+      }
+
       // Schedule Good Evening if it hasn't passed today
       if (times.good_evening > now) {
         const eveningDate = times.good_evening;
@@ -520,6 +583,10 @@ class SchedulerService {
       }
       
       // Clear existing dynamic schedules
+      if (this.scheduledJobs.has('good_afternoon_today')) {
+        this.scheduledJobs.get('good_afternoon_today').stop();
+        this.scheduledJobs.delete('good_afternoon_today');
+      }
       if (this.scheduledJobs.has('good_evening_today')) {
         this.scheduledJobs.get('good_evening_today').stop();
         this.scheduledJobs.delete('good_evening_today');
@@ -1531,7 +1598,9 @@ class SchedulerService {
       
       // Check Good Afternoon - daily recurring job with name 'good_afternoon'
       // Skip if skipSolarToday is enabled (user wants to skip solar shades today)
-      if (times.good_afternoon && this.scheduledJobs.has('good_afternoon') && !this.skipSolarToday) {
+      if (times.good_afternoon &&
+          (this.scheduledJobs.has('good_afternoon') || this.scheduledJobs.has('good_afternoon_today')) &&
+          !this.skipSolarToday) {
         sceneTimes.push({ name: 'Good Afternoon', time: times.good_afternoon });
       }
       
@@ -1813,7 +1882,7 @@ class SchedulerService {
       }
       
       // Recalculate scene times if needed
-      if (changes.some(change => change.includes('scene') || change.includes('offset'))) {
+      if (changes.some(change => change.includes('scene') || change.includes('offset') || change.includes('solar'))) {
         await this.calculateSceneTimes();
       }
       
@@ -1916,7 +1985,12 @@ class SchedulerService {
       if (oldConfig.music?.enabled_for_evening !== newConfig.music?.enabled_for_evening) {
         changes.push(`music.enabled_for_evening: ${oldConfig.music?.enabled_for_evening} → ${newConfig.music?.enabled_for_evening}`);
       }
-      
+
+      // Check solar shade changes (coarse — any change to the block reschedules)
+      if (JSON.stringify(oldConfig.solar_shades) !== JSON.stringify(newConfig.solar_shades)) {
+        changes.push('solar_shades: changed');
+      }
+
     } catch (error) {
       logger.error(`Error detecting configuration changes: ${error.message}`);
     }

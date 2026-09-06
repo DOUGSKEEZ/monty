@@ -28,6 +28,11 @@ const serviceRegistry = require('../utils/ServiceRegistry');
 let commandInterface = null;
 let actualPianobarService = null;
 
+// Guards against duplicate pianobar starts. Node is single-threaded, so the
+// check-and-set of this flag before any `await` is atomic and blocks a burst
+// of concurrent /start requests from each spawning their own pianobar.
+let pianobarStartInProgress = false;
+
 function getCommandInterface() {
   if (!commandInterface) {
     try {
@@ -414,6 +419,16 @@ router.get('/state', async (req, res) => {
 // Start pianobar
 router.post('/start', async (req, res) => {
   const { exec } = require('child_process');
+  const execPromise = require('util').promisify(exec);
+
+  // Concurrency guard: block a burst of near-simultaneous starts (e.g. multiple
+  // scheduler triggers) from each spawning a pianobar. Setting the flag before
+  // any await is atomic in Node's single-threaded model.
+  if (pianobarStartInProgress) {
+    logger.warn('Pianobar start already in progress, ignoring duplicate request');
+    return res.json({ success: true, message: 'Pianobar start already in progress', isPlaying: true });
+  }
+  pianobarStartInProgress = true;
 
   try {
     // AudioBroker preamble: kill jukebox if active
@@ -425,9 +440,17 @@ router.post('/start', async (req, res) => {
       logger.warn(`AudioBroker error (continuing): ${brokerError.message}`);
     }
 
-    // Start pianobar the simple way that always worked
-    logger.info('Starting pianobar');
-    exec('nohup pianobar > /tmp/pianobar_stdout.log 2>&1 &');
+    // Duplicate guard: if pianobar is already running (e.g. an existing session
+    // the broker left in place), don't spawn a second instance on top of it.
+    const { stdout } = await execPromise('pgrep -x pianobar || echo ""');
+    const existingPids = stdout.trim().split('\n').filter(Boolean);
+    if (existingPids.length > 0) {
+      logger.warn(`Pianobar already running (pids: ${existingPids.join(', ')}), skipping duplicate spawn`);
+    } else {
+      // Start pianobar the simple way that always worked
+      logger.info('Starting pianobar');
+      exec('nohup pianobar > /tmp/pianobar_stdout.log 2>&1 &');
+    }
 
     // Update status file (frontend/watchers rely on this)
     const statusData = {
@@ -462,6 +485,10 @@ router.post('/start', async (req, res) => {
   } catch (error) {
     logger.error(`Error in start route: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
+  } finally {
+    // Release the guard after a short delay so a freshly-spawned pianobar has
+    // time to appear in `pgrep` before the next start attempt is evaluated.
+    setTimeout(() => { pianobarStartInProgress = false; }, 3000);
   }
 });
 
