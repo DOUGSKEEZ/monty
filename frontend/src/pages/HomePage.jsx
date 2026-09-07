@@ -645,9 +645,16 @@ function HomePage() {
                 ].map(({ key, label }) => {
                   const temp = weather.temperatures[key];
                   const humidity = weather.temperatures.humidity?.[key];
-                  // Color the DISPLAYED (rounded) value: red at 80+, blue at 67-.
+                  // Color the DISPLAYED (rounded) value. Shades chosen to stay
+                  // legible in BOTH light and dark modes (darker in light, brighter in dark).
                   const shown = temp == null ? null : Math.round(temp);
-                  const tempColor = shown == null ? '' : shown >= 80 ? 'text-red-500' : shown <= 67 ? 'text-blue-500' : '';
+                  const tempColor =
+                    shown == null   ? '' :
+                    shown >= 80     ? 'text-red-500' :                          // hot
+                    shown >= 76     ? 'text-yellow-600 dark:text-yellow-400' :  // slightly warm 76-79
+                    shown >= 68     ? '' :                                      // comfortable 68-75
+                    shown >= 40     ? 'text-blue-500' :                         // cold 40-67
+                                      'text-purple-600 dark:text-purple-400';  // really cold <=39
                   return (
                     <div key={key} className="flex items-baseline">
                       <span className="w-24 shrink-0">{label}:</span>
