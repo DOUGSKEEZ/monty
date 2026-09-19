@@ -64,13 +64,18 @@ function WeatherMap() {
   const tileSets = {
     dark: {
       name: 'Dark',
-      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      // Esri Dark Gray Canvas (no API key). Replaces CARTO dark_all, which now
+      // watermarks unauthenticated tiles. Labels are a separate Esri layer.
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      labelsUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
     },
     light: {
       name: 'Light',
-      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      // Esri Light Gray Canvas (no API key). Replaces CARTO light_all.
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      labelsUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
     },
     hybrid: {
       name: 'Hybrid',
@@ -80,8 +85,10 @@ function WeatherMap() {
     },
     terrain: {
       name: 'Terrain',
-      url: 'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png',
-      attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://stamen.com/">Stamen Design</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+      // Esri World Terrain Base (no API key). Replaces Stadia/Stamen terrain,
+      // which now returns 401 without an API key.
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri &mdash; Source: USGS, Esri, TANA, DeLorme, and NPS'
     },
     topo: {
       name: 'Topographic',
@@ -331,8 +338,9 @@ function WeatherMap() {
             zIndex={600} // Highest priority for precipitation
           />
           
-          {/* Hybrid labels layer - only for hybrid map style */}
-          {selectedTileSet === 'hybrid' && currentTileSet.labelsUrl && (
+          {/* Labels overlay - for any base layer that serves labels separately
+              (Hybrid imagery + Esri gray canvas Light/Dark) */}
+          {currentTileSet.labelsUrl && (
             <TileLayer
               key={`${selectedTileSet}-labels`}
               url={currentTileSet.labelsUrl}
