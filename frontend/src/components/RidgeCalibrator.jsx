@@ -29,24 +29,27 @@ function RidgeCalibrator({ onClose }) {
 
   const savedCfg = scheduler.config?.solar_shades || {};
   const savedTrigger = savedCfg.lower?.trigger_azimuth_deg ?? 202;
-  const savedLead = savedCfg.raise?.viewing_lead_degrees ?? 6;
   const defaultRidge = savedCfg.raise?.default_ridge_altitude_deg ?? 3;
 
   const [date, setDate] = useState(todayStr());
   const [triggerDraft, setTriggerDraft] = useState(savedTrigger);
-  const [leadDraft, setLeadDraft] = useState(savedLead);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  // "Sun went behind the ridge" observation entry (editable date + time)
-  const [obsDate, setObsDate] = useState(todayStr());
-  const [obsTime, setObsTime] = useState('');
+  // "Sun went behind the ridge" observation entry (editable date + time).
+  // Time is entered as hour + minute, always PM (the sun only sets in the evening
+  // here) — a custom picker so there's no confusing browser AM/PM toggle.
+  const [obsHour, setObsHour] = useState(6);
+  const [obsMin, setObsMin] = useState('');
   // Guard the editable/deletable observation list behind an Advanced toggle.
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Ridge node the pointer is hovering (for the date/time tooltip on the graph).
+  const [hoverPoint, setHoverPoint] = useState(null);
 
   const triggerChanged = triggerDraft !== savedTrigger;
-  const leadChanged = leadDraft !== savedLead;
+  // Golden-hour height is a fixed constant (from config); used to draw the graph line.
+  const goldenHour = preview?.raise_altitude_deg ?? savedCfg.raise?.raise_altitude_deg ?? 6;
 
   // Fetch the sun track + computed times for the current drafts (debounced).
   const fetchPreview = useCallback(async () => {
@@ -55,7 +58,6 @@ function RidgeCalibrator({ onClose }) {
       const res = await schedulerApi.getSolarPreview({
         date,
         trigger_azimuth_deg: triggerDraft,
-        viewing_lead_degrees: leadDraft,
       });
       if (res.success) setPreview(res.data);
     } catch (e) {
@@ -63,7 +65,7 @@ function RidgeCalibrator({ onClose }) {
     } finally {
       setLoading(false);
     }
-  }, [date, triggerDraft, leadDraft]);
+  }, [date, triggerDraft]);
 
   useEffect(() => {
     const t = setTimeout(fetchPreview, 250);
@@ -86,19 +88,22 @@ function RidgeCalibrator({ onClose }) {
   };
 
   const recordObservation = async () => {
-    if (!obsTime) {
-      setMessage('Enter the time the sun went behind the ridge.');
+    const mm = Number(obsMin);
+    if (obsMin === '' || !Number.isInteger(mm) || mm < 0 || mm > 59) {
+      setMessage('Enter the minutes (0–59) the sun went behind the ridge.');
       return;
     }
     setBusy(true);
     setMessage('');
     try {
-      // Combine the entered date + time as local wall-clock, send as an instant.
-      const iso = new Date(`${obsDate}T${obsTime}:00`).toISOString();
-      const res = await actions.calibrateRidge({ state: 'gone', timestamp: iso });
+      // hour is 1–11 PM → add 12 for 24-hour wall-clock (always evening here).
+      const hh = obsHour + 12;
+      const clock = new Date(`${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`);
+      const res = await actions.calibrateRidge({ state: 'gone', timestamp: clock.toISOString() });
       if (res.success && res.data?.recorded) {
-        setMessage('Saved — thanks! Your skyline just got a little more accurate.');
-        setObsTime('');
+        const label = clock.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        setMessage(`Saved ${label} — your skyline just got a little more accurate.`);
+        setObsMin('');
         await fetchPreview();
       } else {
         setMessage(res.error || 'Could not save that observation.');
@@ -108,10 +113,10 @@ function RidgeCalibrator({ onClose }) {
     }
   };
 
-  const deletePoint = async (azimuth) => {
+  const deletePoint = async (observedAt) => {
     setBusy(true);
     try {
-      await actions.updateSchedulerConfig('solarShades', { delete_azimuth: azimuth });
+      await actions.updateSchedulerConfig('solarShades', { delete_observed_at: observedAt });
       await fetchPreview();
     } finally {
       setBusy(false);
@@ -125,7 +130,6 @@ function RidgeCalibrator({ onClose }) {
     () => profile.filter((p) => p.calibratedFrom !== 'still_up').slice().sort((a, b) => a.azimuth - b.azimuth),
     [profile]
   );
-  const stillUpPts = useMemo(() => profile.filter((p) => p.calibratedFrom === 'still_up'), [profile]);
 
   // Date span of recorded observations, for the read-only summary line.
   const obsDates = profile.map((p) => p.observedAt).filter(Boolean).map((s) => new Date(s)).sort((a, b) => a - b);
@@ -134,37 +138,53 @@ function RidgeCalibrator({ onClose }) {
     ? `${fmtObsDate(obsDates[0])} – ${fmtObsDate(obsDates[obsDates.length - 1])}`
     : obsDates.length === 1 ? fmtObsDate(obsDates[0]) : '';
 
+  // Collapse only near-duplicate readings (within 0.3° — under the sun's ~0.5° width)
+  // to the most-recent one; distinct days (~0.5°/day apart) stay as separate points.
+  // Matches the engine's _ridgeReps.
+  const ridgeReps = useMemo(() => {
+    const reps = [];
+    for (const p of gonePts) {
+      const near = reps.find((r) => Math.abs(r.azimuth - p.azimuth) <= 0.3);
+      if (!near) reps.push({ azimuth: p.azimuth, altitude: p.altitude, observedAt: p.observedAt });
+      else if (new Date(p.observedAt || 0) >= new Date(near.observedAt || 0)) {
+        near.azimuth = p.azimuth; near.altitude = p.altitude; near.observedAt = p.observedAt;
+      }
+    }
+    return reps.sort((a, b) => a.azimuth - b.azimuth);
+  }, [gonePts]);
+
   const ridgeAt = useCallback((az) => {
-    if (gonePts.length === 0) return defaultRidge;
-    if (gonePts.length === 1) return gonePts[0].altitude;
-    if (az <= gonePts[0].azimuth) return gonePts[0].altitude;
-    if (az >= gonePts[gonePts.length - 1].azimuth) return gonePts[gonePts.length - 1].altitude;
-    for (let i = 0; i < gonePts.length - 1; i++) {
-      const a = gonePts[i], b = gonePts[i + 1];
+    const pts = ridgeReps;
+    if (pts.length === 0) return defaultRidge;
+    if (pts.length === 1) return pts[0].altitude;
+    if (az <= pts[0].azimuth) return pts[0].altitude;
+    if (az >= pts[pts.length - 1].azimuth) return pts[pts.length - 1].altitude;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
       if (az >= a.azimuth && az <= b.azimuth) {
         const t = (az - a.azimuth) / (b.azimuth - a.azimuth);
         return a.altitude + t * (b.altitude - a.altitude);
       }
     }
     return defaultRidge;
-  }, [gonePts, defaultRidge]);
+  }, [ridgeReps, defaultRidge]);
 
   const xOf = (az) => PAD.l + ((az - AZ_MIN) / (AZ_MAX - AZ_MIN)) * (W - PAD.l - PAD.r);
   const yOf = (alt) => PAD.t + ((ALT_MAX - alt) / (ALT_MAX - ALT_MIN)) * (H - PAD.t - PAD.b);
   const clampAz = (az) => Math.max(AZ_MIN, Math.min(AZ_MAX, az));
 
-  // Sun path clipped to the ridge window (the late-afternoon descent).
+  // Sun path clipped to the graph window (the late-afternoon descent). Drop samples
+  // above the ceiling so the line starts where the sun drops into view — no flat top.
   const sunPath = track
-    .filter((p) => p.azimuth >= AZ_MIN && p.azimuth <= AZ_MAX && p.altitude >= ALT_MIN - 1 && p.altitude <= ALT_MAX + 2)
-    .map((p) => `${xOf(p.azimuth).toFixed(1)},${yOf(Math.max(ALT_MIN, Math.min(ALT_MAX, p.altitude))).toFixed(1)}`)
+    .filter((p) => p.azimuth >= AZ_MIN && p.azimuth <= AZ_MAX && p.altitude >= ALT_MIN - 1 && p.altitude <= ALT_MAX)
+    .map((p) => `${xOf(p.azimuth).toFixed(1)},${yOf(Math.max(ALT_MIN, p.altitude)).toFixed(1)}`)
     .join(' ');
 
   // Ridge line (drawn across the whole window, clamped like the model).
   const ridgeLine = [];
   for (let az = AZ_MIN; az <= AZ_MAX; az += 2) ridgeLine.push(`${xOf(az).toFixed(1)},${yOf(ridgeAt(az)).toFixed(1)}`);
-  // Ridge + lead threshold (dashed): where the sun crosses this, we RAISE.
-  const threshLine = [];
-  for (let az = AZ_MIN; az <= AZ_MAX; az += 2) threshLine.push(`${xOf(az).toFixed(1)},${yOf(Math.min(ALT_MAX, ridgeAt(az) + leadDraft)).toFixed(1)}`);
+  // Horizontal golden-hour line (the fixed standard raise height).
+  const goldenY = yOf(Math.min(ALT_MAX, goldenHour));
 
   // Raise marker: nearest track sample to the computed raise time.
   const raiseAt = preview?.raiseTime ? new Date(preview.raiseTime) : null;
@@ -231,14 +251,19 @@ function RidgeCalibrator({ onClose }) {
             ))}
             <text x={(W) / 2} y={H - 4} textAnchor="middle" fontSize="10" fill={axisColor} fillOpacity="0.6">azimuth (SW ← → NW)</text>
 
-            {/* ridge fill + line */}
+            {/* ridge fill + line (bright line so the silhouette reads clearly) */}
             <polyline
               points={`${xOf(AZ_MIN)},${H - PAD.b} ${ridgeLine.join(' ')} ${xOf(AZ_MAX)},${H - PAD.b}`}
-              fill="#78716c" fillOpacity="0.25" stroke="none"
+              fill="#78716c" fillOpacity="0.18" stroke="none"
             />
-            <polyline points={ridgeLine.join(' ')} fill="none" stroke="#78716c" strokeWidth="2" />
-            {/* ridge + lead threshold (dashed) */}
-            <polyline points={threshLine.join(' ')} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" />
+            <polyline points={ridgeLine.join(' ')} fill="none" stroke="#d1d5db" strokeWidth="2.5" strokeLinejoin="round" />
+            {/* golden-hour line — the fixed standard raise height */}
+            {goldenHour <= ALT_MAX && (
+              <g>
+                <line x1={PAD.l} y1={goldenY} x2={W - PAD.r} y2={goldenY} stroke="#22c55e" strokeWidth="1" strokeDasharray="2 3" strokeOpacity="0.7" />
+                <text x={W - PAD.r} y={goldenY - 3} textAnchor="end" fontSize="9" fill="#22c55e">golden hour {goldenHour}°</text>
+              </g>
+            )}
 
             {/* sun path */}
             {sunPath && <polyline points={sunPath} fill="none" stroke="#eab308" strokeWidth="2" />}
@@ -251,22 +276,42 @@ function RidgeCalibrator({ onClose }) {
               </g>
             )}
 
-            {/* gone points */}
-            {gonePts.map((p, i) => (
-              <circle key={`g${i}`} cx={xOf(clampAz(p.azimuth))} cy={yOf(Math.max(ALT_MIN, Math.min(ALT_MAX, p.altitude)))} r="4" fill="#78716c" stroke="white" strokeWidth="1" />
-            ))}
-            {/* still_up markers (upper bounds) */}
-            {stillUpPts.map((p, i) => (
-              <text key={`s${i}`} x={xOf(clampAz(p.azimuth))} y={yOf(Math.max(ALT_MIN, Math.min(ALT_MAX, p.altitude))) + 4} textAnchor="middle" fontSize="12" fill="#9ca3af">▽</text>
-            ))}
+            {/* ridge nodes — hover for the recorded date/time. Solid = the reading the
+                ridge line uses at that bearing; faded = an older reading superseded there. */}
+            {gonePts.map((p, i) => {
+              const cx = xOf(clampAz(p.azimuth));
+              const cy = yOf(Math.max(ALT_MIN, Math.min(ALT_MAX, p.altitude)));
+              const isRep = ridgeReps.some((r) => r.observedAt === p.observedAt);
+              return (
+                <circle
+                  key={`g${i}`} cx={cx} cy={cy} r={isRep ? 5 : 3.5} fill="#78716c"
+                  fillOpacity={isRep ? 1 : 0.35} stroke="white" strokeWidth={isRep ? 1 : 0.5}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setHoverPoint({ x: cx, y: cy, p })}
+                  onMouseLeave={() => setHoverPoint(null)}
+                />
+              );
+            })}
+            {/* hover tooltip: date + time the sun went behind the ridge here */}
+            {hoverPoint && (
+              <g pointerEvents="none">
+                <rect x={Math.min(hoverPoint.x + 6, W - 152)} y={hoverPoint.y - 36} width="148" height="30" rx="3" fill="#111827" opacity="0.92" />
+                <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - 23} fontSize="9" fill="#ffffff">
+                  {hoverPoint.p.observedAt ? new Date(hoverPoint.p.observedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : `bearing ${hoverPoint.p.azimuth}°`}
+                </text>
+                <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - 12} fontSize="9" fill="#d1d5db">
+                  behind ridge {hoverPoint.p.observedAt ? new Date(hoverPoint.p.observedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : `${hoverPoint.p.altitude}° high`}
+                </text>
+              </g>
+            )}
           </svg>
           {/* legend */}
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 px-2 pb-1">
-            <span><span style={{ color: '#78716c' }}>■</span> ridge (measured)</span>
-            <span><span style={{ color: '#f59e0b' }}>┈</span> raise threshold (ridge + lead)</span>
+            <span><span style={{ color: '#d1d5db' }}>—</span> ridge line</span>
+            <span><span style={{ color: '#78716c' }}>●</span> observations (hover)</span>
+            <span><span style={{ color: '#22c55e' }}>┈</span> golden hour ({goldenHour}°)</span>
             <span><span style={{ color: '#eab308' }}>—</span> sun path</span>
-            <span><span style={{ color: '#3b82f6' }}>●</span> raise point</span>
-            <span>▽ still-above (upper bound)</span>
+            <span><span style={{ color: '#3b82f6' }}>●</span> raise</span>
           </div>
         </div>
 
@@ -277,8 +322,8 @@ function RidgeCalibrator({ onClose }) {
           {loading && <span className="text-gray-400">updating…</span>}
         </div>
 
-        {/* Sliders */}
-        <div className="flex flex-wrap justify-center gap-6 mb-4">
+        {/* Afternoon lower trigger (the one thing you tune) */}
+        <div className="flex justify-center mb-2">
           <OffsetAdjuster
             title="Afternoon Solar shades trigger"
             resultTime={preview?.lowerLabel}
@@ -295,55 +340,60 @@ function RidgeCalibrator({ onClose }) {
             saving={busy}
             align="center"
           />
-          <OffsetAdjuster
-            title="Evening Sunset Viewing trigger"
-            resultTime={preview?.raiseLabel}
-            value={leadDraft}
-            min={0}
-            max={20}
-            step={1}
-            leftLabel="just before it sets"
-            rightLabel="longer golden hour"
-            formatValue={(v) => `${v}° above the ridge`}
-            onChange={setLeadDraft}
-            onUpdate={() => saveKnobs({ viewing_lead_degrees: leadDraft })}
-            changed={leadChanged}
-            saving={busy}
-            align="center"
-          />
         </div>
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mb-4">
+          Evening raise is automatic: at <strong>golden hour ({goldenHour}° over the horizon)</strong>, or
+          ~2&nbsp;min before the sun tucks behind the ridge when the ridge is taller than that.
+        </p>
 
         {/* Calibration — dated "sun went behind the ridge" observations */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
           <p className="text-sm text-gray-700 dark:text-gray-200 mb-1 font-medium">
-            When did the sun go behind the ridge?
+            When was the sun <em>fully</em> behind the ridge?
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Enter the exact moment the sun's edge dropped behind the mountains — today, or any past day
-            you jotted down or can read off a sunset photo. Each entry sharpens the Evening raise time.
+            Record the crisp moment the sun disappears <strong>completely</strong> behind the ridge — not
+            when it first touches (that's fuzzy). Today, or any past day from a note or a sunset photo. The
+            shades raise ~1–2&nbsp;min <em>before</em> this, as it tucks behind. Every entry maps another
+            point of your skyline — worth logging even when the ridge is low.
           </p>
           <div className="flex flex-wrap items-end gap-3 mb-3">
             <label className="text-sm text-gray-600 dark:text-gray-300">
               Date
               <input
                 type="date"
-                value={obsDate}
-                onChange={(e) => setObsDate(e.target.value)}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
                 className="block mt-1 border rounded px-2 py-1 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600"
               />
             </label>
             <label className="text-sm text-gray-600 dark:text-gray-300">
               Time it went behind the ridge
-              <input
-                type="time"
-                value={obsTime}
-                onChange={(e) => setObsTime(e.target.value)}
-                className="block mt-1 border rounded px-2 py-1 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600"
-              />
+              <span className="flex items-center gap-1 mt-1">
+                <select
+                  value={obsHour}
+                  onChange={(e) => setObsHour(Number(e.target.value))}
+                  className="border rounded px-2 py-1 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <span className="text-gray-500">:</span>
+                <select
+                  value={obsMin}
+                  onChange={(e) => setObsMin(e.target.value)}
+                  className="border rounded px-2 py-1 text-gray-700 dark:text-white dark:bg-gray-700 dark:border-gray-600"
+                >
+                  <option value="" disabled>min</option>
+                  {Array.from({ length: 60 }, (_, m) => (
+                    <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                  ))}
+                </select>
+                <span className="font-semibold text-gray-600 dark:text-gray-300">PM</span>
+              </span>
             </label>
             <button
               onClick={recordObservation}
-              disabled={busy || !obsTime}
+              disabled={busy || obsMin === ''}
               className="bg-stone-600 hover:bg-stone-700 text-white font-semibold py-2 px-4 rounded disabled:opacity-50"
             >
               🌄 Record
@@ -386,7 +436,7 @@ function RidgeCalibrator({ onClose }) {
                             : `ridge point at ${p.azimuth}°`}
                         </span>
                         <button
-                          onClick={() => deletePoint(p.azimuth)}
+                          onClick={() => deletePoint(p.observedAt)}
                           disabled={busy}
                           title="Remove this observation"
                           className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"

@@ -987,7 +987,7 @@ function SettingsPage() {
             />
             <div className="mt-auto pt-3 flex flex-col items-center gap-2">
               {solarEnabled && (
-                <SunTrackingBox detail={`${scheduler.config?.solar_shades?.raise?.viewing_lead_degrees ?? 6}° above the ridge · sunset offset paused`} />
+                <SunTrackingBox detail={`at golden hour (~${scheduler.config?.solar_shades?.raise?.raise_altitude_deg ?? 6}°) or ridge touch · sunset offset paused`} />
               )}
               <label className="flex items-center text-sm">
                 <input

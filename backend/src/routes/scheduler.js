@@ -18,7 +18,8 @@ const ensureSolarConfig = (schedulerService) => {
   if (!cfg.solar_shades.lower) cfg.solar_shades.lower = { trigger_azimuth_deg: 202 };
   if (!cfg.solar_shades.raise) cfg.solar_shades.raise = {};
   const r = cfg.solar_shades.raise;
-  if (!Number.isFinite(r.viewing_lead_degrees)) r.viewing_lead_degrees = 6;
+  if (!Number.isFinite(r.raise_altitude_deg)) r.raise_altitude_deg = 6;
+  if (!Number.isFinite(r.raise_lead_minutes)) r.raise_lead_minutes = 2;
   if (!Number.isFinite(r.default_ridge_altitude_deg)) r.default_ridge_altitude_deg = 3.0;
   if (!Array.isArray(r.horizon_profile)) r.horizon_profile = [];
   return cfg.solar_shades;
@@ -45,8 +46,16 @@ const readRidgeCsv = () => {
   });
 };
 
-// Merge the current JSON profile points into the CSV (upsert by bearing ±3°), keeping
-// any rows already present that are no longer in the profile (i.e. deleted-in-app points).
+// Local calendar-date key (server timezone) — the dedupe unit: one observation per day.
+const localDateKey = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+};
+
+// Merge the current JSON profile points into the CSV, keyed by calendar DATE so there's
+// one row per day (re-recording a day overwrites it). Rows already in the CSV but no
+// longer in the profile (i.e. deleted-in-app points) are retained — the durable backup.
 const syncRidgeCsv = (profile) => {
   const rows = readRidgeCsv();
   const pad = (n) => String(n).padStart(2, '0');
@@ -56,7 +65,7 @@ const syncRidgeCsv = (profile) => {
     if (isNaN(d.getTime())) continue;
     const observed_local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     const row = { observed_local, observed_iso: pt.observedAt, azimuth: pt.azimuth, altitude: pt.altitude, source: pt.calibratedFrom || 'gone' };
-    const idx = rows.findIndex((r) => Math.abs(r.azimuth - pt.azimuth) <= 3);
+    const idx = rows.findIndex((r) => localDateKey(r.observed_iso) === localDateKey(pt.observedAt));
     if (idx >= 0) rows[idx] = row; else rows.push(row);
   }
   rows.sort((a, b) => a.azimuth - b.azimuth);
@@ -889,8 +898,8 @@ router.put('/scenes', async (req, res) => {
 router.put('/solar-shades', async (req, res) => {
   try {
     const {
-      enabled, trigger_azimuth_deg, viewing_lead_degrees,
-      default_ridge_altitude_deg, horizon_profile, delete_azimuth
+      enabled, trigger_azimuth_deg, raise_altitude_deg,
+      raise_lead_minutes, default_ridge_altitude_deg, horizon_profile, delete_observed_at
     } = req.body;
 
     // Validate BEFORE the breaker (client errors must not trip the shared circuit).
@@ -900,8 +909,11 @@ router.put('/solar-shades', async (req, res) => {
     if (trigger_azimuth_deg !== undefined && (typeof trigger_azimuth_deg !== 'number' || trigger_azimuth_deg < 0 || trigger_azimuth_deg > 360)) {
       return res.status(400).json({ success: false, error: 'trigger_azimuth_deg must be a number 0–360' });
     }
-    if (viewing_lead_degrees !== undefined && (typeof viewing_lead_degrees !== 'number' || viewing_lead_degrees < 0 || viewing_lead_degrees > 30)) {
-      return res.status(400).json({ success: false, error: 'viewing_lead_degrees must be a number 0–30' });
+    if (raise_altitude_deg !== undefined && (typeof raise_altitude_deg !== 'number' || raise_altitude_deg < 0 || raise_altitude_deg > 30)) {
+      return res.status(400).json({ success: false, error: 'raise_altitude_deg must be a number 0–30' });
+    }
+    if (raise_lead_minutes !== undefined && (typeof raise_lead_minutes !== 'number' || raise_lead_minutes < 0 || raise_lead_minutes > 30)) {
+      return res.status(400).json({ success: false, error: 'raise_lead_minutes must be a number 0–30' });
     }
     if (default_ridge_altitude_deg !== undefined && (typeof default_ridge_altitude_deg !== 'number' || default_ridge_altitude_deg < -5 || default_ridge_altitude_deg > 90)) {
       return res.status(400).json({ success: false, error: 'default_ridge_altitude_deg must be a number -5–90' });
@@ -916,8 +928,8 @@ router.put('/solar-shades', async (req, res) => {
         }
       }
     }
-    if (delete_azimuth !== undefined && typeof delete_azimuth !== 'number') {
-      return res.status(400).json({ success: false, error: 'delete_azimuth must be a number' });
+    if (delete_observed_at !== undefined && typeof delete_observed_at !== 'string') {
+      return res.status(400).json({ success: false, error: 'delete_observed_at must be a string (observedAt)' });
     }
 
     const result = await schedulerWriteCircuit.execute(async () => {
@@ -927,16 +939,18 @@ router.put('/solar-shades', async (req, res) => {
 
         if (enabled !== undefined) cfg.enabled = enabled;
         if (trigger_azimuth_deg !== undefined) cfg.lower.trigger_azimuth_deg = trigger_azimuth_deg;
-        if (viewing_lead_degrees !== undefined) cfg.raise.viewing_lead_degrees = viewing_lead_degrees;
+        if (raise_altitude_deg !== undefined) cfg.raise.raise_altitude_deg = raise_altitude_deg;
+        if (raise_lead_minutes !== undefined) cfg.raise.raise_lead_minutes = raise_lead_minutes;
         if (default_ridge_altitude_deg !== undefined) cfg.raise.default_ridge_altitude_deg = default_ridge_altitude_deg;
         if (Array.isArray(horizon_profile)) {
           cfg.raise.horizon_profile = horizon_profile
             .map(p => ({ azimuth: p.azimuth, altitude: p.altitude, calibratedFrom: p.calibratedFrom || 'gone' }))
             .sort((a, b) => a.azimuth - b.azimuth);
         }
-        if (delete_azimuth !== undefined) {
+        if (delete_observed_at !== undefined) {
+          // Delete exactly the observation clicked (by timestamp) — never a bearing band.
           cfg.raise.horizon_profile = (cfg.raise.horizon_profile || [])
-            .filter(p => Math.abs(p.azimuth - delete_azimuth) > 3);
+            .filter(p => p.observedAt !== delete_observed_at);
         }
 
         schedulerService.saveSchedulerConfig();
@@ -991,16 +1005,12 @@ router.post('/calibrate-ridge', async (req, res) => {
           observedAt: when.toISOString()
         };
 
+        // One observation per calendar DAY: re-recording the same day overwrites it,
+        // but different days (even at a similar bearing) both persist. The ridge calc
+        // later picks the most-recent per bearing.
         const profile = cfg.raise.horizon_profile;
-        const MERGE_DEG = 3;
-        const idx = profile.findIndex(p => Math.abs(p.azimuth - point.azimuth) <= MERGE_DEG);
-        if (idx >= 0) {
-          // 'still_up' is only an upper bound — never let it RAISE an existing ridge estimate.
-          const skip = state === 'still_up' && profile[idx].altitude <= point.altitude;
-          if (!skip) profile[idx] = point;
-        } else {
-          profile.push(point);
-        }
+        const idx = profile.findIndex(p => p.observedAt && localDateKey(p.observedAt) === localDateKey(point.observedAt));
+        if (idx >= 0) profile[idx] = point; else profile.push(point);
         profile.sort((a, b) => a.azimuth - b.azimuth);
 
         schedulerService.saveSchedulerConfig();
@@ -1060,9 +1070,9 @@ router.get('/solar-preview', async (req, res) => {
       const v = Number(req.query.trigger_azimuth_deg);
       if (Number.isFinite(v)) override.lower.trigger_azimuth_deg = v;
     }
-    if (req.query.viewing_lead_degrees !== undefined) {
-      const v = Number(req.query.viewing_lead_degrees);
-      if (Number.isFinite(v)) override.raise.viewing_lead_degrees = v;
+    if (req.query.raise_altitude_deg !== undefined) {
+      const v = Number(req.query.raise_altitude_deg);
+      if (Number.isFinite(v)) override.raise.raise_altitude_deg = v;
     }
 
     const previewSst = new SolarShadeTimes(() => ({ solar_shades: override }));
@@ -1078,7 +1088,8 @@ router.get('/solar-preview', async (req, res) => {
         lowerLabel: times.lowerTime ? fmtLocalClock(times.lowerTime) : null,
         raiseLabel: times.raiseTime ? fmtLocalClock(times.raiseTime) : null,
         trigger_azimuth_deg: override.lower.trigger_azimuth_deg ?? 202,
-        viewing_lead_degrees: override.raise.viewing_lead_degrees ?? 6,
+        raise_altitude_deg: override.raise.raise_altitude_deg ?? 6,
+        raise_lead_minutes: override.raise.raise_lead_minutes ?? 2,
         profile: (base.raise && base.raise.horizon_profile) || [],
         track
       }
