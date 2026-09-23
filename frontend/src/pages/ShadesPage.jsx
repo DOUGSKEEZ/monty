@@ -157,6 +157,8 @@ function ShadesPage() {
   };
   
   const rooms = getRooms();
+  // Rooms with whole-room "ALL" controls (Downstairs and Loft have none)
+  const hasAllControls = ['Main Level', 'Bedroom', 'Office'].includes(activeRoom);
   const { solarShades, privacyShades, blackoutShades } = getRoomShades();
 
   return (
@@ -254,6 +256,7 @@ function ShadesPage() {
       {/* Room Control */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded shadow mb-4">
         {/* "All" Room Type Controls - Top row, original sizing */}
+        {hasAllControls && (
         <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mb-4">
           <div className="flex justify-center flex-wrap gap-4">
             {/* Privacy Type ALL Control - LEFT SIDE (White Box) */}
@@ -396,9 +399,10 @@ function ShadesPage() {
             
           </div>
         </div>
+        )}
         
         {/* Individual Window Controls */}
-        <div className="mt-6">
+        <div className={hasAllControls ? 'mt-6' : ''}>
           {/* Main Level Location Groups */}
           {activeRoom === 'Main Level' && (
             <div className="space-y-4">
