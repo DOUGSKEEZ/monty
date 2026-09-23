@@ -7,12 +7,12 @@
     "good_afternoon_time": "13:45",
     "good_evening_offset_minutes": -33,
     "good_night_timing": "civil_twilight_end",
-    "good_night_offset_minutes": -3
+    "good_night_offset_minutes": -9
   },
   "wake_up": {
     "enabled": false,
-    "time": "08:15",
-    "last_triggered": "2026-09-18T14:15:00.019Z",
+    "time": "08:00",
+    "last_triggered": "2026-09-23T14:00:00.032Z",
     "good_morning_delay_minutes": 5
   },
   "guest_alarms": {
@@ -45,6 +45,12 @@
       "raise_lead_minutes": 2,
       "default_ridge_altitude_deg": 3,
       "horizon_profile": [
+        {
+          "azimuth": 265.1,
+          "altitude": 7.8,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-09-21T00:21:00.000Z"
+        },
         {
           "azimuth": 266.5,
           "altitude": 7.3,

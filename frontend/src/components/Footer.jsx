@@ -43,7 +43,7 @@ function Footer() {
           );
         })}
       </nav>
-      <footer className="bg-gray-800 dark:bg-gray-950 text-white px-6 py-2 md:p-4 shadow-inner dark:border-t dark:border-gray-700">
+      <footer className="bg-gray-800 dark:bg-gray-950 text-white px-6 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:p-4 shadow-inner dark:border-t dark:border-gray-700">
         <div className="container mx-auto flex justify-between items-center text-xs md:text-base">
           <div>
             {currentTemp !== null && (

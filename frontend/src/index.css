@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Match the page background at the document root so iOS Safari's status-bar
+   band (and overscroll bounce) follow light/dark mode instead of default white.
+   Keep in sync with the App.jsx root div. */
+@layer base {
+  html { @apply bg-gray-100; }
+  html.dark { @apply bg-gray-900; }
+}
+
 /* Beautiful Love Animation 💖 */
 @keyframes love-pulse {
   0% { 

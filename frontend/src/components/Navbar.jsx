@@ -98,7 +98,7 @@ function Navbar() {
 
   return (
     <nav
-      className={`text-white p-4 shadow-md ${navbarTheme.className}`}
+      className={`text-white p-4 pt-[max(1rem,calc(env(safe-area-inset-top)-0.5rem))] pb-2 md:pb-4 shadow-md ${navbarTheme.className}`}
       style={navbarTheme.style || {}}
     >
       <div className="container mx-auto flex justify-between items-center relative z-10">

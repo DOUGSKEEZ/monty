@@ -7,7 +7,7 @@ export const PAGES = [
   { path: '/',         label: 'Dashboard', shortLabel: 'Home',     title: 'Welcome to Monty',      icon: '/images/Monty.png',            alt: 'Monty',                       emoji: '🏠', swipe: true },
   { path: '/shades',   label: 'Shades',    shortLabel: 'Shades',   title: 'Shade Control',         icon: '/images/Monty_Sunglasses.png', alt: 'Monty with sunglasses',       emoji: '🕶️', swipe: true },
   { path: '/pianobar', label: 'Pianobar',  shortLabel: 'Music',    title: "Monty's Pianobar",      icon: '/images/Monty_Headphones.png', alt: 'Monty with headphones',       emoji: '🎧', swipe: true },
-  { path: '/weather',  label: 'Weather',   shortLabel: 'Weather',  title: 'Weather & Temperature', icon: '/images/Monty_Weather.png',    alt: 'Monty with weather elements', emoji: '⛅' },
+  { path: '/weather',  label: 'Weather',   shortLabel: 'Weather',  title: 'Local Weather',         icon: '/images/Monty_Weather.png',    alt: 'Monty with weather elements', emoji: '⛅' },
   { path: '/settings', label: 'Settings',  shortLabel: 'Settings', title: 'Settings',              icon: '/images/Monty_Settings.png',   alt: 'Monty with settings gear',    emoji: '⚙️', hideForGuest: true },
 ];
 
