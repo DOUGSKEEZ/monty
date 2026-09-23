@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -10,10 +10,21 @@ import SettingsPage from './pages/SettingsPage';
 import GuestRegisterPage from './pages/GuestRegisterPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AppProvider, useAppContext } from './utils/AppContext';
+import useSwipeNav from './utils/useSwipeNav';
 
 // Inner component that can access theme context for dark mode
 function AppContent() {
   const { theme } = useAppContext();
+  const { pathname } = useLocation();
+  const mainRef = useRef(null);
+
+  // Swipe left/right between Home, Shades and Pianobar
+  useSwipeNav(mainRef);
+
+  // Start each page at the top (the router keeps the previous page's scroll position otherwise)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   // Apply dark class to document root for Tailwind dark mode to work
   useEffect(() => {
@@ -25,9 +36,9 @@ function AppContent() {
   }, [theme.darkMode]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 dark:text-white transition-colors">
+    <div className="flex flex-col min-h-screen overflow-x-clip bg-gray-100 dark:bg-gray-900 dark:text-white transition-colors">
       <Navbar />
-      <main className="flex-grow">
+      <main ref={mainRef} className="flex-grow">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/shades" element={<ShadesPage />} />

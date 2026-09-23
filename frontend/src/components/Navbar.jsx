@@ -1,60 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppContext } from '../utils/AppContext';
+import { getPageInfo, visiblePages } from '../utils/pages';
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [owlPickerPos, setOwlPickerPos] = useState(null); // null = closed, else {top, left}
+  const owlRef = useRef(null);
   const location = useLocation();
   const { theme, guest, actions } = useAppContext();
-  
+  const pages = visiblePages(guest.isGuest);
+
   // Helper to determine if a link is active
   const isActive = (path) => {
     return location.pathname === path;
   };
 
-  // Dynamic page info based on current route
-  const getPageInfo = () => {
-    switch (location.pathname) {
-      case '/':
-        return {
-          icon: '/images/Monty.png',
-          title: 'Welcome to Monty',
-          alt: 'Monty'
-        };
-      case '/shades':
-        return {
-          icon: '/images/Monty_Sunglasses.png',
-          title: 'Shade Control',
-          alt: 'Monty with sunglasses'
-        };
-      case '/pianobar':
-        return {
-          icon: '/images/Monty_Headphones.png',
-          title: "Monty's Pianobar",
-          alt: 'Monty with headphones'
-        };
-      case '/weather':
-        return {
-          icon: '/images/Monty_Weather.png',
-          title: 'Weather & Temperature',
-          alt: 'Monty with weather elements'
-        };
-      case '/settings':
-        return {
-          icon: '/images/Monty_Settings.png',
-          title: 'Settings',
-          alt: 'Monty with settings gear'
-        };
-      default:
-        return {
-          icon: '/images/Monty.png',
-          title: 'Monty',
-          alt: 'Monty'
-        };
-    }
+  // Close menus whenever the route changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+    setOwlPickerPos(null);
+  }, [location.pathname]);
+
+  // Escape closes the owl picker
+  useEffect(() => {
+    if (!owlPickerPos) return;
+    const onKey = (e) => e.key === 'Escape' && setOwlPickerPos(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [owlPickerPos]);
+
+  // Secret owl nav: position the picker just below the owl (page coords, so it scrolls with the page)
+  const toggleOwlPicker = () => {
+    if (owlPickerPos) return setOwlPickerPos(null);
+    const rect = owlRef.current.getBoundingClientRect();
+    setOwlPickerPos({ top: rect.bottom + window.scrollY + 8, left: Math.max(8, rect.left + window.scrollX - 8) });
+    setIsMenuOpen(false);
   };
 
-  const pageInfo = getPageInfo();
+  const pageInfo = getPageInfo(location.pathname);
 
   // Define theme types
   const imageThemes = ['autumn', 'halloween', 'xmas', 'winter', 'summer'];
@@ -117,20 +102,30 @@ function Navbar() {
       style={navbarTheme.style || {}}
     >
       <div className="container mx-auto flex justify-between items-center relative z-10">
-        <Link to="/" className="flex items-center space-x-3">
-          <img
-            src={pageInfo.icon}
-            alt={pageInfo.alt}
-            className="w-16 h-16 transform scale-x-[-1]"
-          />
-          <span
+        <div className="flex items-center space-x-3">
+          {/* Owl = secret page picker */}
+          <button
+            ref={owlRef}
+            onClick={toggleOwlPicker}
+            aria-label="Open page picker"
+            aria-expanded={!!owlPickerPos}
+            className="shrink-0"
+          >
+            <img
+              src={pageInfo.icon}
+              alt={pageInfo.alt}
+              className="w-16 h-16 transform scale-x-[-1]"
+            />
+          </button>
+          <Link
+            to="/"
             className={`text-3xl font-semibold ${shouldHideTitleOnMobile ? 'hidden md:block' : ''}`}
             style={textShadowStyle}
           >
             {pageInfo.title}
-          </span>
-        </Link>
-        
+          </Link>
+        </div>
+
         {/* Mobile controls: Dark mode toggle + Hamburger */}
         <div className="flex items-center space-x-2 md:hidden">
           {/* Dark Mode Toggle - Mobile */}
@@ -152,7 +147,7 @@ function Navbar() {
 
           {/* Hamburger menu button */}
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            onClick={() => { setIsMenuOpen(!isMenuOpen); setOwlPickerPos(null); }}
             aria-label="Toggle menu"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -163,64 +158,20 @@ function Navbar() {
         
         {/* Desktop menu */}
         <div className="hidden md:flex space-x-6">
-          <Link
-            to="/"
-            className={`px-3 py-2 rounded transition ${
-              isActive('/')
-                ? 'bg-black bg-opacity-30 text-white'
-                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
-            }`}
-            style={textShadowStyle}
-          >
-            Dashboard
-          </Link>
-          <Link
-            to="/shades"
-            className={`px-3 py-2 rounded transition ${
-              isActive('/shades')
-                ? 'bg-black bg-opacity-30 text-white'
-                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
-            }`}
-            style={textShadowStyle}
-          >
-            Shades
-          </Link>
-          <Link
-            to="/pianobar"
-            className={`px-3 py-2 rounded transition ${
-              isActive('/pianobar')
-                ? 'bg-black bg-opacity-30 text-white'
-                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
-            }`}
-            style={textShadowStyle}
-          >
-            Pianobar
-          </Link>
-          <Link
-            to="/weather"
-            className={`px-3 py-2 rounded transition ${
-              isActive('/weather')
-                ? 'bg-black bg-opacity-30 text-white'
-                : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
-            }`}
-            style={textShadowStyle}
-          >
-            Weather
-          </Link>
-          {/* Hide Settings for guests */}
-          {!guest.isGuest && (
+          {pages.map(page => (
             <Link
-              to="/settings"
+              key={page.path}
+              to={page.path}
               className={`px-3 py-2 rounded transition ${
-                isActive('/settings')
+                isActive(page.path)
                   ? 'bg-black bg-opacity-30 text-white'
                   : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
               }`}
               style={textShadowStyle}
             >
-              Settings
+              {page.label}
             </Link>
-          )}
+          ))}
           {/* Dark Mode Toggle - Desktop */}
           <button
             onClick={() => actions.toggleDarkMode(!theme.darkMode)}
@@ -250,49 +201,17 @@ function Navbar() {
       {isMenuOpen && (
         <div className="md:hidden bg-black bg-opacity-40 p-4 mt-2 rounded shadow-lg relative z-20">
           <div className="flex flex-col space-y-2">
-            <Link
-              to="/"
-              className={`px-4 py-2 rounded ${isActive('/') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
-              onClick={() => setIsMenuOpen(false)}
-              style={textShadowStyle}
-            >
-              Dashboard
-            </Link>
-            <Link
-              to="/shades"
-              className={`px-4 py-2 rounded ${isActive('/shades') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
-              onClick={() => setIsMenuOpen(false)}
-              style={textShadowStyle}
-            >
-              Shades
-            </Link>
-            <Link
-              to="/pianobar"
-              className={`px-4 py-2 rounded ${isActive('/pianobar') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
-              onClick={() => setIsMenuOpen(false)}
-              style={textShadowStyle}
-            >
-              Pianobar
-            </Link>
-            <Link
-              to="/weather"
-              className={`px-4 py-2 rounded ${isActive('/weather') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
-              onClick={() => setIsMenuOpen(false)}
-              style={textShadowStyle}
-            >
-              Weather
-            </Link>
-            {/* Hide Settings for guests */}
-            {!guest.isGuest && (
+            {pages.map(page => (
               <Link
-                to="/settings"
-                className={`px-4 py-2 rounded ${isActive('/settings') ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
+                key={page.path}
+                to={page.path}
+                className={`px-4 py-2 rounded ${isActive(page.path) ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
                 onClick={() => setIsMenuOpen(false)}
                 style={textShadowStyle}
               >
-                Settings
+                {page.label}
               </Link>
-            )}
+            ))}
             {/* Show guest indicator on mobile */}
             {guest.isGuest && (
               <span className="px-4 py-2 bg-black bg-opacity-20 rounded text-sm text-center" style={textShadowStyle}>
@@ -301,6 +220,34 @@ function Navbar() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Secret owl picker - portaled to body so themed navbars (overflow: hidden) don't clip it */}
+      {owlPickerPos && createPortal(
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOwlPickerPos(null)} />
+          <div
+            className="absolute z-50 flex justify-evenly py-3 px-2 rounded-2xl shadow-xl backdrop-blur-[2px] ring-2 bg-slate-100/80 ring-slate-400 text-gray-700 dark:bg-slate-500/80 dark:ring-slate-300 dark:text-slate-50"
+            style={{ ...owlPickerPos, width: 'min(calc(100vw - 16px), 440px)' }}
+          >
+            {pages.map(page => (
+              <Link
+                key={page.path}
+                to={page.path}
+                onClick={() => setOwlPickerPos(null)}
+                className={`flex flex-col items-center w-16 p-1 rounded-xl transition ${
+                  isActive(page.path)
+                    ? 'bg-blue-100 ring-2 ring-blue-500 dark:bg-slate-400 dark:ring-blue-300'
+                    : 'hover:bg-slate-200 dark:hover:bg-slate-400/60'
+                }`}
+              >
+                <img src={page.icon} alt={page.alt} className="w-14 h-14 transform scale-x-[-1]" />
+                <span className="text-[11px] font-medium leading-tight mt-1">{page.shortLabel}</span>
+              </Link>
+            ))}
+          </div>
+        </>,
+        document.body
       )}
     </nav>
   );
