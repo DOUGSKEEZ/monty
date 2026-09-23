@@ -5,7 +5,6 @@ import { useAppContext } from '../utils/AppContext';
 import { getPageInfo, visiblePages } from '../utils/pages';
 
 function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [owlPickerPos, setOwlPickerPos] = useState(null); // null = closed, else {top, left}
   const owlRef = useRef(null);
   const location = useLocation();
@@ -17,9 +16,8 @@ function Navbar() {
     return location.pathname === path;
   };
 
-  // Close menus whenever the route changes
+  // Close the picker whenever the route changes
   useEffect(() => {
-    setIsMenuOpen(false);
     setOwlPickerPos(null);
   }, [location.pathname]);
 
@@ -31,12 +29,11 @@ function Navbar() {
     return () => window.removeEventListener('keydown', onKey);
   }, [owlPickerPos]);
 
-  // Secret owl nav: position the picker just below the owl (page coords, so it scrolls with the page)
+  // Page picker (opened by the owl or the hamburger): position it just below the owl (page coords, so it scrolls with the page)
   const toggleOwlPicker = () => {
     if (owlPickerPos) return setOwlPickerPos(null);
     const rect = owlRef.current.getBoundingClientRect();
     setOwlPickerPos({ top: rect.bottom + window.scrollY + 8, left: Math.max(8, rect.left + window.scrollX - 8) });
-    setIsMenuOpen(false);
   };
 
   const pageInfo = getPageInfo(location.pathname);
@@ -145,10 +142,11 @@ function Navbar() {
             )}
           </button>
 
-          {/* Hamburger menu button */}
+          {/* Hamburger - opens the same page picker as the owl */}
           <button
-            onClick={() => { setIsMenuOpen(!isMenuOpen); setOwlPickerPos(null); }}
-            aria-label="Toggle menu"
+            onClick={toggleOwlPicker}
+            aria-label="Open page picker"
+            aria-expanded={!!owlPickerPos}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -197,54 +195,37 @@ function Navbar() {
         </div>
       </div>
       
-      {/* Mobile menu */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-black bg-opacity-40 p-4 mt-2 rounded shadow-lg relative z-20">
-          <div className="flex flex-col space-y-2">
-            {pages.map(page => (
-              <Link
-                key={page.path}
-                to={page.path}
-                className={`px-4 py-2 rounded ${isActive(page.path) ? 'bg-black bg-opacity-50' : 'hover:bg-black hover:bg-opacity-30'}`}
-                onClick={() => setIsMenuOpen(false)}
-                style={textShadowStyle}
-              >
-                {page.label}
-              </Link>
-            ))}
-            {/* Show guest indicator on mobile */}
-            {guest.isGuest && (
-              <span className="px-4 py-2 bg-black bg-opacity-20 rounded text-sm text-center" style={textShadowStyle}>
-                {guest.roomEmoji} {guest.roomLabel}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Secret owl picker - portaled to body so themed navbars (overflow: hidden) don't clip it */}
+      {/* Page picker - portaled to body so themed navbars (overflow: hidden) don't clip it */}
       {owlPickerPos && createPortal(
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOwlPickerPos(null)} />
           <div
-            className="absolute z-50 flex justify-evenly py-3 px-2 rounded-2xl shadow-xl backdrop-blur-[2px] ring-2 bg-slate-100/80 ring-slate-400 text-gray-700 dark:bg-slate-500/80 dark:ring-slate-300 dark:text-slate-50"
+            className="absolute z-50 py-3 px-2 rounded-2xl shadow-xl backdrop-blur-[2px] ring-2 bg-slate-100/80 ring-slate-400 text-gray-700 dark:bg-slate-500/80 dark:ring-slate-300 dark:text-slate-50"
             style={{ ...owlPickerPos, width: 'min(calc(100vw - 16px), 440px)' }}
           >
-            {pages.map(page => (
-              <Link
-                key={page.path}
-                to={page.path}
-                onClick={() => setOwlPickerPos(null)}
-                className={`flex flex-col items-center w-16 p-1 rounded-xl transition ${
-                  isActive(page.path)
-                    ? 'bg-blue-100 ring-2 ring-blue-500 dark:bg-slate-400 dark:ring-blue-300'
-                    : 'hover:bg-slate-200 dark:hover:bg-slate-400/60'
-                }`}
-              >
-                <img src={page.icon} alt={page.alt} className="w-14 h-14 transform scale-x-[-1]" />
-                <span className="text-[11px] font-medium leading-tight mt-1">{page.shortLabel}</span>
-              </Link>
-            ))}
+            <div className="flex justify-evenly">
+              {pages.map(page => (
+                <Link
+                  key={page.path}
+                  to={page.path}
+                  onClick={() => setOwlPickerPos(null)}
+                  className={`flex flex-col items-center w-16 p-1 rounded-xl transition ${
+                    isActive(page.path)
+                      ? 'bg-blue-100 ring-2 ring-blue-500 dark:bg-slate-400 dark:ring-blue-300'
+                      : 'hover:bg-slate-200 dark:hover:bg-slate-400/60'
+                  }`}
+                >
+                  <img src={page.icon} alt={page.alt} className="w-14 h-14 transform scale-x-[-1]" />
+                  <span className="text-[11px] font-medium leading-tight mt-1">{page.shortLabel}</span>
+                </Link>
+              ))}
+            </div>
+            {/* Guest room label (desktop shows it in the navbar) */}
+            {guest.isGuest && (
+              <div className="md:hidden mt-2 text-center text-xs font-medium">
+                {guest.roomEmoji} {guest.roomLabel}
+              </div>
+            )}
           </div>
         </>,
         document.body
