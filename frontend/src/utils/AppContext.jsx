@@ -9,12 +9,14 @@ export const useAppContext = () => useContext(AppContext);
 
 // Guest room metadata
 const GUEST_ROOM_META = {
+  masterbedroom: { label: 'Master Bedroom', emoji: '🛏️', sharesHomeAlarm: true },
   guestroom1: { label: 'Guestroom 1', emoji: '🦌' },
   guestroom2: { label: 'Guestroom 2', emoji: '🏋️' }
 };
 
 // Subdomain to room mapping
 const SUBDOMAIN_TO_ROOM = {
+  'guest0': 'masterbedroom',
   'guest1': 'guestroom1',
   'guest2': 'guestroom2'
 };
@@ -50,7 +52,8 @@ export const AppProvider = ({ children }) => {
         isGuest: true,
         room: subdomainRoom,
         roomEmoji: meta.emoji,
-        roomLabel: meta.label
+        roomLabel: meta.label,
+        sharesHomeAlarm: !!meta.sharesHomeAlarm
       };
     }
 
@@ -58,7 +61,8 @@ export const AppProvider = ({ children }) => {
       isGuest: false,
       room: null,
       roomEmoji: null,
-      roomLabel: null
+      roomLabel: null,
+      sharesHomeAlarm: false
     };
   });
 

@@ -4,6 +4,7 @@ import { useAppContext } from '../utils/AppContext';
 
 // Guest room metadata for display
 const GUEST_ROOM_META = {
+  masterbedroom: { label: 'Master Bedroom', emoji: '🛏️' },
   guestroom1: { label: 'Guestroom 1', emoji: '🦌' },
   guestroom2: { label: 'Guestroom 2', emoji: '🏋️' }
 };
@@ -16,6 +17,11 @@ const isIOS = () => {
 
 const isAndroid = () => {
   return /Android/.test(navigator.userAgent);
+};
+
+// Chrome/Firefox/Edge on iOS - Add to Home Screen is most reliable from Safari
+const isIOSNonSafari = () => {
+  return isIOS() && /CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 };
 
 // iOS Share icon (the box with arrow pointing up)
@@ -52,9 +58,12 @@ function GuestRegisterPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
           <div className="flex items-center gap-2 mb-2">
             <img src="/images/icons/ios.svg" alt="iOS" className="w-5 h-5" />
-            <p className="text-blue-800 font-semibold">Add to your Home Screen</p>
+            <p className="text-blue-800 font-semibold">Add to your Home Screen <span className="font-normal">(in Safari)</span></p>
           </div>
           <ol className="text-blue-700 text-sm list-decimal list-inside space-y-1">
+            {isIOSNonSafari() && (
+              <li>Open this page in <span className="font-semibold">Safari</span></li>
+            )}
             <li>Tap "<span className="font-semibold">⋯</span>" then the <span className="font-semibold">Share</span> button <IOSShareIcon /></li>
             <li>Scroll down and tap <span className="font-semibold">"Add to Home Screen"</span></li>
             <li>Tap <span className="font-semibold">"Add"</span> to confirm</li>

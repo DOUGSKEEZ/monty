@@ -14,6 +14,11 @@ const isAndroid = () => {
   return /Android/.test(navigator.userAgent);
 };
 
+// Chrome/Firefox/Edge on iOS - Add to Home Screen is most reliable from Safari
+const isIOSNonSafari = () => {
+  return isIOS() && /CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+};
+
 // iOS Share icon (the box with arrow pointing up)
 const IOSShareIcon = () => (
   <svg className="inline-block w-4 h-4 align-text-bottom mx-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -55,11 +60,16 @@ function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guest.isGuest, guest.room]);
 
+  // Master bedroom guest (guest0) shares the homeowner wake-up alarm; other guests get their room's alarm
+  const guestAlarmUrl = guest.sharesHomeAlarm
+    ? 'http://192.168.10.15:3001/api/scheduler/wake-up'
+    : `http://192.168.10.15:3001/api/scheduler/guest-alarm/${guest.room}`;
+
   // Fetch guest alarm status from backend
   const loadGuestAlarmStatus = async () => {
     try {
       setGuestAlarm(prev => ({ ...prev, loading: true, error: null }));
-      const response = await fetch(`http://192.168.10.15:3001/api/scheduler/guest-alarm/${guest.room}/status`);
+      const response = await fetch(`${guestAlarmUrl}/status`);
       const data = await response.json();
 
       if (data.success) {
@@ -67,7 +77,7 @@ function HomePage() {
           loading: false,
           enabled: data.data.enabled,
           time: data.data.time,
-          nextAlarmDateTime: data.data.nextAlarmDateTime,
+          nextAlarmDateTime: data.data.nextAlarmDateTime ?? data.data.nextWakeUpDateTime,
           error: null
         });
       } else {
@@ -83,7 +93,7 @@ function HomePage() {
   const handleSetGuestAlarm = async () => {
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://192.168.10.15:3001/api/scheduler/guest-alarm/${guest.room}`, {
+      const response = await fetch(guestAlarmUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ time: wakeUpTime })
@@ -107,7 +117,7 @@ function HomePage() {
   // Clear guest alarm
   const handleClearGuestAlarm = async () => {
     try {
-      const response = await fetch(`http://192.168.10.15:3001/api/scheduler/guest-alarm/${guest.room}`, {
+      const response = await fetch(guestAlarmUrl, {
         method: 'DELETE'
       });
       const data = await response.json();
@@ -721,6 +731,9 @@ function HomePage() {
               <ul className="list-disc pl-5 space-y-1">
                 <li>Raise your room's blackout shade</li>
                 <li>Let natural light wake you gently</li>
+                {guest.sharesHomeAlarm && (
+                  <li>Open the main floor shades a few minutes later (one-time alarm)</li>
+                )}
               </ul>
             </div>
 
@@ -836,9 +849,12 @@ function HomePage() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
                 <div className="flex items-center gap-2 mb-2">
                   <img src="/images/icons/ios.svg" alt="iOS" className="w-5 h-5" />
-                  <p className="text-blue-800 font-semibold">iPhone / iPad</p>
+                  <p className="text-blue-800 font-semibold">iPhone / iPad <span className="font-normal">(in Safari)</span></p>
                 </div>
                 <ol className="text-blue-700 text-sm list-decimal list-inside space-y-1">
+                  {isIOSNonSafari() && (
+                    <li>Open this page in <span className="font-semibold">Safari</span></li>
+                  )}
                   <li>Tap "<span className="font-semibold">⋯</span>" then the <span className="font-semibold">Share</span> button <IOSShareIcon /></li>
                   <li>Scroll down and tap <span className="font-semibold">"Add to Home Screen"</span></li>
                   <li>Tap <span className="font-semibold">"Add"</span> to confirm</li>
@@ -862,7 +878,7 @@ function HomePage() {
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <h3 className="font-semibold text-sm mb-2 flex items-center">
                     <img src="/images/icons/ios.svg" alt="iOS" className="w-4 h-4 mr-2" />
-                    iPhone / iPad
+                    iPhone / iPad <span className="font-normal ml-1">(in Safari)</span>
                   </h3>
                   <ol className="text-sm text-gray-600 list-decimal pl-5 space-y-1">
                     <li>Tap "<strong>⋯</strong>" then the <strong>Share</strong> button <IOSShareIcon /></li>
@@ -997,7 +1013,9 @@ function HomePage() {
 
             <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
               {guest.isGuest ? (
-                `Select when you'd like your ${guest.roomLabel} blackout shade to rise.`
+                guest.sharesHomeAlarm
+                  ? `Select when you'd like the ${guest.roomLabel} blackout shade to rise. This alarm runs once, and the main floor shades open a few minutes later.`
+                  : `Select when you'd like your ${guest.roomLabel} blackout shade to rise.`
               ) : (
                 'Select the time for tomorrow\'s wake-up alarm. This will trigger the Rise and Shine scene at that time.'
               )}

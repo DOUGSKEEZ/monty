@@ -93,6 +93,7 @@ app.use(cors({
     'http://192.168.10.15',
     'http://monty.home:3000',
     'http://monty.home',
+    'http://guest0.monty.home',
     'http://guest1.monty.home',
     'http://guest2.monty.home'
   ],

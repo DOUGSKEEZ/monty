@@ -33,7 +33,7 @@
     "logLevel": "info",
     "maxLogFiles": 14,
     "enableCors": true,
-    "corsOrigins": ["http://localhost", "http://192.168.10.15", "http://monty.home", "http://guest1.monty.home", "http://guest2.monty.home"],
+    "corsOrigins": ["http://localhost", "http://192.168.10.15", "http://monty.home", "http://guest0.monty.home", "http://guest1.monty.home", "http://guest2.monty.home"],
     "apiRateLimits": {
       "windowMs": 60000,
       "maxRequests": 100
