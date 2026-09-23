@@ -571,7 +571,7 @@ function HomePage() {
   const description = getWeatherDescription();
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 pt-3 md:pt-4">
       
       {/* Error alerts */}
       {weather.error && (
@@ -580,7 +580,7 @@ function HomePage() {
         </div>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
         {/* Weather Widget */}
         <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
           <div className="flex justify-between items-center mb-2">
