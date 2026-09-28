@@ -72,6 +72,7 @@ frontend/public/config/birthdays.json
 
 # Govee sensor runtime readings (rewritten every ~15s by govee-reader.service)
 data/govee_readings.json
+data/shade_interventions.jsonl
 
 # Cache files
 **/cache/api_usage.json

@@ -11,6 +11,8 @@ import GuestRegisterPage from './pages/GuestRegisterPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AppProvider, useAppContext } from './utils/AppContext';
 import useSwipeNav from './utils/useSwipeNav';
+import Toast from './components/shared/Toast';
+import { InterventionToaster } from './components/WeatherInterventions';
 
 // Inner component that can access theme context for dark mode
 function AppContent() {
@@ -50,6 +52,9 @@ function AppContent() {
         </Routes>
       </main>
       <Footer />
+      {/* App-wide toasts (Jukebox + Monty's weather interventions) */}
+      <Toast />
+      <InterventionToaster />
     </div>
   );
 }

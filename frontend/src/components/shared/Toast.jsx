@@ -8,8 +8,40 @@ import { useAppContext } from '../../utils/AppContext';
  * Auto-dismisses after duration (default 4s).
  * Click to dismiss manually.
  *
- * Types: 'success' (green), 'error' (red), 'info' (blue)
+ * Types: 'success' (green), 'error' (red), 'info' (blue) — mobile: just below
+ * the navbar; desktop: bottom-right.
+ *
+ * 'monty-cloud' / 'monty-sun' — Monty's weather interventions: a larger, tinted
+ * glass card with the owl. Mobile: centered on screen; desktop: bottom-right.
  */
+
+const MONTY_STYLES = {
+  'monty-cloud': {
+    card: 'from-sky-100/90 via-white/90 to-indigo-100/90 border-sky-300 text-slate-800 dark:from-sky-900/80 dark:via-gray-800/90 dark:to-indigo-900/80 dark:border-sky-700 dark:text-sky-50',
+    label: 'text-sky-600 dark:text-sky-300'
+  },
+  'monty-sun': {
+    card: 'from-amber-100/90 via-white/90 to-orange-100/90 border-amber-300 text-amber-950 dark:from-amber-900/80 dark:via-gray-800/90 dark:to-orange-900/80 dark:border-amber-700 dark:text-amber-50',
+    label: 'text-amber-600 dark:text-amber-300'
+  }
+};
+
+function MontyToast({ toast, onDismiss }) {
+  const style = MONTY_STYLES[toast.type];
+  return (
+    <div
+      onClick={onDismiss}
+      className={`pointer-events-auto w-full max-w-sm cursor-pointer rounded-2xl border shadow-2xl backdrop-blur-md bg-gradient-to-br px-5 py-4 flex items-center gap-4 animate-monty-toast ${style.card}`}
+    >
+      <span className="text-4xl flex-shrink-0 animate-monty-owl">🦉</span>
+      <div className="flex-1">
+        <div className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${style.label}`}>Weather Intervention</div>
+        <p className="text-base sm:text-lg font-semibold leading-snug">{toast.message}</p>
+      </div>
+    </div>
+  );
+}
+
 function Toast() {
   const { jukebox, actions } = useAppContext();
   const { toasts } = jukebox;
@@ -17,6 +49,9 @@ function Toast() {
   if (!toasts || toasts.length === 0) {
     return null;
   }
+
+  const montyToasts = toasts.filter(t => MONTY_STYLES[t.type]);
+  const otherToasts = toasts.filter(t => !MONTY_STYLES[t.type]);
 
   const getTypeStyles = (type) => {
     switch (type) {
@@ -55,8 +90,17 @@ function Toast() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2">
-      {toasts.map((toast) => (
+    <>
+    {montyToasts.length > 0 && (
+      <div className="fixed z-50 inset-x-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 pointer-events-none sm:inset-x-auto sm:top-auto sm:translate-y-0 sm:bottom-6 sm:right-6 sm:items-end">
+        {montyToasts.map(toast => (
+          <MontyToast key={toast.id} toast={toast} onDismiss={() => actions.dismissToast(toast.id)} />
+        ))}
+      </div>
+    )}
+    {otherToasts.length > 0 && (
+    <div className="fixed z-50 flex flex-col space-y-2 left-4 right-4 top-[calc(env(safe-area-inset-top)_+_5.5rem)] sm:left-auto sm:top-auto sm:bottom-4 sm:right-4">
+      {otherToasts.map((toast) => (
         <div
           key={toast.id}
           onClick={() => actions.dismissToast(toast.id)}
@@ -87,6 +131,8 @@ function Toast() {
         </div>
       ))}
     </div>
+    )}
+    </>
   );
 }
 

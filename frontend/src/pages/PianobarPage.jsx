@@ -7,7 +7,6 @@ import NowPlaying from '../components/shared/NowPlaying';
 import TransportControls from '../components/shared/TransportControls';
 import SessionHistory from '../components/shared/SessionHistory';
 import JukeboxSection from '../components/Jukebox/JukeboxSection';
-import Toast from '../components/shared/Toast';
 
 // Backend API base URL (same as api.js)
 const API_BASE_URL = 'http://192.168.10.15:3001/api';
@@ -1527,8 +1526,6 @@ function PianobarPage() {
         stationName={trackInfo.stationName || station}
       />
 
-      {/* Toast Notifications */}
-      <Toast />
     </div>
   );
 }

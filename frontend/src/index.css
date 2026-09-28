@@ -38,6 +38,27 @@
   animation: love-pulse 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
+/* Monty Weather Intervention toast 🦉 */
+@keyframes monty-toast-in {
+  0% { opacity: 0; transform: translateY(16px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes monty-owl-hop {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  30% { transform: translateY(-6px) rotate(-8deg); }
+  60% { transform: translateY(0) rotate(6deg); }
+}
+
+.animate-monty-toast {
+  animation: monty-toast-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-monty-owl {
+  display: inline-block;
+  animation: monty-owl-hop 0.9s ease-out 0.35s both;
+}
+
 /* Bluetooth Button Animations 🔵 */
 @keyframes bluetooth-pulse { 
   0%, 100% { opacity: 1; } 

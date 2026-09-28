@@ -1274,6 +1274,20 @@ router.put('/skip-solar', async (req, res) => {
 });
 
 /**
+ * Weather Interventions: today's overcast-governor state + recent decision history
+ */
+router.get('/interventions', async (req, res) => {
+  try {
+    const schedulerService = await getSchedulerService();
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 90);
+    res.json({ success: true, data: schedulerService.overcastGovernor.getStatus(days) });
+  } catch (error) {
+    logger.error(`Error getting weather interventions: ${error.message}`);
+    res.status(500).json({ success: false, error: 'Failed to get weather interventions' });
+  }
+});
+
+/**
  * Timezone management has been moved to system-level configuration
  * Web applications should not change system timezone for security reasons
  * Use: sudo timedatectl set-timezone <timezone> on the server

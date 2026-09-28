@@ -18,6 +18,7 @@ const path = require('path');
 const chokidar = require('chokidar');
 const logger = require('../utils/logger').getModuleLogger('scheduler-service');
 const SolarShadeTimes = require('./SolarShadeTimes');
+const OvercastGovernor = require('./OvercastGovernor');
 
 class SchedulerService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog, weatherService, timezoneManager, alarmNotificationService) {
@@ -37,6 +38,9 @@ class SchedulerService {
     // Sun-position-driven timing for solar shade scenes (opt-in via config).
     // Given a live config getter so it always sees the hot-reloaded config.
     this.solarShadeTimes = new SolarShadeTimes(() => this.schedulerConfig);
+
+    // Weather Interventions: keeps solar shades up on truly overcast afternoons.
+    this.overcastGovernor = new OvercastGovernor(this);
 
     // State
     this.scheduledJobs = new Map();
@@ -126,6 +130,8 @@ class SchedulerService {
       
       // Start configuration file watcher
       this.startConfigWatcher();
+
+      this.overcastGovernor.start();
       
       this.isInitialized = true;
       this.lastError = null;
@@ -626,15 +632,20 @@ class SchedulerService {
       // Check if music should be started for this scene
       await this.handleSceneMusic(sceneName);
 
-      // Check if solar shades should be skipped for good_afternoon
-      if (sceneName === 'good_afternoon' && this.skipSolarToday) {
-        logger.info(`Skipping solar shade commands for 'good_afternoon' - skipSolarToday is enabled`);
+      // Check if solar shades should be skipped for good_afternoon (manual bypass,
+      // or the overcast governor holding them up for a grey afternoon). Either way
+      // the governor keeps watching and lowers them if it turns sunny.
+      if (sceneName === 'good_afternoon' && (this.skipSolarToday
+        ? await this.overcastGovernor.noteManualHold()
+        : await this.overcastGovernor.shouldHoldUp())) {
+        const reason = this.skipSolarToday ? 'skipped for today' : 'held up for overcast';
+        logger.info(`Skipping solar shade commands for 'good_afternoon' - ${reason}`);
 
         this.lastExecutedScene = {
           name: sceneName,
           timestamp: new Date(),
           success: true,
-          message: 'Scene triggered (solar shades skipped for today)',
+          message: `Scene triggered (solar shades ${reason})`,
           skippedShades: true
         };
 
@@ -642,6 +653,9 @@ class SchedulerService {
         this.calculateSceneTimes().catch(() => {
           logger.warn(`Failed to recalculate scene times after ${sceneName} execution`);
         });
+
+        // Only the shades are held — the afternoon GONG (daytime demarcation) still fires
+        this.notifyVivaldiGong('afternoon').catch(() => {});
 
         return { success: true, message: 'Solar shades skipped for today', skippedShades: true };
       }
@@ -1570,6 +1584,7 @@ class SchedulerService {
       
       // Stop configuration file watcher
       this.stopConfigWatcher();
+      this.overcastGovernor.stop();
       
       // Clear all scheduled jobs
       this.clearAllSchedules();

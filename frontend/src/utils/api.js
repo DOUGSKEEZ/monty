@@ -283,6 +283,14 @@ export const schedulerApi = {
     fetchApi(`/scheduler/test/${sceneName}`, {
       method: 'POST',
     }),
+
+  /**
+   * Weather Interventions: overcast-governor state + recent decision history
+   * @param {number} days - How many days of history to return
+   * @returns {Promise<Object>} - { enabled, today, history }
+   */
+  getInterventions: (days = 7) =>
+    fetchApi(`/scheduler/interventions?days=${days}`, {}, true),
 };
 
 // Bluetooth API endpoints

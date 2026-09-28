@@ -7,6 +7,7 @@ import AwayCalendarDisplay from '../components/AwayCalendarDisplay';
 import AwayPeriodsList from '../components/AwayPeriodsList';
 import OffsetAdjuster from '../components/OffsetAdjuster';
 import RidgeCalibrator from '../components/RidgeCalibrator';
+import { WeatherInterventionsModal } from '../components/WeatherInterventions';
 
 // Backend API base URL (same as api.js)
 const API_BASE_URL = 'http://192.168.10.15:3001/api';
@@ -97,6 +98,7 @@ function SettingsPage() {
     enabled_for_night: false
   });
   const [skipSolarToday, setSkipSolarToday] = useState(false);
+  const [showInterventions, setShowInterventions] = useState(false);
   const [solarEnabled, setSolarEnabled] = useState(false);
   const [showRidgeCalibrator, setShowRidgeCalibrator] = useState(false);
   // Today's sun-derived lower/raise times, shown when sun-tracking is active.
@@ -905,7 +907,17 @@ function SettingsPage() {
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
           <span className="mr-2">📅</span>
           Scene Timing & Scheduling
+          <button
+            onClick={() => setShowInterventions(true)}
+            title="Weather Interventions log"
+            className="ml-2 text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
         </h2>
+        {showInterventions && <WeatherInterventionsModal onClose={() => setShowInterventions(false)} />}
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="flex flex-col h-full">
