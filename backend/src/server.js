@@ -84,19 +84,7 @@ console.log('[DEBUG] Setting up middleware...');
 // Configure CORS - Allow specific origins
 console.log('[DEBUG] Configuring CORS...');
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1',
-    'http://192.168.10.15:3000',
-    'http://192.168.10.15',
-    'http://monty.home:3000',
-    'http://monty.home',
-    'http://guest0.monty.home',
-    'http://guest1.monty.home',
-    'http://guest2.monty.home'
-  ],
+  origin: require('./utils/allowedOrigins'),   // shared with WebSocket origin checks
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -240,6 +228,7 @@ console.log('[DEBUG] systemRoutes imported');
 
 console.log('[DEBUG] About to require jukeboxRoutes...');
 const jukeboxRoutes = require('./routes/jukebox');
+const cameraRoutes = require('./routes/cameras');   // read-only proxy to the private camera stack (+ /api/cameras/ws)
 console.log('[DEBUG] jukeboxRoutes imported');
 
 // API Routes
@@ -926,6 +915,7 @@ app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/bluetooth', bluetoothRoutes);
 app.use('/api/pianobar', pianobarRoutes);
 app.use('/api/jukebox', jukeboxRoutes);
+app.use('/api/cameras', cameraRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/system', systemRoutes);
@@ -957,6 +947,8 @@ app.use((err, req, res, next) => {
 // Create HTTP server
 console.log('[DEBUG] About to create HTTP server...');
 const server = http.createServer(app);
+// One dispatcher for all WebSocket upgrades (pianobar, cameras) — see utils/UpgradeRouter.js
+require('./utils/UpgradeRouter').attach(server);
 console.log('[DEBUG] HTTP server created successfully');
 
 // Initialize Pianobar Command Interface - with additional debug logging

@@ -40,5 +40,29 @@
     "startTheDayDelay": 20,
     "enableRepeatCommands": true,
     "repeatCommandCount": 2
+  },
+  "cameras": {
+    "hubUrl": "http://127.0.0.1:1984",
+    "frigateApiUrl": "http://127.0.0.1:5000",
+    "frigateUiUrl": "https://YOUR_HOST:8971",
+    "batteryApi": {
+      "url": "http://BRIDGE_HOST:5000",
+      "username": "",
+      "password": ""
+    },
+    "list": [
+      {
+        "id": "front_cam",
+        "name": "Front",
+        "mode": "live",
+        "frigate": true
+      },
+      {
+        "id": "yard_cam",
+        "name": "Yard",
+        "mode": "wake",
+        "frigate": false
+      }
+    ]
   }
 }

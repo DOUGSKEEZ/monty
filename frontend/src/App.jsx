@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -11,6 +11,10 @@ import GuestRegisterPage from './pages/GuestRegisterPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AppProvider, useAppContext } from './utils/AppContext';
 import useSwipeNav from './utils/useSwipeNav';
+
+// Cameras is lazy-loaded: it pulls in hls.js + the go2rtc player (~600 KB), which
+// no other page needs — keep them out of the bundle every page downloads.
+const CamerasPage = lazy(() => import('./pages/CamerasPage'));
 import Toast from './components/shared/Toast';
 import { InterventionToaster } from './components/WeatherInterventions';
 
@@ -45,6 +49,7 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/shades" element={<ShadesPage />} />
           <Route path="/pianobar" element={<PianobarPage />} />
+          <Route path="/cameras" element={<Suspense fallback={null}><CamerasPage /></Suspense>} />
           <Route path="/weather" element={<WeatherPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/guest/:roomId" element={<GuestRegisterPage />} />

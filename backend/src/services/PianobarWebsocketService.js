@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const chokidar = require('chokidar');
 const logger = require('../utils/logger').getModuleLogger('pianobar-ws');
+const upgradeRouter = require('../utils/UpgradeRouter');
 
 class PianobarWebsocketService {
   constructor(server, config = {}) {
@@ -32,10 +33,12 @@ class PianobarWebsocketService {
     this.history = [];
 
 
-    // Create WebSocket server
-    this.wss = new WebSocket.Server({
-      server,
-      path: '/api/pianobar/ws'
+    // Create WebSocket server. noServer + UpgradeRouter (not `{ server, path }`):
+    // a path-bound ws server aborts every OTHER upgrade path with 400, which would
+    // break other WebSocket endpoints (e.g. /api/cameras/ws). `server` is unused now.
+    this.wss = new WebSocket.Server({ noServer: true });
+    upgradeRouter.register('/api/pianobar/ws', (req, socket, head) => {
+      this.wss.handleUpgrade(req, socket, head, ws => this.wss.emit('connection', ws, req));
     });
 
 

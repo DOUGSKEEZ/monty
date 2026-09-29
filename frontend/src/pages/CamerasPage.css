@@ -1,0 +1,114 @@
+/* Cameras page — layout details that are clearer as CSS than as Tailwind strings.
+   Colours follow Monty's palette (gray-100/white in light, gray-900/gray-800 in dark). */
+
+.cam-page {
+  --cam-bg: #f3f4f6;          /* page (gray-100) */
+  --cam-panel: #ffffff;       /* active tab + panel */
+  --cam-tab: #e5e7eb;         /* inactive tab (gray-200) */
+  --cam-line: #d1d5db;        /* gray-300 */
+  --cam-muted: #6b7280;       /* gray-500 */
+  --cam-alert: #f59e0b;       /* amber-500: alert edge */
+  --cam-card: #f9fafb;        /* event card (gray-50) */
+}
+.dark .cam-page {
+  --cam-bg: #111827;          /* gray-900 */
+  --cam-panel: #1f2937;       /* gray-800 */
+  --cam-tab: #0b1220;
+  --cam-line: #374151;        /* gray-700 */
+  --cam-muted: #9ca3af;       /* gray-400 */
+  --cam-card: #111827;
+}
+
+/* ---------- Folder tabs: the active tab shares the panel's colour and opens into it ---------- */
+.cam-tabs {
+  position: sticky;
+  top: env(safe-area-inset-top);
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  padding-top: 8px;
+  background: var(--cam-bg);
+  border-bottom: 1px solid var(--cam-line);
+}
+.cam-tab {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  min-width: 200px; padding: 14px 36px; margin-bottom: -1px;
+  font-size: 17px; color: var(--cam-muted);
+  background: var(--cam-tab);
+  border: 1px solid var(--cam-line); border-bottom: none;
+  border-radius: 12px 12px 0 0;
+}
+.cam-tab:hover { color: inherit; }
+.cam-tab.on {
+  background: var(--cam-panel); color: inherit; font-weight: 700;
+  padding-top: 18px; border-bottom: 1px solid var(--cam-panel);
+}
+.cam-panel {
+  background: var(--cam-panel);
+  border: 1px solid var(--cam-line); border-top: none;
+  border-radius: 0 0 14px 14px;
+  padding: 16px;
+}
+@media (max-width: 640px) {
+  .cam-tab { flex: 1; min-width: 0; padding: 14px 12px; }
+  .cam-panel { padding: 12px; }
+}
+
+/* Recording light: red dot, slow pulse while Live is open (steady for reduced motion) */
+.cam-rec {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  background: #ef4444; box-shadow: 0 0 6px #ef4444aa;
+}
+.cam-tab.on .cam-rec { animation: cam-rec-pulse 1.6s ease-in-out infinite; }
+@keyframes cam-rec-pulse { 50% { opacity: .35; box-shadow: 0 0 2px #ef444455; } }
+@media (prefers-reduced-motion: reduce) { .cam-tab.on .cam-rec { animation: none; } }
+
+/* The `hidden` attribute loses to any author `display` rule (e.g. .cam-grid's grid),
+   so make it win inside this page — tabs hide their views with `hidden`. */
+.cam-page [hidden] { display: none !important; }
+
+/* ---------- Live tiles ---------- */
+.cam-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+.cam-screen { position: relative; aspect-ratio: 16 / 9; background: #000; }
+.cam-screen video-stream { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cam-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+  background: #0b0d11; color: #e5e7eb; cursor: pointer; padding: 16px;
+}
+
+/* ---------- Event feed: one job per line ---------- */
+.cam-ev { background: var(--cam-card); border: 1px solid var(--cam-line); border-left: 4px solid var(--cam-line);
+          border-radius: 12px; overflow: hidden; scroll-margin-top: 80px; }
+.cam-ev.alert { border-left-color: var(--cam-alert); }
+.cam-ev-row {
+  display: grid; grid-template-columns: 128px 1fr;
+  grid-template-areas: "thumb head" "thumb sum";
+  column-gap: 12px; row-gap: 4px; padding: 10px; cursor: pointer; align-items: start;
+}
+.cam-ev-thumb { grid-area: thumb; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: #000; }
+.cam-ev-head { grid-area: head; min-width: 0; }
+.cam-ev-title { font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cam-ev-meta { color: var(--cam-muted); font-size: 12px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cam-ev-sum {
+  grid-area: sum; color: var(--cam-muted); font-size: 13px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cam-ev-body { padding: 0 10px 10px; }
+.cam-ev-body video {
+  width: 100%; aspect-ratio: 16 / 9; max-height: calc(100dvh - 260px); min-height: 160px;
+  object-fit: contain; border-radius: 8px; background: #000; display: block;
+}
+@media (max-width: 640px) {
+  .cam-ev-row { grid-template-columns: 104px 1fr; grid-template-areas: "thumb head" "sum sum"; row-gap: 8px; align-items: center; }
+  .cam-ev-sum { font-size: 14px; }
+}
+
+/* Small secondary buttons (tile footers, event actions, Load older) */
+.cam-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  background: var(--cam-tab); color: inherit; border: 1px solid var(--cam-line);
+  border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; text-decoration: none;
+}
+.cam-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.cam-btn:disabled { opacity: .6; cursor: default; }

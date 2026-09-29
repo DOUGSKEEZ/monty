@@ -893,5 +893,38 @@ export const triggerShadeCommanderScene = async (sceneName) => {
 };
 
 
+// Cameras API — read-only proxy to the private camera stack (see backend/src/routes/cameras.js).
+// Media (thumbnails, HLS, live websocket) are plain URLs used by <img>, hls.js and
+// <video-stream>, so this also exposes URL builders on the same API base.
+export const camerasApi = {
+  /** Camera list + Frigate UI base URL (for "Open in Frigate" deep links) */
+  list: () => fetchApi('/cameras', {}, true),
+
+  /**
+   * One page of events (newest first). Pass `before` (a start_time) to page back.
+   * @param {{before?: number, severity?: 'alert'|'detection'}} opts
+   */
+  events: ({ before, severity } = {}) => {
+    const q = new URLSearchParams();
+    if (before) q.set('before', before);
+    if (severity) q.set('severity', severity);
+    return fetchApi(`/cameras/events${q.toString() ? `?${q}` : ''}`, {}, true);
+  },
+
+  /** Last battery level Wyze reported for a battery ("wake") camera */
+  battery: (camId) => fetchApi(`/cameras/battery/${encodeURIComponent(camId)}`, {}, true),
+
+  thumbUrl: (ev) => `${API_BASE_URL}/cameras/events/${ev.camera}/${ev.id}/thumb.webp`,
+  clipUrl: (ev) => `${API_BASE_URL}/cameras/events/${ev.id}/clip.mp4`,
+  /** Frigate HLS VOD playlist for an event, padded 5 s either side like Frigate's UI */
+  vodUrl: (ev) => {
+    const start = Math.floor(ev.start_time) - 5;
+    const end = Math.ceil(ev.end_time || Date.now() / 1000) + 5;
+    return `${API_BASE_URL}/cameras/vod/${ev.camera}/start/${start}/end/${end}/master.m3u8`;
+  },
+  /** go2rtc live-video websocket (MSE/WebRTC signalling) for <video-stream> */
+  liveUrl: (camId) => `${API_BASE_URL.replace(/^http/, 'ws')}/cameras/ws?src=${encodeURIComponent(camId)}`,
+};
+
 // Export fetchApi for direct usage
 export { fetchApi };

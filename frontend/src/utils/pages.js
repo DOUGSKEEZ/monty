@@ -5,8 +5,9 @@
 //   swipe      - included in swipe navigation (array order = swipe order)
 export const PAGES = [
   { path: '/',         label: 'Dashboard', shortLabel: 'Home',     title: 'Welcome to Monty',      icon: '/images/Monty.png',            alt: 'Monty',                       emoji: '🏠', swipe: true },
-  { path: '/shades',   label: 'Shades',    shortLabel: 'Shades',   title: 'Shade Control',         icon: '/images/Monty_Sunglasses.png', alt: 'Monty with sunglasses',       emoji: '🕶️', swipe: true },
-  { path: '/pianobar', label: 'Pianobar',  shortLabel: 'Music',    title: "Monty's Pianobar",      icon: '/images/Monty_Headphones.png', alt: 'Monty with headphones',       emoji: '🎧', swipe: true },
+  { path: '/shades',   label: 'Shades',    shortLabel: 'Shades',   title: 'Shade Control',         icon: '/images/Monty_Sunglasses.png', alt: 'Monty with sunglasses',       emoji: '🪟', swipe: true },
+  { path: '/pianobar', label: 'Pianobar',  shortLabel: 'Music',    title: "Monty's Pianobar",      icon: '/images/Monty_Music.png?v=2', alt: 'Monty with headphones',       emoji: '🎧', swipe: true },
+  { path: '/cameras',  label: 'Cameras',   shortLabel: 'Cams',     title: 'Cameras',               icon: '/images/Monty_Security.png',   alt: 'Monty as a security guard with a camera', emoji: '📹' },
   { path: '/weather',  label: 'Weather',   shortLabel: 'Weather',  title: 'Local Weather',         icon: '/images/Monty_Weather.png',    alt: 'Monty with weather elements', emoji: '⛅' },
   { path: '/settings', label: 'Settings',  shortLabel: 'Settings', title: 'Settings',              icon: '/images/Monty_Settings.png',   alt: 'Monty with settings gear',    emoji: '⚙️', hideForGuest: true },
 ];
