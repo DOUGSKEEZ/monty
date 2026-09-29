@@ -911,8 +911,9 @@ export const camerasApi = {
     return fetchApi(`/cameras/events${q.toString() ? `?${q}` : ''}`, {}, true);
   },
 
-  /** Last battery level Wyze reported for a battery ("wake") camera */
-  battery: (camId) => fetchApi(`/cameras/battery/${encodeURIComponent(camId)}`, {}, true),
+  /** Last battery level Wyze reported for a battery ("wake") camera; fresh=true skips the backend cache */
+  battery: (camId, fresh = false) =>
+    fetchApi(`/cameras/battery/${encodeURIComponent(camId)}${fresh ? '?fresh=1' : ''}`, {}, true),
 
   thumbUrl: (ev) => `${API_BASE_URL}/cameras/events/${ev.camera}/${ev.id}/thumb.webp`,
   clipUrl: (ev) => `${API_BASE_URL}/cameras/events/${ev.id}/clip.mp4`,

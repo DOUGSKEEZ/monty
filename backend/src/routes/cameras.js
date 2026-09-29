@@ -16,7 +16,7 @@
  *   GET  /api/cameras/events/:cam/:id/thumb.webp
  *   GET  /api/cameras/events/:id/clip.mp4       fallback playback (no length/ranges)
  *   GET  /api/cameras/vod/:cam/start/:s/end/:e/:file   Frigate HLS VOD (hls.js)
- *   GET  /api/cameras/battery/:cam             last battery level Wyze reported
+ *   GET  /api/cameras/battery/:cam[?fresh=1]   last battery level Wyze reported (cached 10 min)
  */
 
 const express = require('express');
@@ -169,8 +169,10 @@ router.get('/battery/:cam', async (req, res) => {
   if (!c?.batteryApi?.url) return notConfigured(res);
   if (!cam || cam.mode !== 'wake') return res.status(404).end();
 
+  // ?fresh=1 skips the cache — the page asks for it right after waking a camera,
+  // when the camera has likely just reported a new level to Wyze.
   const hit = batteryCache.get(cam.id);
-  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return res.json(hit.body);
+  if (req.query.fresh !== '1' && hit && Date.now() - hit.at < 10 * 60 * 1000) return res.json(hit.body);
 
   const { url, username, password } = c.batteryApi;
   const headers = username ? { Authorization: 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64') } : {};

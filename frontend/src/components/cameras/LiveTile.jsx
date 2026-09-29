@@ -87,12 +87,19 @@ function LiveTile({ cam, active }) {
     return stop;
   }, [active, isWake, start, sleep, stop]);
 
+  // Battery: shown only while a battery camera is AWAKE. The level comes from Wyze's
+  // cloud (last report), not the camera — but a woken camera reports in, so fetch
+  // fresh on wake and again ~20 s later; hide it again when the camera sleeps.
   useEffect(() => {
-    if (!isWake) return;
-    camerasApi.battery(cam.id)
-      .then(r => setBattery(r?.data || null))
-      .catch(() => setBattery(null));
-  }, [cam.id, isWake]);
+    if (!isWake || phase !== 'live') { setBattery(null); return undefined; }
+    let cancelled = false;
+    const load = () => camerasApi.battery(cam.id, true)
+      .then(r => { if (!cancelled) setBattery(r?.data || null); })
+      .catch(() => {});
+    load();
+    const again = setTimeout(load, 20000);
+    return () => { cancelled = true; clearTimeout(again); };
+  }, [cam.id, isWake, phase]);
 
   // iPhone Safari can't fullscreen arbitrary elements — only a <video> via
   // webkitEnterFullscreen(). Everything else supports requestFullscreen.
