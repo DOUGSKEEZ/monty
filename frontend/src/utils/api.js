@@ -923,6 +923,9 @@ export const camerasApi = {
     const end = Math.ceil(ev.end_time || Date.now() / 1000) + 5;
     return `${API_BASE_URL}/cameras/vod/${ev.camera}/start/${start}/end/${end}/master.m3u8`;
   },
+  /** CAMERA-HEALTH (temporary): Frigate cameras with no video for 5+ min */
+  health: () => fetchApi('/cameras/health', {}, true),
+
   /** go2rtc live-video websocket (MSE/WebRTC signalling) for <video-stream> */
   liveUrl: (camId) => `${API_BASE_URL.replace(/^http/, 'ws')}/cameras/ws?src=${encodeURIComponent(camId)}`,
 };

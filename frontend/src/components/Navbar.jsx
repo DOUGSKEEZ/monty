@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { useAppContext } from '../utils/AppContext';
 import { getPageInfo, visiblePages } from '../utils/pages';
+import { CameraHealthDot } from './cameras/CameraHealth'; // CAMERA-HEALTH (temporary)
 
 function Navbar() {
   const [owlPickerPos, setOwlPickerPos] = useState(null); // null = closed, else {top, left}
@@ -160,7 +161,7 @@ function Navbar() {
             <Link
               key={page.path}
               to={page.path}
-              className={`px-3 py-2 rounded transition ${
+              className={`relative px-3 py-2 rounded transition ${
                 isActive(page.path)
                   ? 'bg-black bg-opacity-30 text-white'
                   : 'hover:bg-black hover:bg-opacity-20 hover:text-white'
@@ -168,6 +169,7 @@ function Navbar() {
               style={textShadowStyle}
             >
               {page.label}
+              {page.path === '/cameras' && <CameraHealthDot />} {/* CAMERA-HEALTH (temporary) */}
             </Link>
           ))}
           {/* Dark Mode Toggle - Desktop */}
@@ -209,7 +211,7 @@ function Navbar() {
                   key={page.path}
                   to={page.path}
                   onClick={() => setOwlPickerPos(null)}
-                  className={`flex flex-col items-center w-16 p-1 rounded-xl transition ${
+                  className={`relative flex flex-col items-center w-16 p-1 rounded-xl transition ${
                     isActive(page.path)
                       ? 'bg-blue-100 ring-2 ring-blue-500 dark:bg-slate-400 dark:ring-blue-300'
                       : 'hover:bg-slate-200 dark:hover:bg-slate-400/60'
@@ -217,6 +219,7 @@ function Navbar() {
                 >
                   <img src={page.icon} alt={page.alt} className="w-14 h-14 transform scale-x-[-1]" />
                   <span className="text-[11px] font-medium leading-tight mt-1">{page.shortLabel}</span>
+                  {page.path === '/cameras' && <CameraHealthDot />} {/* CAMERA-HEALTH (temporary) */}
                 </Link>
               ))}
             </div>

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import LiveTile from '../components/cameras/LiveTile';
 import EventFeed from '../components/cameras/EventFeed';
 import { camerasApi } from '../utils/api';
+import { CameraHealthBanner } from '../components/cameras/CameraHealth'; // CAMERA-HEALTH (temporary)
 import './CamerasPage.css';
 
 /**
@@ -35,6 +36,7 @@ function CamerasPage() {
 
   return (
     <div className="container mx-auto p-4 cam-page">
+      <CameraHealthBanner /> {/* CAMERA-HEALTH (temporary) */}
       <nav className="cam-tabs" aria-label="Camera views">
         <button type="button" className={`cam-tab ${tab === 'live' ? 'on' : ''}`} onClick={() => setTab('live')}>
           <span className="cam-rec" aria-hidden="true" />Live

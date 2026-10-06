@@ -90,6 +90,12 @@ router.get('/', (req, res) => {
   });
 });
 
+// CAMERA-HEALTH (temporary) — stall warning; see services/CameraHealthMonitor.js to remove
+const cameraHealth = require('../services/CameraHealthMonitor');
+cameraHealth.start();
+router.get('/health', (req, res) => res.json({ success: true, data: cameraHealth.getStatus() }));
+// CAMERA-HEALTH end
+
 // ---------------------------------------------------------------- events (Frigate review items)
 // Frigate's /api/review defaults to the LAST 24 HOURS unless `after` is given, so
 // always send after=1 (everything retained); page with before=<oldest start_time>.

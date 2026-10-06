@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppContext } from '../utils/AppContext';
 import { Link, useLocation } from 'react-router-dom';
 import { visiblePages } from '../utils/pages';
+import { CameraHealthDot } from './cameras/CameraHealth'; // CAMERA-HEALTH (temporary)
 
 function Footer() {
   const { weather, guest } = useAppContext();
@@ -31,7 +32,7 @@ function Footer() {
               key={page.path}
               to={page.path}
               aria-current={active ? 'page' : undefined}
-              className={`flex flex-col items-center w-16 py-1 rounded-lg transition ${
+              className={`relative flex flex-col items-center w-16 py-1 rounded-lg transition ${
                 active
                   ? 'bg-blue-100 ring-1 ring-blue-400 text-blue-700 dark:bg-white/10 dark:ring-white/30 dark:text-white'
                   : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
@@ -39,6 +40,7 @@ function Footer() {
             >
               <span className="text-lg leading-none">{page.emoji}</span>
               <span className="text-[10px] font-medium leading-tight mt-0.5">{page.shortLabel}</span>
+              {page.path === '/cameras' && <CameraHealthDot />} {/* CAMERA-HEALTH (temporary) */}
             </Link>
           );
         })}
