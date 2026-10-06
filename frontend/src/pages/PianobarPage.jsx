@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../utils/AppContext';
 import { jukeboxApi, bluetoothApi } from '../utils/api';
 import BluetoothSignalStrength from '../components/BluetoothSignalStrength';
@@ -151,7 +151,8 @@ function PianobarPage() {
           console.log('🔍 [SYNC-STATE] Track data:', data.state.track);
           console.log('🔍 [SYNC-STATE] Setting trackInfo with songPlayed:', data.state.track.songPlayed);
           
-          setSharedState(data.state.shared);
+          // Only the track comes from here. Running/playing come from the WebSocket
+          // status (sent on connect), which can arrive before this response does.
           setTrackInfo(data.state.track);
           
           console.log('✅ [SYNC-STATE] State updated successfully');
@@ -166,35 +167,6 @@ function PianobarPage() {
     }
   };
   
-  const syncSharedState = async () => {
-    try {
-      const currentState = {
-        isRunning: pianobar.isRunning,
-        isPlaying: pianobar.isPlaying,
-        currentStation: selectedStation,
-        bluetoothConnected: bluetooth.isConnected
-      };
-      
-      await fetch(`${API_BASE_URL}/pianobar/sync-state`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shared: currentState })
-      });
-    } catch (error) {
-      console.warn('Failed to sync shared state:', error);
-    }
-  };
-  
-  // Debounced sync to prevent spam
-  const debouncedSyncSharedState = useMemo(() => {
-    let timeout;
-    return () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => syncSharedState(), 2000);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // syncSharedState is stable - intentionally omitted to prevent re-creation
-
   // Update selected station when pianobar status changes
   useEffect(() => {
     if (pianobar.status && pianobar.status.stationId) {
@@ -249,10 +221,7 @@ function PianobarPage() {
         // 2. Refresh pianobar status
         await actions.refreshPianobar();
         
-        // 3. Sync our current state to backend
-        await syncSharedState();
-
-        // 4. Load session play history
+        // 3. Load session play history
         await fetchPianobarHistory();
 
         console.log('✅ Fresh data loaded successfully on page mount');
@@ -263,13 +232,6 @@ function PianobarPage() {
     
     // Execute immediately
     forceRefreshOnMount();
-    
-    // Set up periodic sync every 10 seconds
-    const syncInterval = setInterval(() => {
-      syncSharedState();
-    }, 10000);
-
-    return () => clearInterval(syncInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Mount-only: intentionally run once to initialize page state
   
@@ -433,9 +395,6 @@ function PianobarPage() {
             if (newSharedState.isPlaying) {
               actions.setActiveSource('pianobar');
             }
-
-            // Sync to backend
-            debouncedSyncSharedState(newSharedState);
           }
           // Pianobar song updates
           else if (data.type === 'song') {
