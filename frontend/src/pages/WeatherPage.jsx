@@ -222,23 +222,15 @@ function WeatherPage() {
                     return <p className="text-sm text-gray-500">Daily forecast not available</p>;
                   }
                   
-                  const displayDays = generateEstimatedDays(weather.forecast.days, 8);
+                  const displayDays = weather.forecast.days.slice(0, 8);
                   
                   return displayDays.map((day, index) => (
                     <div 
                       key={index}
                       className={`flex flex-col min-w-[95px] p-3 rounded-lg relative lg:h-full ${
-                        index === 0 ? 'bg-blue-50 dark:bg-blue-900' :
-                        day.isEstimated ? 'bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700' : 'bg-gray-50 dark:bg-gray-700'
+                        index === 0 ? 'bg-blue-50 dark:bg-blue-900' : 'bg-gray-50 dark:bg-gray-700'
                       }`}
                     >
-                      {day.isEstimated && (
-                        <div className="absolute top-1 right-1">
-                          <span className="text-xs text-yellow-600 font-semibold" title="Estimated based on seasonal averages">
-                            ~
-                          </span>
-                        </div>
-                      )}
                       <div className="flex flex-col items-center justify-between h-full">
                         <div className="flex flex-col items-center">
                           <p className="text-xs font-semibold text-center dark:text-white">{index === 0 ? 'Today' : day.dayOfWeek}</p>
@@ -250,14 +242,12 @@ function WeatherPage() {
                               <img 
                                 src={getWeatherIconUrl(day.icon)} 
                                 alt={day.weatherMain} 
-                                className={`w-16 h-16 ${day.isEstimated ? 'opacity-70' : ''}`}
+                                className="w-16 h-16"
                               />
                             )}
                           </div>
                           <div className="flex justify-center items-center lg:h-12 px-1">
-                            <p className={`text-xs capitalize text-center leading-tight ${
-                              day.isEstimated ? 'text-yellow-700 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-300'
-                            }`}>
+                            <p className="text-xs capitalize text-center leading-tight text-gray-600 dark:text-gray-300">
                               {day.weatherMain}
                             </p>
                           </div>
@@ -441,7 +431,7 @@ function WeatherPage() {
     let currentDay = null;
     let currentDayHours = [];
     
-    displayEntries.forEach((hour, index) => {
+    displayEntries.forEach((hour) => {
       const hourTime = new Date(hour.timestamp);
       // Backend already sends local time, no need for timezone conversion
       const dayKey = hourTime.toDateString();
@@ -534,43 +524,6 @@ function WeatherPage() {
     );
   };
   
-  // Generate estimated days for extended forecast
-  const generateEstimatedDays = (realDays, targetCount = 8) => {
-    const extendedDays = [...realDays];
-    
-    if (realDays.length >= targetCount) {
-      return extendedDays.slice(0, targetCount);
-    }
-    
-    // Generate estimated days based on seasonal averages for remaining days
-    const lastRealDay = realDays[realDays.length - 1];
-    const lastDate = new Date(lastRealDay.date);
-    
-    for (let i = realDays.length; i < targetCount; i++) {
-      const estimatedDate = new Date(lastDate);
-      estimatedDate.setDate(estimatedDate.getDate() + (i - realDays.length + 1));
-      
-      // Use seasonal averages for May/June in Colorado
-      const seasonalTemp = {
-        min: 35 + Math.random() * 10, // 35-45°F range
-        max: 65 + Math.random() * 15, // 65-80°F range
-      };
-      
-      extendedDays.push({
-        date: estimatedDate.toISOString().split('T')[0],
-        dayOfWeek: estimatedDate.toLocaleDateString('en-US', { weekday: 'short' }),
-        min: Math.round(seasonalTemp.min),
-        max: Math.round(seasonalTemp.max),
-        avg: Math.round((seasonalTemp.min + seasonalTemp.max) / 2),
-        weatherMain: 'partly cloudy',
-        icon: '02d', // Partly cloudy icon
-        precipitationProbability: Math.round(20 + Math.random() * 30), // 20-50%
-        isEstimated: true
-      });
-    }
-    
-    return extendedDays;
-  };
 
 
   // Render precipitation map - now using our integrated WeatherMap component!

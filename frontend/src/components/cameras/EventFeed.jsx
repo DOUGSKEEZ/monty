@@ -84,7 +84,6 @@ function EventVideo({ ev }) {
     // new object copies of the same event, which must not restart playback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ev.id, ev.camera, ev.start_time, ev.end_time]);
-  // eslint-disable-next-line jsx-a11y/media-has-caption
   return <video ref={ref} controls autoPlay muted playsInline preload="auto" />;
 }
 EventVideo.propTypes = { ev: PropTypes.object.isRequired };

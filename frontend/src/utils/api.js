@@ -392,7 +392,7 @@ export const musicApi = {
    * @param {boolean} silent - Whether to suppress logging
    * @returns {Promise<Object>} - Result
    */
-  controlMusic: (action, options = {}, silent = false) => {
+  controlMusic: (action, _options = {}, silent = false) => {
     // Map legacy actions to pianobar endpoints
     switch(action) {
       case 'start':
@@ -416,24 +416,6 @@ export const musicApi = {
   },
   
   // Legacy methods - redirected to pianobar for compatibility
-  /**
-   * Start music player (legacy method - redirected to pianobar)
-   * @param {boolean} connectBluetooth - Whether to connect to Bluetooth first
-   * @param {boolean} silent - Whether to suppress logging
-   * @returns {Promise<Object>} - Result
-   */
-  startPlayer: (connectBluetooth = true, silent = false) => 
-    fetchApi('/pianobar/start', { method: 'POST' }, silent),
-  
-  /**
-   * Stop music player (legacy method - redirected to pianobar)
-   * @param {boolean} disconnectBluetooth - Whether to disconnect Bluetooth after
-   * @param {boolean} silent - Whether to suppress logging
-   * @returns {Promise<Object>} - Result
-   */
-  stopPlayer: (disconnectBluetooth = true, silent = false) => 
-    fetchApi('/pianobar/stop', { method: 'POST' }, silent),
-  
   /**
    * Send control command to music player (legacy method - redirected to pianobar)
    * @param {string} command - Control command

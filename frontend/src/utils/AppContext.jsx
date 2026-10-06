@@ -4,7 +4,9 @@ import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarAp
 // Create context
 const AppContext = createContext();
 
-// Custom hook for using the context
+// Custom hook for using the context. Kept beside the provider (20 files import it
+// from here); the only cost is a full reload instead of fast refresh in dev.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAppContext = () => useContext(AppContext);
 
 // Guest room metadata

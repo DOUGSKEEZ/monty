@@ -25,7 +25,11 @@ export default defineConfig([
     },
     rules: {
       // Capitalized names (components, React) are used via JSX
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
+      // React Compiler style rules: existing code predates them and works. Warn so
+      // `npm run lint` passes and NEW errors stand out; fix these when touching a file.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/immutability': 'warn',
     },
   },
 

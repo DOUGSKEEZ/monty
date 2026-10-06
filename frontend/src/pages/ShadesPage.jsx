@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../utils/AppContext';
-import '../components/ShadeControl';
 import { controlShadeCommander, checkShadeCommanderHealth, triggerShadeCommanderScene } from '../utils/api';
 
 function ShadesPage() {
@@ -27,7 +26,7 @@ function ShadesPage() {
       } else {
         setArduinoError("Command failed - please try again");
       }
-    } catch (healthError) {
+    } catch {
       setArduinoError("ShadeCommander unavailable - please check connection");
       }
     }
@@ -150,7 +149,7 @@ function ShadesPage() {
         } else {
           setArduinoError(`Scene "${sceneName}" failed - please try again`);
         }
-      } catch (healthError) {
+      } catch {
         setArduinoError("ShadeCommander unavailable - please check connection");
       }
     }

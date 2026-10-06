@@ -400,7 +400,7 @@ function HomePage() {
         } else {
           setArduinoError("Command failed - please try again");
         }
-      } catch (healthError) {
+      } catch {
         setArduinoError("ShadeCommander unavailable - please check connection");
       }
     }

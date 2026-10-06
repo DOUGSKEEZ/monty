@@ -11,7 +11,7 @@ const AwayDatePicker = ({ awayContext, onSuccess, onError }) => {
   const [validationError, setValidationError] = useState('');
 
   // Force update mechanism - sometimes React's scheduler needs a kick
-  const [renderKey, setRenderKey] = useState(0);
+  const [, setRenderKey] = useState(0);   // value unused; the setter forces a re-render
   const forceRenderRef = useRef(() => setRenderKey(k => k + 1));
 
 
