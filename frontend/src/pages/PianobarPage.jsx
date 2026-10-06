@@ -286,9 +286,9 @@ function PianobarPage() {
             // This prevents clobbering an optimistic update from the NEW source.
             // e.g., jukebox sets activeSource='jukebox', then source-killed:pianobar arrives
             // — we should NOT reset to 'none' because jukebox already claimed it.
-            if (activeSource === killedSource) {
-              actions.setActiveSource('none');
-            }
+            // Functional update: this handler is created once at mount, so `activeSource`
+            // here would be the first-render value; `prev` is the current one.
+            actions.setActiveSource(prev => (prev === killedSource ? 'none' : prev));
             return;
           }
 
@@ -311,9 +311,11 @@ function PianobarPage() {
                   youtubeId: data.data.youtubeId || null,
                   filepath: data.data.filepath || null
                 });
-                // New track loaded - clear finished state
+                // New track loaded - clear finished state, and show the jukebox on
+                // every device (not just the one that started it), like pianobar does
                 if (data.data.isPlaying) {
                   actions.updateJukeboxStatus({ isPlaying: true, isFinished: false });
+                  actions.setActiveSource('jukebox');
                 }
               } else if (data.data.isPlaying === false) {
                 // Empty track + not playing = EOF (song finished naturally)
