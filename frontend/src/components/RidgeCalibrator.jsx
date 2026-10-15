@@ -42,6 +42,10 @@ function RidgeCalibrator({ onClose }) {
   // here) — a custom picker so there's no confusing browser AM/PM toggle.
   const [obsHour, setObsHour] = useState(6);
   const [obsMin, setObsMin] = useState('');
+  // "Guess?" — flags this entry as a remembered/estimated time rather than one watched
+  // live. It's still a normal dated observation and shapes the ridge the same way; the
+  // flag only marks confidence (and tints it) so you can tell real readings from fill-ins.
+  const [isGuess, setIsGuess] = useState(false);
   // Guard the editable/deletable observation list behind an Advanced toggle.
   const [showAdvanced, setShowAdvanced] = useState(false);
   // Ridge node the pointer is hovering (for the date/time tooltip on the graph).
@@ -99,11 +103,12 @@ function RidgeCalibrator({ onClose }) {
       // hour is 1–11 PM → add 12 for 24-hour wall-clock (always evening here).
       const hh = obsHour + 12;
       const clock = new Date(`${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`);
-      const res = await actions.calibrateRidge({ state: 'gone', timestamp: clock.toISOString() });
+      const res = await actions.calibrateRidge({ state: 'gone', timestamp: clock.toISOString(), guess: isGuess });
       if (res.success && res.data?.recorded) {
         const label = clock.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-        setMessage(`Saved ${label} — your skyline just got a little more accurate.`);
+        setMessage(`Saved ${label}${isGuess ? ' (guess)' : ''} — your skyline just got a little more accurate.`);
         setObsMin('');
+        setIsGuess(false);
         await fetchPreview();
       } else {
         setMessage(res.error || 'Could not save that observation.');
@@ -113,7 +118,9 @@ function RidgeCalibrator({ onClose }) {
     }
   };
 
-  const deletePoint = async (observedAt) => {
+  const deletePoint = async (observedAt, label) => {
+    // Calibration points are hard to re-measure — confirm before dropping one.
+    if (!window.confirm(`Remove ${label} from the active ridge calibration?\n\nThis drops it from the live skyline. Your full history stays backed up in data/ridge_observations.csv.`)) return;
     setBusy(true);
     try {
       await actions.updateSchedulerConfig('solarShades', { delete_observed_at: observedAt });
@@ -137,6 +144,8 @@ function RidgeCalibrator({ onClose }) {
   const obsRange = obsDates.length >= 2
     ? `${fmtObsDate(obsDates[0])} – ${fmtObsDate(obsDates[obsDates.length - 1])}`
     : obsDates.length === 1 ? fmtObsDate(obsDates[0]) : '';
+  const guessCount = profile.filter((p) => p.guess).length;
+  const obsCount = profile.length - guessCount;
 
   // Collapse only near-duplicate readings (within 0.3° — under the sun's ~0.5° width)
   // to the most-recent one; distinct days (~0.5°/day apart) stay as separate points.
@@ -284,7 +293,8 @@ function RidgeCalibrator({ onClose }) {
               const isRep = ridgeReps.some((r) => r.observedAt === p.observedAt);
               return (
                 <circle
-                  key={`g${i}`} cx={cx} cy={cy} r={isRep ? 5 : 3.5} fill="#78716c"
+                  key={`g${i}`} cx={cx} cy={cy} r={isRep ? 5 : 3.5}
+                  fill={p.guess ? '#a78bfa' : '#78716c'}
                   fillOpacity={isRep ? 1 : 0.35} stroke="white" strokeWidth={isRep ? 1 : 0.5}
                   style={{ cursor: 'pointer' }}
                   onMouseEnter={() => setHoverPoint({ x: cx, y: cy, p })}
@@ -292,15 +302,20 @@ function RidgeCalibrator({ onClose }) {
                 />
               );
             })}
-            {/* hover tooltip: date + time the sun went behind the ridge here */}
+            {/* hover tooltip: date + the time it went behind the ridge; guesses add a tag */}
             {hoverPoint && (
               <g pointerEvents="none">
                 <rect x={Math.min(hoverPoint.x + 6, W - 152)} y={hoverPoint.y - 36} width="148" height="30" rx="3" fill="#111827" opacity="0.92" />
                 <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - 23} fontSize="9" fill="#ffffff">
-                  {hoverPoint.p.observedAt ? new Date(hoverPoint.p.observedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : `bearing ${hoverPoint.p.azimuth}°`}
+                  {hoverPoint.p.observedAt
+                    ? new Date(hoverPoint.p.observedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : `bearing ${hoverPoint.p.azimuth}°`}
                 </text>
                 <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - 12} fontSize="9" fill="#d1d5db">
-                  behind ridge {hoverPoint.p.observedAt ? new Date(hoverPoint.p.observedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : `${hoverPoint.p.altitude}° high`}
+                  {hoverPoint.p.observedAt
+                    ? `behind ridge ${new Date(hoverPoint.p.observedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                    : `${hoverPoint.p.altitude}° high`}
+                  {hoverPoint.p.guess ? ' · 🔮 guess' : ''}
                 </text>
               </g>
             )}
@@ -309,6 +324,7 @@ function RidgeCalibrator({ onClose }) {
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 px-2 pb-1">
             <span><span style={{ color: '#d1d5db' }}>—</span> ridge line</span>
             <span><span style={{ color: '#78716c' }}>●</span> observations (hover)</span>
+            <span><span style={{ color: '#a78bfa' }}>●</span> guesses</span>
             <span><span style={{ color: '#22c55e' }}>┈</span> golden hour ({goldenHour}°)</span>
             <span><span style={{ color: '#eab308' }}>—</span> sun path</span>
             <span><span style={{ color: '#3b82f6' }}>●</span> raise</span>
@@ -391,6 +407,18 @@ function RidgeCalibrator({ onClose }) {
                 <span className="font-semibold text-gray-600 dark:text-gray-300">PM</span>
               </span>
             </label>
+            <label
+              className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 pb-2 cursor-pointer select-none"
+              title="Check this if you're estimating the time from memory or a note rather than watching it live."
+            >
+              <input
+                type="checkbox"
+                checked={isGuess}
+                onChange={(e) => setIsGuess(e.target.checked)}
+                className="h-4 w-4 accent-violet-500 rounded border-gray-300 dark:border-gray-600"
+              />
+              🔮 Guess?
+            </label>
             <button
               onClick={recordObservation}
               disabled={busy || obsMin === ''}
@@ -404,7 +432,7 @@ function RidgeCalibrator({ onClose }) {
           {/* Read-only summary (always visible) */}
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {profile.length > 0 ? (
-              <>🗻 Ridge mapped from <strong>{profile.length}</strong> sunset observation{profile.length === 1 ? '' : 's'}{obsRange ? ` (${obsRange})` : ''}.</>
+              <>🗻 Ridge mapped from <strong>{obsCount}</strong> sunset observation{obsCount === 1 ? '' : 's'}{obsRange ? ` (${obsRange})` : ''}{guessCount > 0 ? <> + <strong>{guessCount}</strong> guess{guessCount === 1 ? '' : 'es'}</> : ''}.</>
             ) : (
               <>No observations yet — add your first above.</>
             )}
@@ -428,23 +456,27 @@ function RidgeCalibrator({ onClose }) {
                     here — safe to edit in a spreadsheet).
                   </p>
                   <ul className="border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-100 dark:divide-gray-700 max-h-48 overflow-y-auto">
-                    {profile.slice().sort((a, b) => new Date(a.observedAt || 0) - new Date(b.observedAt || 0)).map((p, i) => (
-                      <li key={i} className="flex items-center justify-between px-3 py-2 text-sm">
-                        <span className="text-gray-700 dark:text-gray-200">
-                          📅 {p.observedAt
-                            ? new Date(p.observedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-                            : `ridge point at ${p.azimuth}°`}
-                        </span>
-                        <button
-                          onClick={() => deletePoint(p.observedAt)}
-                          disabled={busy}
-                          title="Remove this observation"
-                          className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
-                        >
-                          🗑 Remove
-                        </button>
-                      </li>
-                    ))}
+                    {profile.slice().sort((a, b) => new Date(a.observedAt || 0) - new Date(b.observedAt || 0)).map((p, i) => {
+                      const dateLabel = p.observedAt
+                        ? new Date(p.observedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                        : `ridge point at ${p.azimuth}°`;
+                      return (
+                        <li key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <span className="text-gray-700 dark:text-gray-200">
+                            📅 {dateLabel}
+                            {p.guess && <span className="text-violet-500 dark:text-violet-400"> · 🔮 guess</span>}
+                          </span>
+                          <button
+                            onClick={() => deletePoint(p.observedAt, dateLabel + (p.guess ? ' (guess)' : ''))}
+                            disabled={busy}
+                            title="Remove this point"
+                            className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                          >
+                            🗑 Remove
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}

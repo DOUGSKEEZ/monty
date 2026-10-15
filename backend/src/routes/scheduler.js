@@ -34,7 +34,8 @@ const fmtLocalClock = (date) => {
 
 // --- Ridge observation CSV mirror (a durable, spreadsheet-friendly backup) ---
 // This log is APPEND/UPSERT-ONLY: recording an observation overwrites the row for
-// that bearing (±3°); deleting a point in the app never removes it from here.
+// that calendar day; deleting a point in the app never removes it from here.
+// Guesses are dated observations too (just flagged source=guess), so they're mirrored.
 const RIDGE_CSV_PATH = path.join(__dirname, '../../../data/ridge_observations.csv');
 const RIDGE_CSV_HEADER = 'observed_local,observed_iso,azimuth_deg,altitude_deg,source';
 
@@ -64,7 +65,7 @@ const syncRidgeCsv = (profile) => {
     const d = new Date(pt.observedAt);
     if (isNaN(d.getTime())) continue;
     const observed_local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    const row = { observed_local, observed_iso: pt.observedAt, azimuth: pt.azimuth, altitude: pt.altitude, source: pt.calibratedFrom || 'gone' };
+    const row = { observed_local, observed_iso: pt.observedAt, azimuth: pt.azimuth, altitude: pt.altitude, source: pt.guess ? 'guess' : (pt.calibratedFrom || 'gone') };
     const idx = rows.findIndex((r) => localDateKey(r.observed_iso) === localDateKey(pt.observedAt));
     if (idx >= 0) rows[idx] = row; else rows.push(row);
   }
@@ -983,7 +984,7 @@ router.put('/solar-shades', async (req, res) => {
  */
 router.post('/calibrate-ridge', async (req, res) => {
   try {
-    const { timestamp, state } = req.body;
+    const { timestamp, state, guess } = req.body;
 
     if (state !== 'gone' && state !== 'still_up') {
       return res.status(400).json({ success: false, error: "state must be 'gone' or 'still_up'" });
@@ -1002,7 +1003,8 @@ router.post('/calibrate-ridge', async (req, res) => {
           azimuth: Math.round(azimuth * 10) / 10,
           altitude: Math.round(altitude * 10) / 10,
           calibratedFrom: state,
-          observedAt: when.toISOString()
+          observedAt: when.toISOString(),
+          ...(guess ? { guess: true } : {})   // confidence flag: a remembered/estimated time, not watched live
         };
 
         // One observation per calendar DAY: re-recording the same day overwrites it,
