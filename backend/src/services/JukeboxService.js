@@ -270,15 +270,18 @@ class JukeboxService {
   async _reinitializeMpv() {
     logger.info('mpv: Reinitializing player...');
 
-    // Kill existing mpv process via pkill (quit() can hang on stale socket)
+    // Detach first, or the old node-mpv instance respawns mpv as soon as pkill lands
+    this.detachPlayer();
+
+    // Kill existing mpv process via pkill (a hung mpv may never act on quit())
     // Same pattern AudioBroker uses - OS-level kill is always reliable
+    // "[m]pv" keeps the regex from matching the sh -c that runs pkill itself
     try {
-      require('child_process').execSync('pkill -f "monty-jukebox.sock" || true', { timeout: 3000 });
+      require('child_process').execSync('pkill -f "[m]pv.*monty-jukebox" || true', { timeout: 3000 });
       logger.debug('mpv: Killed via pkill');
     } catch (err) {
       logger.debug(`mpv: pkill cleanup: ${err.message}`);
     }
-    this.mpvPlayer = null;
 
     // Clean up stale socket file if it exists
     const fs = require('fs');
@@ -296,10 +299,27 @@ class JukeboxService {
     this.isInitialized = false;
     this.isPlaying = false;
     this.position = 0;
+    this.skipAutoAdvance = false;  // the detached player can't deliver the 'stopped' that would consume it
 
     // Reinitialize
     await this.initialize();
     logger.info('mpv: Reinitialized successfully');
+  }
+
+  /**
+   * Detach the current node-mpv instance so it can no longer respawn mpv.
+   * node-mpv 1.5 respawns mpv whenever its process exits and reconnects its socket
+   * whenever it closes; quit() is the only call that removes those handlers.
+   * Just nulling mpvPlayer leaves the old instance running in the background.
+   */
+  detachPlayer() {
+    if (!this.mpvPlayer) return;
+    try {
+      this.mpvPlayer.quit();
+    } catch (err) {
+      logger.debug(`mpv: detach: ${err.message}`);
+    }
+    this.mpvPlayer = null;
   }
 
   /**
@@ -370,6 +390,7 @@ class JukeboxService {
     // Load and play
     try {
       this.mpvPlayer.load(streamUrl);
+      this.mpvPlayer.resume();  // mpv's pause survives stop/loadfile — a stale pause loads tracks frozen at 0:00
       logger.info(`Loaded YouTube stream for: ${youtubeId}`);
     } catch (error) {
       logger.error(`Failed to load YouTube stream: ${error.message}`);
@@ -429,6 +450,7 @@ class JukeboxService {
     // Load and play
     try {
       this.mpvPlayer.load(filepath);
+      this.mpvPlayer.resume();  // see playYouTube(): clear any pause left over from a previous track
       logger.info(`Loaded local file: ${filename}`);
     } catch (error) {
       logger.error(`Failed to load local file: ${error.message}`);

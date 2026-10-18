@@ -504,16 +504,26 @@ router.post('/kill', async (req, res) => {
   try {
     logger.warn('🚨 NUCLEAR OPTION: Force killing all jukebox/mpv processes');
 
+    // Step 0: Detach JukeboxService's node-mpv instance BEFORE killing.
+    // node-mpv respawns mpv whenever its process dies, so killing without detaching
+    // leaves an orphan mpv running alongside the one the next initialize() spawns.
+    const JukeboxService = require('../services/JukeboxService');
+    const service = JukeboxService.getExistingInstance();
+    if (service) {
+      service.detachPlayer();
+    }
+
     // Step 1: Force kill all mpv processes
-    // Use specific pattern "mpv.*monty-jukebox" to match only mpv (not shells running pgrep)
+    // "[m]pv" matches mpv but not the sh -c running pgrep/pkill, whose own
+    // command line contains the pattern text (otherwise it counts and kills itself)
     let killedCount = 0;
     try {
-      const { stdout } = await execPromise('pgrep -f "mpv.*monty-jukebox"');
+      const { stdout } = await execPromise('pgrep -f "[m]pv.*monty-jukebox"');
       const pids = stdout.trim().split('\n').filter(Boolean);
 
       if (pids.length > 0) {
         logger.info(`Found ${pids.length} mpv process(es) to kill: PIDs ${pids.join(', ')}`);
-        await execPromise('pkill -9 -f "mpv.*monty-jukebox"');
+        await execPromise('pkill -9 -f "[m]pv.*monty-jukebox"');
 
         // Brief wait for processes to actually die
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -521,7 +531,7 @@ router.post('/kill', async (req, res) => {
         // Verify kill by checking what's left
         let remaining = 0;
         try {
-          const { stdout: afterStdout } = await execPromise('pgrep -f "mpv.*monty-jukebox"');
+          const { stdout: afterStdout } = await execPromise('pgrep -f "[m]pv.*monty-jukebox"');
           remaining = afterStdout.trim().split('\n').filter(Boolean).length;
         } catch (e) {
           // pgrep exit 1 = no processes found = success
@@ -548,15 +558,11 @@ router.post('/kill', async (req, res) => {
     }
 
     // Step 3: Reset JukeboxService internal state
-    // CRITICAL: Set skipAutoAdvance BEFORE killing processes!
-    // When mpv processes die, they fire 'stopped' events. Without this flag,
-    // each event tries to auto-advance queue → initialize() → spawn new mpv.
-    // Multiple events racing = multiple mpv spawns (the zombie bug).
-    const JukeboxService = require('../services/JukeboxService');
-    const service = JukeboxService.getExistingInstance();
+    // The player was detached in Step 0, so the dying mpv can't fire 'stopped' events
+    // (and auto-advance) — and can't deliver the 'stopped' that would consume
+    // skipAutoAdvance, so clear it or the next natural track end won't advance the queue.
     if (service) {
-      service.skipAutoAdvance = true;  // Prevent stopped events from respawning
-      service.mpvPlayer = null;
+      service.skipAutoAdvance = false;
       service.isInitialized = false;
       service.currentTrack = null;
       service.position = 0;

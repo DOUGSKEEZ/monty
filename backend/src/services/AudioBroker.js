@@ -260,7 +260,7 @@ class AudioBroker {
 
     try {
       // Also pkill to ensure cleanup
-      await execPromise('pkill -f "mpv.*monty-jukebox" || true');
+      await execPromise('pkill -f "[m]pv.*monty-jukebox" || true');  // [m] avoids matching its own sh -c
       logger.debug('mpv killed via pkill');
     } catch (error) {
       logger.debug('pkill mpv completed (may not have been running)');
