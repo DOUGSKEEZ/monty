@@ -17,11 +17,8 @@ class AlarmNotificationService {
     this.serviceWatchdog = serviceWatchdog;
     
     // Configuration
-    this.alarmDeviceUrl = this.configManager.get('alarm.notifications.deviceUrl', 'http://192.168.0.198:5000');
-    this.enabled = this.configManager.get('alarm.notifications.enabled', true);
-    this.timeout = this.configManager.get('alarm.notifications.timeout', 5000);
-    this.maxRetries = this.configManager.get('alarm.notifications.maxRetries', 3);
-    
+    this.loadConfig();
+
     // State
     this.lastNotificationResult = null;
     this.isInitialized = false;
@@ -44,7 +41,29 @@ class AlarmNotificationService {
     this.serviceRegistry.setStatus('AlarmNotificationService', 'ready');
     this.isInitialized = true;
     
-    logger.info(`AlarmNotificationService initialized - Device: ${this.alarmDeviceUrl}, Enabled: ${this.enabled}`);
+    logger.info(`AlarmNotificationService initialized - Device: ${this.alarmDeviceUrl || 'not configured'}, Enabled: ${this.enabled}`);
+  }
+
+  /**
+   * Read settings from config. deviceUrl has no default: pushes stay off until
+   * it is configured (PUT /api/scheduler/alarm-device/config).
+   */
+  loadConfig() {
+    this.alarmDeviceUrl = this.configManager.get('alarm.notifications.deviceUrl', null);
+    this.enabled = this.configManager.get('alarm.notifications.enabled', true);
+    this.timeout = this.configManager.get('alarm.notifications.timeout', 5000);
+    this.maxRetries = this.configManager.get('alarm.notifications.maxRetries', 3);
+
+    if (this.enabled && !this.alarmDeviceUrl) {
+      logger.warn('No alarm.notifications.deviceUrl configured - alarm device pushes are off');
+    }
+  }
+
+  /**
+   * Pushes need both the enabled flag and a configured device URL
+   */
+  isActive() {
+    return this.enabled && !!this.alarmDeviceUrl;
   }
 
   /**
@@ -52,8 +71,8 @@ class AlarmNotificationService {
    * @param {Object} scheduleData - Current alarm schedule information
    */
   async notifyScheduleUpdate(scheduleData) {
-    if (!this.enabled) {
-      logger.debug('Alarm notifications disabled, skipping update');
+    if (!this.isActive()) {
+      logger.debug('Alarm notifications disabled or no device URL, skipping update');
       return { success: true, message: 'Notifications disabled' };
     }
 
@@ -136,7 +155,7 @@ class AlarmNotificationService {
         maxRetries: this.maxRetries,
         initialDelay: 1000,
         backoffFactor: 2,
-        onRetry: (attempt, delay, error) => {
+        onRetry: (attempt, delay) => {
           logger.info(`Retrying alarm notification (attempt ${attempt}) in ${delay}ms`);
         }
       }
@@ -184,8 +203,8 @@ class AlarmNotificationService {
    * Send health check to alarm device
    */
   async pingAlarmDevice() {
-    if (!this.enabled) {
-      return { success: false, message: 'Notifications disabled' };
+    if (!this.isActive()) {
+      return { success: false, message: 'Notifications disabled or no device URL configured' };
     }
 
     try {
@@ -254,17 +273,17 @@ class AlarmNotificationService {
     const uptime = process.uptime();
     const status = this.isInitialized ? 'ok' : 'initializing';
     
-    // Perform a quick ping if enabled
+    // Perform a quick ping if active
     let deviceStatus = null;
-    if (this.enabled) {
+    if (this.isActive()) {
       deviceStatus = await this.pingAlarmDevice();
     }
-    
+
     return {
       status,
-      message: this.enabled ? 
-        `Alarm notifications active - Device: ${this.alarmDeviceUrl}` : 
-        'Alarm notifications disabled',
+      message: this.isActive() ?
+        `Alarm notifications active - Device: ${this.alarmDeviceUrl}` :
+        'Alarm notifications disabled or no device URL configured',
       uptime: Math.floor(uptime),
       metrics: {
         enabled: this.enabled,
@@ -284,13 +303,10 @@ class AlarmNotificationService {
       logger.warn('AlarmNotificationService recovery procedure initiated');
       
       // Re-read configuration
-      this.alarmDeviceUrl = this.configManager.get('alarm.notifications.deviceUrl', 'http://192.168.0.198:5000');
-      this.enabled = this.configManager.get('alarm.notifications.enabled', true);
-      this.timeout = this.configManager.get('alarm.notifications.timeout', 5000);
-      this.maxRetries = this.configManager.get('alarm.notifications.maxRetries', 3);
-      
-      // Test connectivity if enabled
-      if (this.enabled) {
+      this.loadConfig();
+
+      // Test connectivity if active
+      if (this.isActive()) {
         const pingResult = await this.pingAlarmDevice();
         if (!pingResult.success) {
           logger.warn(`Alarm device unreachable during recovery: ${pingResult.message}`);

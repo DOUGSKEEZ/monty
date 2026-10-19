@@ -30,6 +30,14 @@
     "defaultTime": "07:45",
     "nextWakeUpTime": null
   },
+  "alarm": {
+    "notifications": {
+      "enabled": true,
+      "deviceUrl": "http://ALARM_DEVICE_HOST:5000",
+      "timeout": 5000,
+      "maxRetries": 3
+    }
+  },
   "shadeScenes": {
     "goodMorningTime": "07:45",
     "goodAfternoonOffset": 0,
