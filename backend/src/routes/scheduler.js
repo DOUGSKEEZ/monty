@@ -172,13 +172,48 @@ router.get('/status', async (req, res) => {
   }
 });
 
+const WAKE_MODES = ['pianobar', 'mp3', 'fm', 'shades_only'];
+
+/**
+ * Validate the optional alarm-sound fields of a wake-up request body
+ * @returns {string|null} error message, or null when valid
+ */
+function validateWakeUpSound({ wake_mode, mp3_track, snooze_minutes }) {
+  if (wake_mode !== undefined && !WAKE_MODES.includes(wake_mode)) {
+    return `wake_mode must be one of: ${WAKE_MODES.join(', ')}`;
+  }
+  if (mp3_track !== undefined && typeof mp3_track !== 'string') {
+    return 'mp3_track must be a file name';
+  }
+  if (snooze_minutes !== undefined && !(Number.isInteger(snooze_minutes) && snooze_minutes >= 3 && snooze_minutes <= 15)) {
+    return 'snooze_minutes must be a whole number from 3 to 15';
+  }
+  return null;
+}
+
+/**
+ * Copy the alarm-sound fields present in the body into the wake_up config.
+ * Absent fields are left alone (the shared guest alarm POSTs only { time }).
+ * @returns {boolean} true if any field was set
+ */
+function applyWakeUpSound(wakeUp, body) {
+  let changed = false;
+  for (const key of ['wake_mode', 'mp3_track', 'snooze_minutes']) {
+    if (body[key] !== undefined) {
+      wakeUp[key] = body[key];
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /**
  * Set wake up time and reschedule
  */
 router.post('/wake-up', async (req, res) => {
   try {
     const { time } = req.body;
-    
+
     // Validate time format
     if (!time || !/^\d{2}:\d{2}$/.test(time)) {
       return res.status(400).json({
@@ -186,7 +221,12 @@ router.post('/wake-up', async (req, res) => {
         error: 'Valid time required in 24-hour format (HH:MM)'
       });
     }
-    
+
+    const soundError = validateWakeUpSound(req.body);
+    if (soundError) {
+      return res.status(400).json({ success: false, error: soundError });
+    }
+
     const schedulerService = container.resolve('schedulerService');
     
     if (!schedulerService) {
@@ -200,10 +240,11 @@ router.post('/wake-up', async (req, res) => {
     schedulerService.schedulerConfig.wake_up.enabled = true;
     schedulerService.schedulerConfig.wake_up.time = time;
     schedulerService.schedulerConfig.wake_up.last_triggered = null;
-    
+    applyWakeUpSound(schedulerService.schedulerConfig.wake_up, req.body);
+
     // Save configuration to file
     schedulerService.saveSchedulerConfig();
-    
+
     // Clear existing wake up schedules and reschedule
     schedulerService.clearWakeUpSchedules();
     schedulerService.scheduleWakeUp();
@@ -338,6 +379,10 @@ router.get('/wake-up/status', async (req, res) => {
         lastTriggered_formatted: wakeUpConfig.last_triggered ? 
           timezoneManager.formatForDisplay(wakeUpConfig.last_triggered, 'datetime') : null,
         goodMorningDelayMinutes: wakeUpConfig.good_morning_delay_minutes || 15,
+        wakeMode: wakeUpConfig.wake_mode || 'pianobar',
+        mp3Track: wakeUpConfig.mp3_track || '',
+        snoozeMinutes: wakeUpConfig.snooze_minutes || 9,
+        alarmDeviceEnabled: schedulerService.alarmNotificationService?.isActive() || false,
         currentTime: currentTime_formatted,
         currentDate: currentDate_formatted,
         timezone: timezoneManager.getTimezoneDisplay()
@@ -771,7 +816,10 @@ router.get('/config', async (req, res) => {
           enabled: config.wake_up.enabled || false,
           time: config.wake_up.time || '',
           good_morning_delay_minutes: config.wake_up.good_morning_delay_minutes || 15,
-          last_triggered: config.wake_up.last_triggered
+          last_triggered: config.wake_up.last_triggered,
+          wake_mode: config.wake_up.wake_mode || 'pianobar',
+          mp3_track: config.wake_up.mp3_track || '',
+          snooze_minutes: config.wake_up.snooze_minutes || 9
         },
         music: {
           enabled_for_morning: config.music.enabled_for_morning !== undefined ? config.music.enabled_for_morning : true,
@@ -1108,7 +1156,12 @@ router.get('/solar-preview', async (req, res) => {
 router.put('/wake-up', async (req, res) => {
   try {
     const { time, good_morning_delay_minutes } = req.body;
-    
+
+    const soundError = validateWakeUpSound(req.body);
+    if (soundError) {
+      return res.status(400).json({ success: false, error: soundError });
+    }
+
     const { createSchedulerService } = require('../utils/ServiceFactory');
     const schedulerService = createSchedulerService();
     
@@ -1144,14 +1197,18 @@ router.put('/wake-up', async (req, res) => {
     if (good_morning_delay_minutes !== undefined) {
       schedulerService.schedulerConfig.wake_up.good_morning_delay_minutes = good_morning_delay_minutes;
     }
-    
+    const soundChanged = applyWakeUpSound(schedulerService.schedulerConfig.wake_up, req.body);
+
     // Save configuration
     schedulerService.saveSchedulerConfig();
-    
+
     // Reschedule wake up if time was changed
     if (time) {
       schedulerService.clearWakeUpSchedules();
       schedulerService.scheduleWakeUp();
+    } else if (soundChanged) {
+      // Same alarm, new settings: a fresh push (new scheduledAt, same nextAlarm) so the Pi has them now
+      schedulerService.syncWithAlarmDevice().catch(() => {});
     }
     
     logger.info('Wake up settings updated and rescheduled');
@@ -1373,6 +1430,34 @@ router.get('/alarm-device/status', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get alarm device status'
+    });
+  }
+});
+
+/**
+ * What the alarm device can play (relayed from the Pi's /api/wakeup/options)
+ */
+router.get('/alarm-device/wakeup-options', async (req, res) => {
+  try {
+    const alarmNotificationService = container.resolve('alarmNotificationService');
+
+    if (!alarmNotificationService) {
+      return res.status(503).json({
+        success: false,
+        error: 'AlarmNotificationService not available'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: await alarmNotificationService.getWakeupOptions()
+    });
+
+  } catch (error) {
+    logger.error(`Error getting wake-up options: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get wake-up options'
     });
   }
 });

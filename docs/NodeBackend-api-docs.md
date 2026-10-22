@@ -510,20 +510,20 @@ Get scheduler health status and next scene times
 ### [POST] /api/scheduler/wake-up
 **Set wake-up time**
 
-Set wake-up alarm time and reschedule
+Set wake-up alarm time and reschedule. The optional alarm-sound fields (see PUT below) are stored when present and left unchanged when absent.
 
 #### Request Body
 
 | Required | Schema |
 | -------- | ------ |
-|  Yes | **application/json**: { **"time"**: string }<br> |
+|  Yes | **application/json**: { **"time"**: string, **"wake_mode"**: string, **"mp3_track"**: string, **"snooze_minutes"**: integer }<br> |
 
 #### Responses
 
 | Code | Description |
 | ---- | ----------- |
 | 200 | Wake-up time set |
-| 400 | Invalid time format |
+| 400 | Invalid time format, unknown `wake_mode`, or `snooze_minutes` outside 3–15 |
 
 ### [DELETE] /api/scheduler/wake-up
 **Disable wake-up alarm**
@@ -539,24 +539,35 @@ Disable the wake-up alarm
 ### [PUT] /api/scheduler/wake-up
 **Update wake-up settings**
 
-Update wake-up time and good morning delay
+Update wake-up time, good morning delay, and the bedside alarm sound
 
 #### Request Body
 
 | Required | Schema |
 | -------- | ------ |
-|  No | **application/json**: { **"time"**: string, **"good_morning_delay_minutes"**: integer }<br> |
+|  No | **application/json**: { **"time"**: string, **"good_morning_delay_minutes"**: integer, **"wake_mode"**: string, **"mp3_track"**: string, **"snooze_minutes"**: integer }<br> |
+
+Alarm-sound fields (all optional; absent fields are left unchanged):
+
+| Field | Values | Default |
+| ----- | ------ | ------- |
+| `wake_mode` | `pianobar`, `mp3`, `fm`, `shades_only` | `pianobar` |
+| `mp3_track` | a file name from the Pi's `mp3Tracks`; `""` = the Pi's own default | `""` |
+| `snooze_minutes` | whole number, 3–15 | `9` |
+
+Changing only these fields (no `time`) re-pushes the current alarm to the Pi (`schedule_set` with a new `scheduledAt` and the same `nextAlarm`). `shades_only` is never sent to the Pi: Monty runs its wake-up scenes but pushes `schedule_cleared`, on every save and every Pi sync.
 
 #### Responses
 
 | Code | Description |
 | ---- | ----------- |
 | 200 | Wake-up settings updated |
+| 400 | Invalid time, delay, `wake_mode`, or `snooze_minutes` |
 
 ### [GET] /api/scheduler/wake-up/status
 **Get wake-up alarm status**
 
-Get detailed wake-up alarm configuration and next trigger time
+Get detailed wake-up alarm configuration and next trigger time. Includes `wakeMode`, `mp3Track`, `snoozeMinutes`, and `alarmDeviceEnabled` (true when alarm pushes are enabled and a device URL is configured; the frontend shows the alarm-sound controls only then).
 
 #### Responses
 
@@ -696,10 +707,36 @@ Get connectivity status of external alarm device
 | ---- | ----------- |
 | 200 | Alarm device status |
 
+### [GET] /api/scheduler/alarm-device/wakeup-options
+**Get what the alarm device can play**
+
+Relays the Pi's `GET /api/wakeup/options`, so the frontend never needs the Pi's address. Always 200: when the Pi is unreachable, not configured, or too old to have the endpoint (404), `data` is `{ "available": false, "reason": string }`.
+
+Pi response, passed through with `"available": true` added:
+
+```json
+{
+  "modes": {
+    "pianobar": {"available": true,  "label": "Pandora"},
+    "mp3":      {"available": true,  "label": "MP3"},
+    "fm":       {"available": false, "label": "FM radio", "reason": "FM radio isn't built yet"}
+  },
+  "mp3Tracks": ["Beethoven.mp3", "THE_HIT.mp3"],
+  "defaults": {"wakeMode": "pianobar", "mp3Track": "THE_HIT.mp3", "snoozeMinutes": 9},
+  "snoozeMinutes": {"min": 1, "max": 30}
+}
+```
+
+#### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Options (or `available: false` with a reason) |
+
 ### [POST] /api/scheduler/alarm-device/sync
 **Sync with alarm device**
 
-Manually sync current schedule with alarm device
+Manually sync current schedule with alarm device. A `schedule_set` push carries `wakeMode`, `mp3Track` (null = the Pi's default) and `snoozeMinutes`; with `wake_mode: shades_only` the push is `schedule_cleared`.
 
 #### Responses
 

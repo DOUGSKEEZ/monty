@@ -183,8 +183,9 @@ class AlarmNotificationService {
    * Notify alarm device of new wake-up time
    * @param {string} time - Wake-up time in HH:MM format
    * @param {Date} nextAlarmDate - Full date/time of next alarm
+   * @param {Object} wakeUpConfig - scheduler.json wake_up block (source + snooze settings)
    */
-  async notifyWakeUpScheduled(time, nextAlarmDate) {
+  async notifyWakeUpScheduled(time, nextAlarmDate, wakeUpConfig = {}) {
     const scheduleData = {
       action: 'schedule_set',
       schedule: {
@@ -192,7 +193,10 @@ class AlarmNotificationService {
         wakeUpTime: time,
         nextAlarm: nextAlarmDate.toISOString(),
         scheduledAt: new Date().toISOString(),
-        daysUntilAlarm: Math.ceil((nextAlarmDate - new Date()) / (1000 * 60 * 60 * 24))
+        daysUntilAlarm: Math.ceil((nextAlarmDate - new Date()) / (1000 * 60 * 60 * 24)),
+        wakeMode: wakeUpConfig.wake_mode || 'pianobar',
+        mp3Track: wakeUpConfig.mp3_track || null, // null = the Pi's own track
+        snoozeMinutes: wakeUpConfig.snooze_minutes || 9
       }
     };
 
@@ -224,6 +228,31 @@ class AlarmNotificationService {
         message: `Alarm device unreachable: ${error.message}`,
         error: error.code
       };
+    }
+  }
+
+  /**
+   * Ask the alarm device what it can play (sources, MP3 files, defaults).
+   * Never throws: an unreachable or not-yet-updated Pi returns available: false
+   * with a reason, so the wake-up modal can still open.
+   */
+  async getWakeupOptions() {
+    if (!this.isActive()) {
+      return { available: false, reason: 'Alarm device not configured' };
+    }
+
+    try {
+      const response = await axios.get(
+        `${this.alarmDeviceUrl}/api/wakeup/options`,
+        { timeout: 3000 }
+      );
+      return { available: true, ...response.data };
+    } catch (error) {
+      const reason = error.response?.status === 404
+        ? 'The Pi needs an update before it can list its MP3s'
+        : 'Pi unreachable';
+      logger.warn(`Could not fetch wake-up options from alarm device: ${error.message}`);
+      return { available: false, reason };
     }
   }
 

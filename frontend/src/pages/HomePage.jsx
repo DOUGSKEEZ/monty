@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../utils/AppContext';
-import { triggerShadeCommanderScene, checkShadeCommanderHealth } from '../utils/api';
+import { triggerShadeCommanderScene, checkShadeCommanderHealth, schedulerApi } from '../utils/api';
 import AnimatedWeatherIcon from '../components/AnimatedWeatherIcon';
 
 // Detect if user is on iOS or Android
@@ -28,10 +28,21 @@ const IOSShareIcon = () => (
   </svg>
 );
 
+// Bedside alarm Pi sources; the Pi uses its own names (pianobar, not pandora)
+const WAKE_MODE_LABELS = {
+  pianobar: 'Pandora',
+  mp3: 'MP3',
+  fm: 'FM radio',
+  shades_only: 'Shades only (no music)'
+};
+
 function HomePage() {
   const { weather, scheduler, actions, guest } = useAppContext();
   const [showWakeUpModal, setShowWakeUpModal] = useState(false);
   const [wakeUpTime, setWakeUpTime] = useState('07:00');
+  const [wakeSound, setWakeSound] = useState({ wake_mode: 'pianobar', mp3_track: '', snooze_minutes: 9 });
+  const [wakeOptions, setWakeOptions] = useState(null); // the Pi's /api/wakeup/options; null while loading
+  const [isClearingWakeUp, setIsClearingWakeUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [arduinoError, setArduinoError] = useState(null);
   const [lastManualScene, setLastManualScene] = useState(null);
@@ -505,12 +516,48 @@ function HomePage() {
     };
   };
 
+  // Open the homeowner modal pre-filled with the current alarm, and ask the Pi what it can play
+  const openWakeUpModal = async () => {
+    const status = scheduler.wakeUpStatus;
+    if (status?.time) {
+      setWakeUpTime(status.time);
+    }
+    setWakeSound({
+      wake_mode: status?.wakeMode || 'pianobar',
+      mp3_track: status?.mp3Track || '',
+      snooze_minutes: status?.snoozeMinutes || 9
+    });
+    setWakeOptions(null);
+    setShowWakeUpModal(true);
+
+    if (status?.alarmDeviceEnabled) {
+      try {
+        const result = await schedulerApi.getWakeupOptions();
+        setWakeOptions(result.data);
+      } catch {
+        setWakeOptions({ available: false, reason: 'Pi unreachable' });
+      }
+    }
+  };
+
+  // Clear the homeowner wake-up alarm (also tells the bedside Pi)
+  const handleClearWakeUp = async () => {
+    setIsClearingWakeUp(true);
+    const success = await actions.clearWakeUpAlarm();
+    setIsClearingWakeUp(false);
+    if (!success) {
+      alert('Failed to clear alarm. Please try again.');
+    }
+  };
+
   // Handle wake-up time setting
   const handleSetWakeUpTime = async () => {
     setIsSubmitting(true);
-    
+
     try {
-      const success = await actions.setWakeUpTime(wakeUpTime);
+      // Only send the alarm sound when the modal showed it (bedside Pi enabled)
+      const sound = scheduler.wakeUpStatus?.alarmDeviceEnabled ? wakeSound : undefined;
+      const success = await actions.setWakeUpTime(wakeUpTime, sound);
       
       if (success) {
         // Close modal and refresh scheduler data
@@ -956,15 +1003,39 @@ function HomePage() {
                   Monty's Prospect will open to the world
                   <strong> {scheduler.config?.wake_up?.good_morning_delay_minutes || 15} minutes</strong> after this wake up call!
                 </li>
+                {scheduler.wakeUpStatus?.alarmDeviceEnabled && (
+                  scheduler.wakeUpStatus.wakeMode === 'shades_only' ? (
+                    <li>Keep the bedside alarm silent (shades only)</li>
+                  ) : (
+                    <li>
+                      Play <strong>{scheduler.wakeUpStatus.wakeMode === 'mp3' && scheduler.wakeUpStatus.mp3Track
+                        ? scheduler.wakeUpStatus.mp3Track
+                        : WAKE_MODE_LABELS[scheduler.wakeUpStatus.wakeMode] || 'Pandora'}</strong> at the bedside,
+                      snooze <strong>{scheduler.wakeUpStatus.snoozeMinutes} min</strong>
+                    </li>
+                  )
+                )}
               </ul>
             </div>
 
-            <button
-              onClick={() => setShowWakeUpModal(true)}
-              className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-            >
-              Set Wake Up Time
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={openWakeUpModal}
+                className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+              >
+                {scheduler.wakeUpStatus?.enabled ? 'Change Wake Up Time' : 'Set Wake Up Time'}
+              </button>
+
+              {scheduler.wakeUpStatus?.enabled && (
+                <button
+                  onClick={handleClearWakeUp}
+                  disabled={isClearingWakeUp}
+                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm disabled:opacity-50"
+                >
+                  {isClearingWakeUp ? 'Clearing...' : 'Clear Alarm'}
+                </button>
+              )}
+            </div>
 
             {/* Wake-on-LAN for Great Room Media PC */}
             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -1002,7 +1073,7 @@ function HomePage() {
       {/* Wake Up Time Modal - works for both guests and homeowners */}
       {showWakeUpModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-sm mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4 dark:text-white">
               {guest.isGuest ? (
                 <span>{guest.roomEmoji} Set Your Wake Up Time</span>
@@ -1030,6 +1101,95 @@ function HomePage() {
                 className="w-full p-2 border rounded text-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               />
             </div>
+
+            {/* Bedside alarm sound - only when the alarm Pi is enabled */}
+            {!guest.isGuest && scheduler.wakeUpStatus?.alarmDeviceEnabled && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2 dark:text-white">Alarm Sound</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(WAKE_MODE_LABELS).map(([mode, label]) => {
+                      const piMode = wakeOptions?.modes?.[mode];
+                      // FM stays greyed out until the Pi says it's built
+                      const disabled = mode === 'fm' ? piMode?.available !== true : piMode?.available === false;
+                      const selected = wakeSound.wake_mode === mode;
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          aria-pressed={selected}
+                          disabled={disabled}
+                          onClick={() => setWakeSound(prev => ({ ...prev, wake_mode: mode }))}
+                          className={`px-2 py-2 rounded border text-sm ${
+                            selected
+                              ? 'bg-green-500 border-green-500 text-white'
+                              : disabled
+                              ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-500 cursor-not-allowed'
+                              : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:text-white dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {label}
+                          {disabled && (
+                            <span className="block text-xs">{piMode?.reason || 'Coming soon'}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {wakeSound.wake_mode === 'mp3' && (
+                  <div className="mb-4">
+                    {!wakeOptions ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Loading the Pi's MP3s...</p>
+                    ) : wakeOptions.available && wakeOptions.mp3Tracks?.length ? (
+                      <select
+                        value={wakeSound.mp3_track}
+                        onChange={(e) => setWakeSound(prev => ({ ...prev, mp3_track: e.target.value }))}
+                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      >
+                        <option value="">
+                          Pi's default{wakeOptions.defaults?.mp3Track ? ` (${wakeOptions.defaults.mp3Track})` : ''}
+                        </option>
+                        {wakeOptions.mp3Tracks.map(track => (
+                          <option key={track} value={track}>{track}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {wakeOptions.reason || 'No MP3s on the Pi'}. The Pi will play its default track.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {wakeSound.wake_mode === 'shades_only' ? (
+                  <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                    The bedside alarm stays silent. The shades still open on schedule.
+                  </p>
+                ) : (
+                  <div className="mb-4">
+                    <label htmlFor="snooze-minutes" className="block text-sm font-medium mb-2 dark:text-white">
+                      Snooze: {wakeSound.snooze_minutes} min
+                    </label>
+                    <input
+                      id="snooze-minutes"
+                      type="range"
+                      min="3"
+                      max="15"
+                      step="1"
+                      value={wakeSound.snooze_minutes}
+                      onChange={(e) => setWakeSound(prev => ({ ...prev, snooze_minutes: Number(e.target.value) }))}
+                      className="w-full accent-green-500"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>3 min</span>
+                      <span>15 min</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             <div className="flex justify-end space-x-3">
               <button

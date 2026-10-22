@@ -1190,22 +1190,11 @@ class SchedulerService {
         logger.debug(`🔍 [WAKE_UP_DEBUG] - ${name}: ${job ? 'ACTIVE' : 'NULL'}`);
       }
       
-      // Notify alarm device about new wake-up schedule
+      // Notify alarm device about new wake-up schedule (same push as the Pi's sync, incl. Shades only)
       if (this.alarmNotificationService) {
         try {
-          // Calculate the actual alarm date/time
-          const nextAlarmDate = new Date();
-          if (wakeUpMinutesFromMidnight <= currentMinutesFromMidnight) {
-            // Alarm is tomorrow
-            nextAlarmDate.setDate(nextAlarmDate.getDate() + 1);
-          }
-          nextAlarmDate.setHours(hours, minutes, 0, 0);
-          
-          const notificationResult = await this.alarmNotificationService.notifyWakeUpScheduled(
-            wakeUpConfig.time,
-            nextAlarmDate
-          );
-          
+          const notificationResult = await this.syncWithAlarmDevice();
+
           if (notificationResult.success) {
             logger.info('Alarm device notified of new wake-up schedule');
           } else {
@@ -1465,7 +1454,10 @@ class SchedulerService {
       enabled: false,
       time: null,
       last_triggered: null,
-      good_morning_delay_minutes: 15
+      good_morning_delay_minutes: 15,
+      wake_mode: 'pianobar',
+      mp3_track: '',
+      snooze_minutes: 9
     };
   }
 
@@ -2053,8 +2045,9 @@ class SchedulerService {
     }
     
     const wakeUpConfig = this.getWakeUpConfig();
-    
-    if (wakeUpConfig.enabled && wakeUpConfig.time) {
+
+    // Shades only: Monty still runs the wake-up scenes, but the Pi is told there's no alarm
+    if (wakeUpConfig.enabled && wakeUpConfig.time && wakeUpConfig.wake_mode !== 'shades_only') {
       // Calculate next alarm date/time
       const [hours, minutes] = wakeUpConfig.time.split(':').map(Number);
       const now = new Date();
@@ -2074,7 +2067,8 @@ class SchedulerService {
       
       return await this.alarmNotificationService.notifyWakeUpScheduled(
         wakeUpConfig.time,
-        nextAlarmDate
+        nextAlarmDate,
+        wakeUpConfig
       );
     } else {
       return await this.alarmNotificationService.notifyScheduleCleared();

@@ -140,14 +140,22 @@ export const schedulerApi = {
   /**
    * Set wake-up time
    * @param {string} time - Time in HH:MM format (24-hour)
+   * @param {Object} [sound] - Optional { wake_mode, mp3_track, snooze_minutes } for the bedside Pi
    * @returns {Promise<Object>} - Result
    */
-  setWakeUpTime: (time) => 
+  setWakeUpTime: (time, sound = {}) =>
     fetchApi('/scheduler/wake-up', {
       method: 'POST',
-      body: JSON.stringify({ time }),
+      body: JSON.stringify({ time, ...sound }),
     }),
-  
+
+  /**
+   * What the bedside alarm Pi can play (relayed by the backend)
+   * @returns {Promise<Object>} - { available, modes, mp3Tracks, defaults } or { available: false, reason }
+   */
+  getWakeupOptions: () =>
+    fetchApi('/scheduler/alarm-device/wakeup-options'),
+
   /**
    * Disable wake up alarm
    * @returns {Promise<Object>} - Result

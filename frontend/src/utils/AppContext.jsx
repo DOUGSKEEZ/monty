@@ -551,11 +551,11 @@ export const AppProvider = ({ children }) => {
   };
 
   // Set wake-up time
-  const setWakeUpTime = async (time) => {
-    console.log('Setting wake up time:', time);
-    
+  const setWakeUpTime = async (time, sound) => {
+    console.log('Setting wake up time:', time, sound);
+
     try {
-      const result = await schedulerApi.setWakeUpTime(time);
+      const result = await schedulerApi.setWakeUpTime(time, sound);
       
       if (result.success) {
         console.log('Wake up time set successfully:', result.message);
