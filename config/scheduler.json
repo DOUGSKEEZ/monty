@@ -7,18 +7,21 @@
     "good_afternoon_time": "13:45",
     "good_evening_offset_minutes": -33,
     "good_night_timing": "civil_twilight_end",
-    "good_night_offset_minutes": -9
+    "good_night_offset_minutes": -2
   },
   "wake_up": {
-    "enabled": false,
-    "time": "08:00",
-    "last_triggered": "2026-09-23T14:00:00.032Z",
-    "good_morning_delay_minutes": 5
+    "enabled": true,
+    "time": "07:45",
+    "last_triggered": null,
+    "good_morning_delay_minutes": 20,
+    "wake_mode": "mp3",
+    "mp3_track": "Kenny Loggins - I'm Alright.mp3",
+    "snooze_minutes": 7
   },
   "guest_alarms": {
     "guestroom1": {
       "enabled": false,
-      "time": "08:00",
+      "time": "07:00",
       "last_triggered": null
     },
     "guestroom2": {
@@ -45,6 +48,94 @@
       "raise_lead_minutes": 2,
       "default_ridge_altitude_deg": 3,
       "horizon_profile": [
+        {
+          "azimuth": 251.3,
+          "altitude": 7.7,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-17T23:37:00.000Z"
+        },
+        {
+          "azimuth": 251.9,
+          "altitude": 8.1,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-15T23:38:00.000Z"
+        },
+        {
+          "azimuth": 252.3,
+          "altitude": 8.2,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-14T23:39:00.000Z"
+        },
+        {
+          "azimuth": 253.2,
+          "altitude": 8.5,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-12T23:41:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 255,
+          "altitude": 8.7,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-08T23:46:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 256.8,
+          "altitude": 9,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-04T23:51:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 258.1,
+          "altitude": 8.7,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-02T23:56:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 259.3,
+          "altitude": 7.9,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-02T00:02:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 260.5,
+          "altitude": 7.1,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-10-01T00:08:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 262.2,
+          "altitude": 6.4,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-09-29T00:15:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 263.5,
+          "altitude": 6.6,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-09-26T00:19:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 264.2,
+          "altitude": 7,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-09-24T00:20:00.000Z",
+          "guess": true
+        },
+        {
+          "azimuth": 264.5,
+          "altitude": 7.9,
+          "calibratedFrom": "gone",
+          "observedAt": "2026-09-22T00:19:00.000Z",
+          "guess": true
+        },
         {
           "azimuth": 265.1,
           "altitude": 7.8,
