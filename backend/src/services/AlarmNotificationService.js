@@ -196,7 +196,9 @@ class AlarmNotificationService {
         daysUntilAlarm: Math.ceil((nextAlarmDate - new Date()) / (1000 * 60 * 60 * 24)),
         wakeMode: wakeUpConfig.wake_mode || 'pianobar',
         mp3Track: wakeUpConfig.mp3_track || null, // null = the Pi's own track
-        snoozeMinutes: wakeUpConfig.snooze_minutes || 9
+        snoozeMinutes: wakeUpConfig.snooze_minutes || 9,
+        radioStation: wakeUpConfig.radio_station || null, // null = the Pi's own station
+        pandoraStation: wakeUpConfig.pandora_station || null
       }
     };
 

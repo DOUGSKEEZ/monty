@@ -1457,7 +1457,9 @@ class SchedulerService {
       good_morning_delay_minutes: 15,
       wake_mode: 'pianobar',
       mp3_track: '',
-      snooze_minutes: 9
+      snooze_minutes: 9,
+      radio_station: '',
+      pandora_station: ''
     };
   }
 

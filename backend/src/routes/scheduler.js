@@ -178,7 +178,7 @@ const WAKE_MODES = ['pianobar', 'mp3', 'fm', 'shades_only'];
  * Validate the optional alarm-sound fields of a wake-up request body
  * @returns {string|null} error message, or null when valid
  */
-function validateWakeUpSound({ wake_mode, mp3_track, snooze_minutes }) {
+function validateWakeUpSound({ wake_mode, mp3_track, snooze_minutes, radio_station, pandora_station }) {
   if (wake_mode !== undefined && !WAKE_MODES.includes(wake_mode)) {
     return `wake_mode must be one of: ${WAKE_MODES.join(', ')}`;
   }
@@ -187,6 +187,13 @@ function validateWakeUpSound({ wake_mode, mp3_track, snooze_minutes }) {
   }
   if (snooze_minutes !== undefined && !(Number.isInteger(snooze_minutes) && snooze_minutes >= 3 && snooze_minutes <= 15)) {
     return 'snooze_minutes must be a whole number from 3 to 15';
+  }
+  // Station ids come from the Pi's list, so only the shape is checked here. Pandora ids must stay
+  // strings: they're 17-18 digits, and a JSON number has already been rounded to a different station.
+  for (const [key, value] of Object.entries({ radio_station, pandora_station })) {
+    if (value !== undefined && !(typeof value === 'string' && value.length <= 32)) {
+      return `${key} must be a station id string (up to 32 characters)`;
+    }
   }
   return null;
 }
@@ -198,7 +205,7 @@ function validateWakeUpSound({ wake_mode, mp3_track, snooze_minutes }) {
  */
 function applyWakeUpSound(wakeUp, body) {
   let changed = false;
-  for (const key of ['wake_mode', 'mp3_track', 'snooze_minutes']) {
+  for (const key of ['wake_mode', 'mp3_track', 'snooze_minutes', 'radio_station', 'pandora_station']) {
     if (body[key] !== undefined) {
       wakeUp[key] = body[key];
       changed = true;
@@ -382,6 +389,8 @@ router.get('/wake-up/status', async (req, res) => {
         wakeMode: wakeUpConfig.wake_mode || 'pianobar',
         mp3Track: wakeUpConfig.mp3_track || '',
         snoozeMinutes: wakeUpConfig.snooze_minutes || 9,
+        radioStation: wakeUpConfig.radio_station || '',
+        pandoraStation: wakeUpConfig.pandora_station || '',
         alarmDeviceEnabled: schedulerService.alarmNotificationService?.isActive() || false,
         currentTime: currentTime_formatted,
         currentDate: currentDate_formatted,
@@ -819,7 +828,9 @@ router.get('/config', async (req, res) => {
           last_triggered: config.wake_up.last_triggered,
           wake_mode: config.wake_up.wake_mode || 'pianobar',
           mp3_track: config.wake_up.mp3_track || '',
-          snooze_minutes: config.wake_up.snooze_minutes || 9
+          snooze_minutes: config.wake_up.snooze_minutes || 9,
+          radio_station: config.wake_up.radio_station || '',
+          pandora_station: config.wake_up.pandora_station || ''
         },
         music: {
           enabled_for_morning: config.music.enabled_for_morning !== undefined ? config.music.enabled_for_morning : true,

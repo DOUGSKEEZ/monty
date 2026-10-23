@@ -516,14 +516,14 @@ Set wake-up alarm time and reschedule. The optional alarm-sound fields (see PUT 
 
 | Required | Schema |
 | -------- | ------ |
-|  Yes | **application/json**: { **"time"**: string, **"wake_mode"**: string, **"mp3_track"**: string, **"snooze_minutes"**: integer }<br> |
+|  Yes | **application/json**: { **"time"**: string, **"wake_mode"**: string, **"mp3_track"**: string, **"snooze_minutes"**: integer, **"radio_station"**: string, **"pandora_station"**: string }<br> |
 
 #### Responses
 
 | Code | Description |
 | ---- | ----------- |
 | 200 | Wake-up time set |
-| 400 | Invalid time format, unknown `wake_mode`, or `snooze_minutes` outside 3–15 |
+| 400 | Invalid time format, unknown `wake_mode`, `snooze_minutes` outside 3–15, or a station that isn't a string of up to 32 characters |
 
 ### [DELETE] /api/scheduler/wake-up
 **Disable wake-up alarm**
@@ -545,7 +545,7 @@ Update wake-up time, good morning delay, and the bedside alarm sound
 
 | Required | Schema |
 | -------- | ------ |
-|  No | **application/json**: { **"time"**: string, **"good_morning_delay_minutes"**: integer, **"wake_mode"**: string, **"mp3_track"**: string, **"snooze_minutes"**: integer }<br> |
+|  No | **application/json**: { **"time"**: string, **"good_morning_delay_minutes"**: integer, **"wake_mode"**: string, **"mp3_track"**: string, **"snooze_minutes"**: integer, **"radio_station"**: string, **"pandora_station"**: string }<br> |
 
 Alarm-sound fields (all optional; absent fields are left unchanged):
 
@@ -554,6 +554,10 @@ Alarm-sound fields (all optional; absent fields are left unchanged):
 | `wake_mode` | `pianobar`, `mp3`, `fm`, `shades_only` | `pianobar` |
 | `mp3_track` | a file name from the Pi's `mp3Tracks`; `""` = the Pi's own default | `""` |
 | `snooze_minutes` | whole number, 3–15 | `9` |
+| `radio_station` | an `id` from the Pi's `radioStations` (played when `wake_mode` is `fm`); `""` = the Pi's own station | `""` |
+| `pandora_station` | an `id` from the Pi's `pandoraStations` (played when `wake_mode` is `pianobar`); `""` = the Pi's own station | `""` |
+
+Station ids aren't checked against a list on Monty, because the Pi owns its station lists (an unknown id is logged and dropped by the Pi). They must be JSON strings of up to 32 characters. Pandora ids are 17–18 digits, more than a JavaScript number holds exactly (`124999081062853712` becomes `124999081062853700`, a different station), so a numeric `pandora_station` is rejected rather than converted.
 
 Changing only these fields (no `time`) re-pushes the current alarm to the Pi (`schedule_set` with a new `scheduledAt` and the same `nextAlarm`). `shades_only` is never sent to the Pi: Monty runs its wake-up scenes but pushes `schedule_cleared`, on every save and every Pi sync.
 
@@ -562,12 +566,12 @@ Changing only these fields (no `time`) re-pushes the current alarm to the Pi (`s
 | Code | Description |
 | ---- | ----------- |
 | 200 | Wake-up settings updated |
-| 400 | Invalid time, delay, `wake_mode`, or `snooze_minutes` |
+| 400 | Invalid time, delay, `wake_mode`, `snooze_minutes`, or station |
 
 ### [GET] /api/scheduler/wake-up/status
 **Get wake-up alarm status**
 
-Get detailed wake-up alarm configuration and next trigger time. Includes `wakeMode`, `mp3Track`, `snoozeMinutes`, and `alarmDeviceEnabled` (true when alarm pushes are enabled and a device URL is configured; the frontend shows the alarm-sound controls only then).
+Get detailed wake-up alarm configuration and next trigger time. Includes `wakeMode`, `mp3Track`, `snoozeMinutes`, `radioStation`, `pandoraStation` (`""` = the Pi's own choice), and `alarmDeviceEnabled` (true when alarm pushes are enabled and a device URL is configured; the frontend shows the alarm-sound controls only then).
 
 #### Responses
 
@@ -719,16 +723,27 @@ Pi response, passed through with `"available": true` added:
   "modes": {
     "pianobar": {"available": true,  "label": "Pandora"},
     "mp3":      {"available": true,  "label": "MP3"},
-    "fm":       {"available": false, "label": "FM radio", "reason": "FM radio isn't built yet"}
+    "fm":       {"available": true,  "label": "FM radio"}
   },
   "mp3Tracks": ["Beethoven.mp3", "THE_HIT.mp3"],
-  "defaults": {"wakeMode": "pianobar", "mp3Track": "THE_HIT.mp3", "snoozeMinutes": 9},
+  "radioStations": [
+    {"id": "krystal93", "name": "Krystal 93", "frequency": "93.9", "group": "Local",     "via": "internet"},
+    {"id": "klos",      "name": "KLOS",       "frequency": "95.5", "group": "Nostalgia", "via": "internet"}
+  ],
+  "pandoraStations": [
+    {"id": "104370043902517433", "name": "Morning Hits Radio"},
+    {"id": "124999081062853712", "name": "Morning Metal Radio"}
+  ],
+  "defaults": {"wakeMode": "pianobar", "mp3Track": "THE_HIT.mp3", "snoozeMinutes": 9,
+               "radioStation": "krystal93", "pandoraStation": "104370043902517433"},
   "snoozeMinutes": {"min": 1, "max": 30},
   "fetchesFromMonty": true
 }
 ```
 
 `fetchesFromMonty` (optional): the Pi downloads an `mp3Track` it doesn't have from Monty (`GET /api/jukebox/library/:filename/file`). The wake-up modal lists Monty's Jukebox library only when this is true; otherwise it lists `mp3Tracks` alone.
+
+A mode the Pi can't play has `"available": false` and a `reason`; the modal greys it out. `radioStations` (FM) and `pandoraStations` are the Pi's lists, in its order; the modal shows each as a Station dropdown under its source, FM grouped under each station's `group` heading. `via` is `"internet"` (a stream) or, later, `"fm"` (the tuner board). The lists are shortened above.
 
 #### Responses
 
@@ -739,7 +754,7 @@ Pi response, passed through with `"available": true` added:
 ### [POST] /api/scheduler/alarm-device/sync
 **Sync with alarm device**
 
-Manually sync current schedule with alarm device. A `schedule_set` push carries `wakeMode`, `mp3Track` (null = the Pi's default) and `snoozeMinutes`; with `wake_mode: shades_only` the push is `schedule_cleared`.
+Manually sync current schedule with alarm device. A `schedule_set` push carries `wakeMode`, `mp3Track`, `radioStation`, `pandoraStation` (each null = the Pi's default) and `snoozeMinutes`; with `wake_mode: shades_only` the push is `schedule_cleared`.
 
 #### Responses
 

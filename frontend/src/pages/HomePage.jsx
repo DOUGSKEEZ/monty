@@ -48,7 +48,9 @@ function HomePage() {
   const { weather, scheduler, actions, guest } = useAppContext();
   const [showWakeUpModal, setShowWakeUpModal] = useState(false);
   const [wakeUpTime, setWakeUpTime] = useState('07:00');
-  const [wakeSound, setWakeSound] = useState({ wake_mode: 'pianobar', mp3_track: '', snooze_minutes: 9 });
+  const [wakeSound, setWakeSound] = useState({
+    wake_mode: 'pianobar', mp3_track: '', snooze_minutes: 9, radio_station: '', pandora_station: ''
+  });
   const [wakeOptions, setWakeOptions] = useState(null); // the Pi's /api/wakeup/options; null while loading
   const [montyTracks, setMontyTracks] = useState([]); // Jukebox library, offered once the Pi can fetch from Monty
   const [isClearingWakeUp, setIsClearingWakeUp] = useState(false);
@@ -79,6 +81,14 @@ function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guest.isGuest, guest.room]);
+
+  // The alarm card names the bedside station, so fetch the Pi's lists up front (the modal refetches on open)
+  const alarmDeviceEnabled = scheduler.wakeUpStatus?.alarmDeviceEnabled;
+  useEffect(() => {
+    if (alarmDeviceEnabled) {
+      schedulerApi.getWakeupOptions().then(result => setWakeOptions(result.data)).catch(() => {});
+    }
+  }, [alarmDeviceEnabled]);
 
   // Master bedroom guest (guest0) shares the homeowner wake-up alarm; other guests get their room's alarm
   const guestAlarmUrl = guest.sharesHomeAlarm
@@ -534,7 +544,9 @@ function HomePage() {
     setWakeSound({
       wake_mode: status?.wakeMode || 'pianobar',
       mp3_track: status?.mp3Track || '',
-      snooze_minutes: status?.snoozeMinutes || 9
+      snooze_minutes: status?.snoozeMinutes || 9,
+      radio_station: status?.radioStation || '',
+      pandora_station: status?.pandoraStation || ''
     });
     setWakeOptions(null);
     setMontyTracks([]);
@@ -564,6 +576,56 @@ function HomePage() {
       {track === wakeOptions?.defaults?.mp3Track ? `${trackName(track)} (default)` : trackName(track)}
     </option>
   );
+
+  // Station dropdown rows: Pandora's list is flat; FM keeps the Pi's group headings, in the Pi's order
+  const pandoraStations = wakeOptions?.pandoraStations || [];
+  const radioGroups = [];
+  for (const station of wakeOptions?.radioStations || []) {
+    const group = radioGroups.find(g => g.label === station.group);
+    if (group) group.stations.push(station);
+    else radioGroups.push({ label: station.group, stations: [station] });
+  }
+  const stationOption = (station, defaultId) => (
+    <option key={station.id} value={station.id}>
+      {[station.name, station.frequency].filter(Boolean).join(' · ') + (station.id === defaultId ? ' (default)' : '')}
+    </option>
+  );
+
+  // Monty stores only the station id, so when the Pi can't list its stations the saved one is simply kept
+  const stationPicker = (field, label, hasStations, defaultId, options) => (
+    <div className="mb-4">
+      {!wakeOptions ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading the Pi's stations...</p>
+      ) : hasStations ? (
+        <select
+          aria-label={label}
+          value={wakeSound[field] || defaultId || ''}
+          onChange={(e) => setWakeSound(prev => ({ ...prev, [field]: e.target.value }))}
+          className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        >
+          {options}
+        </select>
+      ) : (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {wakeOptions.reason || 'The Pi has no stations listed'}.{' '}
+          {wakeSound[field] ? 'Your saved station stays.' : 'The Pi will play its default station.'}
+        </p>
+      )}
+    </div>
+  );
+
+  // Station the next alarm will play: the saved one while the Pi lists it, else the Pi's default
+  // (the Pi drops an id it doesn't know). Null until the Pi has answered.
+  const nextStationName = (mode) => {
+    const status = scheduler.wakeUpStatus;
+    const [stations, saved, fallback] = mode === 'fm'
+      ? [wakeOptions?.radioStations, status?.radioStation, wakeOptions?.defaults?.radioStation]
+      : [wakeOptions?.pandoraStations, status?.pandoraStation, wakeOptions?.defaults?.pandoraStation];
+    const station = stations?.find(s => s.id === saved) || stations?.find(s => s.id === fallback);
+    return station ? [station.name, station.frequency].filter(Boolean).join(' · ') : null;
+  };
+  const cardWakeMode = scheduler.wakeUpStatus?.wakeMode;
+  const cardStation = cardWakeMode === 'pianobar' || cardWakeMode === 'fm' ? nextStationName(cardWakeMode) : null;
 
   // Clear the homeowner wake-up alarm (also tells the bedside Pi)
   const handleClearWakeUp = async () => {
@@ -1035,7 +1097,12 @@ function HomePage() {
                     <li>
                       Play <strong>{scheduler.wakeUpStatus.wakeMode === 'mp3' && scheduler.wakeUpStatus.mp3Track
                         ? trackName(scheduler.wakeUpStatus.mp3Track)
-                        : WAKE_MODE_LABELS[scheduler.wakeUpStatus.wakeMode] || 'Pandora'}</strong> at the bedside,
+                        : WAKE_MODE_LABELS[scheduler.wakeUpStatus.wakeMode] || 'Pandora'}</strong>
+                      {cardStation && (
+                        <span className="ml-1 px-2 py-0.5 rounded-full text-xs whitespace-nowrap bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200">
+                          {cardStation}
+                        </span>
+                      )} at the bedside,
                       snooze <strong>{scheduler.wakeUpStatus.snoozeMinutes} min</strong>
                     </li>
                   )
@@ -1135,8 +1202,8 @@ function HomePage() {
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(WAKE_MODE_LABELS).map(([mode, label]) => {
                       const piMode = wakeOptions?.modes?.[mode];
-                      // FM stays greyed out until the Pi says it's built
-                      const disabled = mode === 'fm' ? piMode?.available !== true : piMode?.available === false;
+                      // Greyed out only when the Pi says so; an unreachable Pi still lets every source be saved
+                      const disabled = piMode?.available === false;
                       const selected = wakeSound.wake_mode === mode;
                       const subtitle = disabled ? (piMode?.reason || 'Coming soon') : WAKE_MODE_SUBTITLES[mode];
                       return (
@@ -1185,6 +1252,20 @@ function HomePage() {
                       </p>
                     )}
                   </div>
+                )}
+
+                {wakeSound.wake_mode === 'pianobar' && stationPicker(
+                  'pandora_station', 'Pandora station', pandoraStations.length > 0, wakeOptions?.defaults?.pandoraStation,
+                  pandoraStations.map(station => stationOption(station, wakeOptions?.defaults?.pandoraStation))
+                )}
+
+                {wakeSound.wake_mode === 'fm' && stationPicker(
+                  'radio_station', 'Radio station', radioGroups.length > 0, wakeOptions?.defaults?.radioStation,
+                  radioGroups.map(group => (
+                    <optgroup key={group.label} label={group.label || 'Stations'}>
+                      {group.stations.map(station => stationOption(station, wakeOptions?.defaults?.radioStation))}
+                    </optgroup>
+                  ))
                 )}
 
                 {wakeSound.wake_mode === 'shades_only' ? (
