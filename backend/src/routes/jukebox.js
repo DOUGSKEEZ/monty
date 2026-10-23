@@ -380,6 +380,28 @@ router.get('/artwork', (req, res) => {
 });
 
 /**
+ * GET /api/jukebox/library/:filename/file
+ * Download a library MP3 (the bedside alarm Pi copies its alarm songs from here)
+ */
+router.get('/library/:filename/file', (req, res) => {
+  const { filename } = req.params;
+  const libraryPath = path.join(process.env.HOME || '/home/monty', 'Music');
+
+  // Security: a bare .mp3 name directly inside the library (Express has already decoded %2F)
+  const resolvedPath = path.resolve(libraryPath, filename);
+  if (path.basename(filename) !== filename || !filename.endsWith('.mp3') ||
+      path.dirname(resolvedPath) !== libraryPath) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+
+  if (fs.existsSync(resolvedPath)) {
+    res.sendFile(resolvedPath);
+  } else {
+    res.status(404).json({ error: 'Track not found' });
+  }
+});
+
+/**
  * POST /api/jukebox/save
  * Save a YouTube track to the library (background download)
  * Body: { youtubeId, artist, title }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../utils/AppContext';
-import { triggerShadeCommanderScene, checkShadeCommanderHealth, schedulerApi } from '../utils/api';
+import { triggerShadeCommanderScene, checkShadeCommanderHealth, schedulerApi, jukeboxApi } from '../utils/api';
 import AnimatedWeatherIcon from '../components/AnimatedWeatherIcon';
 
 // Detect if user is on iOS or Android
@@ -33,8 +33,16 @@ const WAKE_MODE_LABELS = {
   pianobar: 'Pandora',
   mp3: 'MP3',
   fm: 'FM radio',
-  shades_only: 'Shades only (no music)'
+  shades_only: 'Shades only'
 };
+
+// Second line under a source button (an unavailable source shows the Pi's reason instead)
+const WAKE_MODE_SUBTITLES = {
+  shades_only: '(no music)'
+};
+
+// Song name for display: library files are all .mp3, so the extension is noise
+const trackName = (filename) => filename.replace(/\.mp3$/i, '');
 
 function HomePage() {
   const { weather, scheduler, actions, guest } = useAppContext();
@@ -42,6 +50,7 @@ function HomePage() {
   const [wakeUpTime, setWakeUpTime] = useState('07:00');
   const [wakeSound, setWakeSound] = useState({ wake_mode: 'pianobar', mp3_track: '', snooze_minutes: 9 });
   const [wakeOptions, setWakeOptions] = useState(null); // the Pi's /api/wakeup/options; null while loading
+  const [montyTracks, setMontyTracks] = useState([]); // Jukebox library, offered once the Pi can fetch from Monty
   const [isClearingWakeUp, setIsClearingWakeUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [arduinoError, setArduinoError] = useState(null);
@@ -528,17 +537,33 @@ function HomePage() {
       snooze_minutes: status?.snoozeMinutes || 9
     });
     setWakeOptions(null);
+    setMontyTracks([]);
     setShowWakeUpModal(true);
 
     if (status?.alarmDeviceEnabled) {
       try {
         const result = await schedulerApi.getWakeupOptions();
         setWakeOptions(result.data);
+
+        // The Pi copies Monty's songs ahead of time, so only offer them once it says it can
+        if (result.data.fetchesFromMonty) {
+          const library = await jukeboxApi.getLibrary();
+          setMontyTracks(library.tracks.map(track => track.filename).sort((a, b) => a.localeCompare(b)));
+        }
       } catch {
-        setWakeOptions({ available: false, reason: 'Pi unreachable' });
+        setWakeOptions(prev => prev || { available: false, reason: 'Pi unreachable' });
       }
     }
   };
+
+  // MP3 dropdown rows: the Pi's own tracks, then Monty's songs it doesn't have yet
+  const piTracks = wakeOptions?.mp3Tracks || [];
+  const montyOnlyTracks = montyTracks.filter(track => !piTracks.includes(track));
+  const trackOption = (track) => (
+    <option key={track} value={track}>
+      {track === wakeOptions?.defaults?.mp3Track ? `${trackName(track)} (default)` : trackName(track)}
+    </option>
+  );
 
   // Clear the homeowner wake-up alarm (also tells the bedside Pi)
   const handleClearWakeUp = async () => {
@@ -1009,7 +1034,7 @@ function HomePage() {
                   ) : (
                     <li>
                       Play <strong>{scheduler.wakeUpStatus.wakeMode === 'mp3' && scheduler.wakeUpStatus.mp3Track
-                        ? scheduler.wakeUpStatus.mp3Track
+                        ? trackName(scheduler.wakeUpStatus.mp3Track)
                         : WAKE_MODE_LABELS[scheduler.wakeUpStatus.wakeMode] || 'Pandora'}</strong> at the bedside,
                       snooze <strong>{scheduler.wakeUpStatus.snoozeMinutes} min</strong>
                     </li>
@@ -1113,6 +1138,7 @@ function HomePage() {
                       // FM stays greyed out until the Pi says it's built
                       const disabled = mode === 'fm' ? piMode?.available !== true : piMode?.available === false;
                       const selected = wakeSound.wake_mode === mode;
+                      const subtitle = disabled ? (piMode?.reason || 'Coming soon') : WAKE_MODE_SUBTITLES[mode];
                       return (
                         <button
                           key={mode}
@@ -1129,9 +1155,7 @@ function HomePage() {
                           }`}
                         >
                           {label}
-                          {disabled && (
-                            <span className="block text-xs">{piMode?.reason || 'Coming soon'}</span>
-                          )}
+                          {subtitle && <span className="block text-xs">{subtitle}</span>}
                         </button>
                       );
                     })}
@@ -1144,16 +1168,16 @@ function HomePage() {
                       <p className="text-sm text-gray-500 dark:text-gray-400">Loading the Pi's MP3s...</p>
                     ) : wakeOptions.available && wakeOptions.mp3Tracks?.length ? (
                       <select
-                        value={wakeSound.mp3_track}
+                        value={wakeSound.mp3_track || wakeOptions.defaults?.mp3Track || ''}
                         onChange={(e) => setWakeSound(prev => ({ ...prev, mp3_track: e.target.value }))}
                         className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                       >
-                        <option value="">
-                          Pi's default{wakeOptions.defaults?.mp3Track ? ` (${wakeOptions.defaults.mp3Track})` : ''}
-                        </option>
-                        {wakeOptions.mp3Tracks.map(track => (
-                          <option key={track} value={track}>{track}</option>
-                        ))}
+                        {montyOnlyTracks.length ? (
+                          <>
+                            <optgroup label="On the Pi">{piTracks.map(trackOption)}</optgroup>
+                            <optgroup label="Monty's library">{montyOnlyTracks.map(trackOption)}</optgroup>
+                          </>
+                        ) : piTracks.map(trackOption)}
                       </select>
                     ) : (
                       <p className="text-sm text-gray-500 dark:text-gray-400">

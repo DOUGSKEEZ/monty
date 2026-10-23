@@ -723,9 +723,12 @@ Pi response, passed through with `"available": true` added:
   },
   "mp3Tracks": ["Beethoven.mp3", "THE_HIT.mp3"],
   "defaults": {"wakeMode": "pianobar", "mp3Track": "THE_HIT.mp3", "snoozeMinutes": 9},
-  "snoozeMinutes": {"min": 1, "max": 30}
+  "snoozeMinutes": {"min": 1, "max": 30},
+  "fetchesFromMonty": true
 }
 ```
+
+`fetchesFromMonty` (optional): the Pi downloads an `mp3Track` it doesn't have from Monty (`GET /api/jukebox/library/:filename/file`). The wake-up modal lists Monty's Jukebox library only when this is true; otherwise it lists `mp3Tracks` alone.
 
 #### Responses
 
@@ -1155,6 +1158,29 @@ Change station mode (e.g., Artist Only Radio, Song Radio, etc.)
 | 200 | Mode changed |
 
 ---
+## Jukebox
+
+Only the route used by the bedside alarm Pi is documented here so far.
+
+### [GET] /api/jukebox/library/{filename}/file
+**Download a library MP3**
+
+Sends one MP3 from Monty's Jukebox library (`~/Music`). The bedside alarm Pi uses it to copy the chosen alarm song ahead of time. URL-encode the name: library names contain spaces and apostrophes.
+
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| filename | path | Bare `.mp3` file name, as listed by `GET /api/jukebox/library` | Yes | string |
+
+#### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | The MP3 (`audio/mpeg`, supports Range requests) |
+| 400 | Not a bare `.mp3` name inside the library (path separators, `..`, other extensions) |
+| 404 | No such file in the library |
+
 ## State
 Application state persistence
 
