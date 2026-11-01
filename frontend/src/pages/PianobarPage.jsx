@@ -293,6 +293,14 @@ function PianobarPage() {
           }
 
           // ============================================
+          // BLUETOOTH: live link state (sent on connect + on every change)
+          // ============================================
+          if (data.type === 'bluetooth') {
+            actions.setBluetoothLinkState(data.data);
+            return;
+          }
+
+          // ============================================
           // JUKEBOX MESSAGES (source === 'jukebox')
           // ============================================
           if (source === 'jukebox') {
@@ -1214,8 +1222,19 @@ function PianobarPage() {
                   <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
                 </svg>
               </button>
-            ) : bluetooth.connectionInProgress ? (
-              /* Connecting state - flashing yellow */
+            ) : bluetooth.isConnected && (bluetooth.connectionInProgress || bluetooth.linkState === 'finishing') ? (
+              /* Audio ready but the connect is still wrapping up - solid blue, not clickable yet */
+              <button
+                className="p-3 rounded-full bg-blue-500 cursor-wait"
+                disabled={true}
+                title="Speakers ready - finishing connection"
+              >
+                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                </svg>
+              </button>
+            ) : bluetooth.connectionInProgress || bluetooth.linkState === 'connecting' ? (
+              /* Connecting state - flashing yellow (this browser's click, or any connect/recovery on the server) */
               <button 
                 className="p-3 rounded-full bg-yellow-400 animate-bluetooth-flash"
                 disabled={true}
@@ -1292,9 +1311,16 @@ function PianobarPage() {
           <div className="bg-amber-50 dark:bg-amber-900 border border-amber-200 dark:border-amber-700 rounded p-3 mb-4">
             {bluetooth.connectionInProgress && !bluetooth.disconnecting && (
               <>
-                <p className="text-amber-700 dark:text-amber-200 animate-pulse mb-2">
-                  ⚠️ The Fives speakers pair from a sleep mode - this process may take up to 30 seconds
-                </p>
+                {bluetooth.isConnected ? (
+                  /* Audio is ready ('finishing'); bt-connect.sh is still wrapping up */
+                  <p className="text-green-700 dark:text-green-300 mb-2">
+                    🎵 Speakers ready - finishing hi-fi connection, almost done (5-10 more seconds)
+                  </p>
+                ) : (
+                  <p className="text-amber-700 dark:text-amber-200 animate-pulse mb-2">
+                    ⚠️ The Fives speakers pair from a sleep mode - this process may take up to 30 seconds
+                  </p>
+                )}
                 
                 {/* Progress Bar (Connecting Only) */}
                 <div className="flex items-center mb-2">

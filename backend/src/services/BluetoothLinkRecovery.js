@@ -43,13 +43,15 @@ class BluetoothLinkRecovery {
    * @param {Function} deps.connect - Reconnect via bt-connect.sh; resolves { success }
    * @param {Function} deps.hasSink - Resolves true when the speaker's bluez sink exists
    * @param {Function} deps.recordEvent - Records an event for the link-health toast
+   * @param {Function} [deps.onRunningChange] - Called when a recovery starts or ends
    */
-  constructor({ deviceMac, adapterMac, connect, hasSink, recordEvent }) {
+  constructor({ deviceMac, adapterMac, connect, hasSink, recordEvent, onRunningChange = () => {} }) {
     this.deviceMac = deviceMac;
     this.adapterMac = adapterMac;
     this.connect = connect;
     this.hasSink = hasSink;
     this.recordEvent = recordEvent;
+    this.onRunningChange = onRunningChange;
 
     this.running = false;
     this.failedInARow = 0;
@@ -75,6 +77,7 @@ class BluetoothLinkRecovery {
     if (trigger === 'auto' && (this.failedInARow >= MAX_FAILED_AUTO || Date.now() < this.autoHoldUntil)) return;
 
     this.running = true;
+    this.onRunningChange();
     logger.warn(`Bluetooth link stuck (${reason}, ${trigger}) - recovering`);
     try {
       // A reversal that comes back soon after a rung-1 fix goes straight to rung 2
@@ -91,6 +94,7 @@ class BluetoothLinkRecovery {
       this._finish(false, reason, trigger, null);
     } finally {
       this.running = false;
+      this.onRunningChange();
     }
   }
 

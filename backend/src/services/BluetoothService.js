@@ -14,6 +14,7 @@ const logger = require('../utils/logger').getModuleLogger('bluetooth-service');
 const prometheusMetrics = require('./PrometheusMetricsService');
 const BluetoothLinkMonitor = require('./BluetoothLinkMonitor');
 const BluetoothLinkRecovery = require('./BluetoothLinkRecovery');
+const BluetoothLinkState = require('./BluetoothLinkState');
 
 class BluetoothService extends IBluetoothService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog) {
@@ -51,7 +52,13 @@ class BluetoothService extends IBluetoothService {
       adapterMac: this.configManager.get('music.bluetoothAdapterMac', 'E0:D3:62:EA:29:10'),
       connect: () => this.connect(false, { fromRecovery: true }),
       hasSink: async () => ((await this._resolveBluezSink()) || '').includes(this.bluetoothDevice.replace(/:/g, '_')),
-      recordEvent: (event) => this.linkMonitor.recordEvent(event)
+      recordEvent: (event) => this.linkMonitor.recordEvent(event),
+      onRunningChange: () => this.linkState.refresh()
+    });
+
+    // Live link state for the UI button (pushed over the Pianobar WebSocket)
+    this.linkState = new BluetoothLinkState(this.bluetoothDevice, {
+      isConnecting: () => this.connectionInProgress || this.linkRecovery.inProgress
     });
 
     // Link monitor: falls back from aptX HD to SBC when the link can't keep up,
@@ -98,6 +105,25 @@ class BluetoothService extends IBluetoothService {
     }
 
     this.linkMonitor.start();
+    this.linkState.start();
+  }
+
+  // Every connect start/finish refreshes the live link state (many return paths reset this flag)
+  get connectionInProgress() {
+    return this._connectionInProgress;
+  }
+
+  set connectionInProgress(value) {
+    const changed = this._connectionInProgress !== value;
+    this._connectionInProgress = value;
+    if (changed && this.linkState) this.linkState.refresh();
+  }
+
+  /**
+   * Live link state { state, since } for the UI (also sent to new WebSocket clients)
+   */
+  getLinkState() {
+    return this.linkState.get();
   }
 
   /**
@@ -321,6 +347,16 @@ class BluetoothService extends IBluetoothService {
    * Disconnect from the Bluetooth device
    */
   async disconnect() {
+    // A disconnect mid-connect makes bt-connect.sh fail with exit 2, which the
+    // stuck-link recovery would then "fix" by reconnecting - refuse it instead
+    if (this.connectionInProgress || this.linkRecovery.inProgress) {
+      return {
+        success: false,
+        message: 'Bluetooth is still connecting - try again in a moment',
+        error: 'CONNECTION_IN_PROGRESS'
+      };
+    }
+
     return this.retryHelper.retryOperation(
       async () => {
         try {
@@ -417,6 +453,7 @@ class BluetoothService extends IBluetoothService {
             isConnected: connected,
             isAudioReady: audioReady,
             audioSinkExists: audioSinkExists,
+            linkState: this.linkState.get().state,
             message: connected ? 
               (audioReady ? 'Connected to Bluetooth speakers with audio ready' : 'Connected to Bluetooth speakers but audio not fully ready') : 
               'Not connected to Bluetooth speakers',

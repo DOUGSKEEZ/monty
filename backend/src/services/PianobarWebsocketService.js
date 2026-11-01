@@ -96,7 +96,8 @@ class PianobarWebsocketService {
       // Send current status immediately to the new client
       // But first verify it's accurate by reading fresh status from file
       this.sendFreshStatusToClient(ws);
-      
+      this.sendBluetoothStateToClient(ws);
+
       // Message handling (ping/pong, jukebox progress subscriptions)
       ws.on('message', (message) => {
         try {
@@ -510,6 +511,20 @@ class PianobarWebsocketService {
         // Remove bad clients
         this.clients.delete(client);
       }
+    }
+  }
+
+  /**
+   * Send the live Bluetooth link state to a newly connected client, so the
+   * Bluetooth button is right immediately on page load or navigation
+   * @param {WebSocket} client - The client to send data to
+   */
+  sendBluetoothStateToClient(client) {
+    try {
+      const { createBluetoothService } = require('../utils/ServiceFactory');
+      client.send(JSON.stringify({ type: 'bluetooth', data: createBluetoothService().getLinkState() }));
+    } catch (error) {
+      logger.debug(`Could not send Bluetooth state to client: ${error.message}`);
     }
   }
 

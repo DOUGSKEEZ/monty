@@ -4,6 +4,9 @@ import { weatherApi, shadesApi, schedulerApi, musicApi, bluetoothApi, pianobarAp
 // Create context
 const AppContext = createContext();
 
+// Bluetooth link states where the speaker's audio output exists (music can play)
+const AUDIO_READY_STATES = ['finishing', 'connected'];
+
 // Custom hook for using the context. Kept beside the provider (20 files import it
 // from here); the only cost is a full reload instead of fast refresh in dev.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -111,6 +114,7 @@ export const AppProvider = ({ children }) => {
     isAudioReady: false,
     connectionInProgress: false,
     disconnecting: false, // Add specific flag for disconnecting state
+    linkState: null, // Live from the backend: 'connecting' | 'finishing' (audio ready, still wrapping up) | 'connected' | 'disconnected'
     loading: true,
     error: null,
   });
@@ -308,7 +312,7 @@ export const AppProvider = ({ children }) => {
       // Background polling only when idle (not connecting or disconnecting)
       bluetoothInterval = setInterval(() => {
         loadBluetoothStatus(false);
-      }, 15000); // Reduced polling frequency to every 15 seconds when idle
+      }, 60000); // Safety net only - live changes arrive over the Pianobar WebSocket ('bluetooth' messages)
       
       console.log('Setting up background Bluetooth polling');
     } else {
@@ -713,7 +717,8 @@ export const AppProvider = ({ children }) => {
         setBluetooth(prev => ({
           ...prev,
           // Only update connection status, not operation flags
-          isConnected: statusRes.isConnected,
+          isConnected: statusRes.linkState ? AUDIO_READY_STATES.includes(statusRes.linkState) : statusRes.isConnected,
+          linkState: statusRes.linkState ?? null,
           isAudioReady: statusRes.isAudioReady,
           loading: false,
           // Keep existing operation flags
@@ -726,7 +731,9 @@ export const AppProvider = ({ children }) => {
         setBluetooth(prev => ({
           ...prev,
           status: statusRes,
-          isConnected: statusRes.isConnected,
+          // Same definition as the live pushes: connected = speaker audio output exists
+          isConnected: statusRes.linkState ? AUDIO_READY_STATES.includes(statusRes.linkState) : statusRes.isConnected,
+          linkState: statusRes.linkState ?? null,
           isAudioReady: statusRes.isAudioReady,
           // Only update these flags if we're not in an operation
           connectionInProgress: false,
@@ -755,6 +762,17 @@ export const AppProvider = ({ children }) => {
   };
   
   // Connect to Bluetooth
+  // Live Bluetooth link state pushed over the Pianobar WebSocket (backend BluetoothLinkState).
+  // isConnected = the speaker's audio output exists ('finishing' or 'connected') - the button's blue.
+  const setBluetoothLinkState = (linkState) => {
+    setBluetooth(prev => ({
+      ...prev,
+      linkState: linkState.state,
+      isConnected: AUDIO_READY_STATES.includes(linkState.state),
+      lastUpdated: Date.now()
+    }));
+  };
+
   const connectBluetooth = async (forceWakeup = false) => {
     try {
       console.log('AppContext.connectBluetooth called with forceWakeup:', forceWakeup);
@@ -1396,6 +1414,7 @@ export const AppProvider = ({ children }) => {
     controlPianobar,
     connectBluetooth,
     disconnectBluetooth,
+    setBluetoothLinkState,
     updatePianobarStatus,
     updatePianobarStations,
     toggleFestiveMode,
