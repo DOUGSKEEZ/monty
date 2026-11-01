@@ -8,6 +8,11 @@ SPEAKER_NAME="Klipsch The Fives"
 # handles BLE sensor scanning and may be BlueZ's "default" controller, so we
 # pin ALL speaker bluetoothctl ops to the dongle by MAC to avoid the wrong radio.
 CONTROLLER_MAC="E0:D3:62:EA:29:10"
+# A2DP Sink = the speaker's playback side (Monty -> speaker). The Fives also
+# offers A2DP Source, so a plain "connect" (all profiles) can fall through to the
+# reverse direction (speaker -> Monty: "connected" but silent) when the forward
+# one is stuck "busy" - seen Oct 31 2026 after a speaker power-cycle.
+A2DP_SINK_UUID="0000110b-0000-1000-8000-00805f9b34fb"
 MAX_ATTEMPTS=12
 ATTEMPT_WAIT=3
 EXPECTED_READY_TIME=24  # Expected seconds until audio sink is ready
@@ -25,6 +30,21 @@ debug_log() {
 # not whatever BlueZ currently treats as "default" (the onboard scanning radio).
 btctl() {
   { echo "select $CONTROLLER_MAC"; sleep 0.2; echo "$*"; sleep 0.4; echo "quit"; } | bluetoothctl 2>/dev/null
+}
+
+# Connect ONLY the A2DP Sink profile on the dongle (bluetoothctl 5.72's connect
+# can't take a profile, so use BlueZ's D-Bus ConnectProfile). hci numbers shuffle
+# across reboots, so resolve the dongle's hciN from its MAC.
+connect_playback() {
+  local hci
+  hci=$(hciconfig | awk -v mac="$CONTROLLER_MAC" '/^hci/{h=$1; sub(":","",h)} $0 ~ "BD Address: " mac {print h; exit}')
+  if [ -z "$hci" ]; then
+    echo "Bluetooth dongle $CONTROLLER_MAC not found"
+    return 1
+  fi
+  dbus-send --system --print-reply --reply-timeout=20000 --dest=org.bluez \
+    "/org/bluez/$hci/dev_${SPEAKER_MAC//:/_}" org.bluez.Device1.ConnectProfile string:$A2DP_SINK_UUID 2>&1 \
+    | grep -E "method return|Error" | sed 's/^.*Error/Error/'
 }
 
 # Function to initialize Bluetooth subsystems
@@ -70,7 +90,7 @@ wakeup_speakers() {
   # Send direct connection attempts (even if they fail, they help wake the device)
   echo "Sending wake-up signals to speakers..."
   for i in {1..3}; do
-    btctl connect $SPEAKER_MAC > /dev/null
+    connect_playback > /dev/null
     sleep 5
   done
   
@@ -240,8 +260,8 @@ attempt_connection() {
   while [ $attempt -le $max_connection_attempts ]; do
     echo "Attempting to connect to speakers... (attempt $attempt/$max_connection_attempts)"
     
-    # Attempt the connection
-    btctl connect $SPEAKER_MAC
+    # Attempt the connection (playback direction only)
+    connect_playback
     
     # Wait for connection to establish
     sleep $CONNECTION_WAIT
