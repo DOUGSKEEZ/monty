@@ -1,8 +1,11 @@
 [Unit]
 Description=Govee H5100 BLE Reader (writes data/govee_readings.json for Monty)
-After=bluetooth.target network-online.target
+After=bluetooth.target bluetooth.service network-online.target
 Wants=network-online.target
 Requires=bluetooth.target
+# Restart with bluetoothd: a bluetoothd restart otherwise leaves the reader
+# "active" but no longer scanning (readings silently freeze).
+PartOf=bluetooth.service
 
 [Service]
 Type=simple

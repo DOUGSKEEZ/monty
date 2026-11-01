@@ -1,0 +1,17 @@
+// Let the Monty backend (user "monty") restart bluetoothd - and nothing else.
+// Used by BluetoothService's stuck-link recovery: after a speaker power-cycle,
+// BlueZ can be left holding an AVDTP request that will never be answered, and
+// only a bluetoothd restart clears it (Oct 31 2026). The backend runs with
+// NoNewPrivileges=true, so sudo is blocked; polkit authorizes the request
+// inside systemd instead. systemd fills in "unit" and "verb" itself.
+//
+// Install: sudo install -m 644 config/50-monty-bluetooth-restart.rules /etc/polkit-1/rules.d/
+// (polkitd reloads rules automatically; check `journalctl -u polkit -n 5` for errors)
+polkit.addRule(function(action, subject) {
+  if (action.id == "org.freedesktop.systemd1.manage-units" &&
+      action.lookup("unit") == "bluetooth.service" &&
+      action.lookup("verb") == "restart" &&
+      subject.user == "monty") {
+    return polkit.Result.YES;
+  }
+});
