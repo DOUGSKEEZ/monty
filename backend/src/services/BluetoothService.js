@@ -13,6 +13,7 @@ const IBluetoothService = require('../interfaces/IBluetoothService');
 const logger = require('../utils/logger').getModuleLogger('bluetooth-service');
 const prometheusMetrics = require('./PrometheusMetricsService');
 const BluetoothLinkMonitor = require('./BluetoothLinkMonitor');
+const BluetoothLinkRecovery = require('./BluetoothLinkRecovery');
 
 class BluetoothService extends IBluetoothService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog) {
@@ -44,8 +45,21 @@ class BluetoothService extends IBluetoothService {
     this.keepaliveSupervisor = null;
     this.keepaliveSupervisorIntervalMs = 30 * 1000;
 
-    // Link monitor: falls back from aptX HD to SBC when the link can't keep up
-    this.linkMonitor = new BluetoothLinkMonitor(this.bluetoothDevice);
+    // Link recovery: unsticks a reversed/silent speaker link (swap direction, then restart bluetoothd)
+    this.linkRecovery = new BluetoothLinkRecovery({
+      deviceMac: this.bluetoothDevice,
+      adapterMac: this.configManager.get('music.bluetoothAdapterMac', 'E0:D3:62:EA:29:10'),
+      connect: () => this.connect(false, { fromRecovery: true }),
+      hasSink: async () => ((await this._resolveBluezSink()) || '').includes(this.bluetoothDevice.replace(/:/g, '_')),
+      recordEvent: (event) => this.linkMonitor.recordEvent(event)
+    });
+
+    // Link monitor: falls back from aptX HD to SBC when the link can't keep up,
+    // and hands a stuck link (reversed or silent) to the recovery above
+    this.linkMonitor = new BluetoothLinkMonitor(this.bluetoothDevice, {
+      onStuck: (reason) => { this.linkRecovery.recover(reason, 'auto').catch(() => {}); },
+      isBusy: () => this.connectionInProgress || this.linkRecovery.inProgress
+    });
 
     // Register with ServiceRegistry
     this.serviceRegistry.register('BluetoothService', {
@@ -153,7 +167,7 @@ class BluetoothService extends IBluetoothService {
    * Connect to the Bluetooth device
    * @param {boolean} forceWakeup - Whether to force a wake-up sequence
    */
-  async connect(forceWakeup = false) {
+  async connect(forceWakeup = false, { fromRecovery = false } = {}) {
     // Prevent multiple simultaneous connection attempts
     if (this.connectionInProgress) {
       return {
@@ -163,9 +177,18 @@ class BluetoothService extends IBluetoothService {
       };
     }
 
+    // Don't run bt-connect.sh while recovery may be restarting bluetoothd
+    if (this.linkRecovery.inProgress && !fromRecovery) {
+      return {
+        success: false,
+        message: 'Monty is resetting Bluetooth - reconnecting in about a minute',
+        error: 'RECOVERY_IN_PROGRESS'
+      };
+    }
+
     // Prevent rapid connection attempts (minimum 10 seconds between attempts)
     const now = Date.now();
-    if (now - this.lastConnectionAttempt < 10000) {
+    if (!fromRecovery && now - this.lastConnectionAttempt < 10000) {
       return {
         success: false,
         message: 'Connection attempt too soon after previous attempt',
@@ -208,7 +231,8 @@ class BluetoothService extends IBluetoothService {
           if (success || partialSuccess) {
             this.isConnected = true;
             this.isAudioReady = success;
-            
+            this.linkRecovery.noteConnected();
+
             prometheusMetrics.recordOperation('bluetooth-connect', true);
             prometheusMetrics.setServiceHealth('BluetoothService', 'ok');
 
@@ -260,6 +284,18 @@ class BluetoothService extends IBluetoothService {
           prometheusMetrics.setServiceHealth('BluetoothService', 'error');
 
           this.connectionInProgress = false;
+
+          // Exit 2 = speaker reachable but no audio sink (stuck/reversed link).
+          // Exit 1 = speaker unreachable (off) - a bluetoothd restart can't fix that.
+          if (error.code === 2 && !fromRecovery) {
+            this.linkRecovery.recover('connect-failed', 'user').catch(() => {});
+            return {
+              success: false,
+              message: 'Speakers connected without audio - Monty is resetting Bluetooth and will reconnect in about a minute',
+              error: 'RECOVERING'
+            };
+          }
+
           return {
             success: false,
             message: 'Error connecting to Bluetooth speakers',
@@ -905,10 +941,10 @@ class BluetoothService extends IBluetoothService {
   }
 
   /**
-   * Recent aptX -> SBC fallbacks from the link monitor (drives the frontend toast)
+   * Recent link events (codec fallbacks, stuck-link recoveries) for the frontend toast
    */
   getLinkHealth() {
-    return this.linkMonitor.getLinkHealth();
+    return { ...this.linkMonitor.getLinkHealth(), recovering: this.linkRecovery.inProgress };
   }
 
   /**

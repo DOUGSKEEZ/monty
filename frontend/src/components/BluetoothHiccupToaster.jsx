@@ -2,14 +2,19 @@ import { useEffect } from 'react';
 import { bluetoothApi } from '../utils/api';
 import { useAppContext } from '../utils/AppContext';
 
-// Backend BluetoothLinkMonitor drops aptX HD to SBC when the link can't keep up.
-// Steps are ordered on purpose: power-cycling the speakers while still connected
-// can leave them connected backwards (no sound) - disconnect first.
-const TOAST = 'Monty switched the speakers to standard quality to keep the music smooth. ' +
-  'For hi-fi again: disconnect Bluetooth in Monty, power-cycle the speakers, let them boot, then reconnect.';
+// Backend link events: BluetoothLinkMonitor drops aptX HD to SBC when the link can't
+// keep up; BluetoothLinkRecovery unsticks a reversed/silent link.
+// Manual steps are ordered on purpose: power-cycling the speakers while still
+// connected can leave them connected backwards (no sound) - disconnect first.
+const MANUAL_STEPS = 'disconnect Bluetooth in Monty, power-cycle the speakers, let them boot, then reconnect.';
+const TOASTS = {
+  'codec-fallback': `Monty switched the speakers to standard quality to keep the music smooth. For hi-fi again: ${MANUAL_STEPS}`,
+  recovered: 'Bluetooth got stuck, so Monty reset the connection to the speakers. Music should be back.',
+  'recovery-failed': `Monty couldn't fix Bluetooth on its own. To get music back: ${MANUAL_STEPS}`
+};
 const SEEN_KEY = 'monty_bt_hiccups_seen';
 
-/** App-wide: toasts today's not-yet-seen Bluetooth codec fallbacks (polls every minute). */
+/** App-wide: toasts the newest of today's not-yet-seen Bluetooth link events (polls every minute). */
 export default function BluetoothHiccupToaster() {
   const { actions } = useAppContext();
 
@@ -24,8 +29,9 @@ export default function BluetoothHiccupToaster() {
           new Date(e.timestamp).toDateString() === todayStr && new Date(e.timestamp).getTime() > seen
         );
         if (fresh.length === 0) return;
-        actions.showToast('monty-bt', TOAST, 20000); // one toast even if several fallbacks
-        try { localStorage.setItem(SEEN_KEY, String(new Date(fresh[fresh.length - 1].timestamp).getTime())); } catch { /* ignore */ }
+        const newest = fresh[fresh.length - 1]; // one toast: the latest state is what matters
+        actions.showToast('monty-bt', TOASTS[newest.type] || TOASTS['codec-fallback'], 20000);
+        try { localStorage.setItem(SEEN_KEY, String(new Date(newest.timestamp).getTime())); } catch { /* ignore */ }
       } catch { /* backend unreachable — try again next poll */ }
     };
     check();

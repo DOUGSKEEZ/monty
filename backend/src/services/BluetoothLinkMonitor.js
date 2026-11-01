@@ -13,6 +13,13 @@
  * Deliberately one-way: it never promotes back to aptX HD (each switch garbles
  * audio for 5-10s). A fresh connection brings aptX HD back on its own.
  *
+ * When there is no speaker sink at all, it also detects a stuck link and hands
+ * it to onStuck (BluetoothLinkRecovery):
+ *   - 'reversed': a speaker -> Monty source exists. Never wanted, and in 80 days
+ *     of logs it only appeared during the Oct 31 bug, so act on first sighting.
+ *   - 'silent': link up with no sink and no source on 2 checks in a row (one
+ *     check could land in the normal gap between link-up and sink-up).
+ *
  * Owned by BluetoothService - not registered separately, since its lifecycle is
  * the connection's. The journal (logger.warn) is the durable history.
  */
@@ -33,6 +40,7 @@ const SAMPLE_SECONDS = 6;
 const WINDOW_HISTORY = 3;
 const BAD_WINDOWS_TO_ACT = 2;
 const CHECK_INTERVAL_MS = 30 * 1000;
+const SILENT_CHECKS_TO_ACT = 2;
 const MAX_EVENTS = 10;
 const EXEC_OPTS = { timeout: 5000 };
 
@@ -41,8 +49,15 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 class BluetoothLinkMonitor {
   /**
    * @param {string} deviceMac - Speaker MAC, e.g. '54:B7:E5:87:7B:73'
+   * @param {Object} [hooks]
+   * @param {Function} [hooks.onStuck] - Called with 'reversed' | 'silent'
+   * @param {Function} [hooks.isBusy] - True while a connect or recovery is running
    */
-  constructor(deviceMac) {
+  constructor(deviceMac, { onStuck = null, isBusy = () => false } = {}) {
+    this.deviceMac = deviceMac;
+    this.onStuck = onStuck;
+    this.isBusy = isBusy;
+    this.silentChecks = 0;
     this.macUnderscored = deviceMac.replace(/:/g, '_');
     this.cardPath = `/card/bluez_card.${this.macUnderscored}/bluez`;
 
@@ -81,6 +96,13 @@ class BluetoothLinkMonitor {
   }
 
   /**
+   * Record a link event (codec-fallback | recovered | recovery-failed) for the toast.
+   */
+  recordEvent(event) {
+    this.events = [...this.events, { timestamp: new Date().toISOString(), ...event }].slice(-MAX_EVENTS);
+  }
+
+  /**
    * One monitoring pass. Skips unless the sink is RUNNING on aptX, and skips the
    * first pass after any reconnect/codec change so the stream can settle.
    * @private
@@ -90,7 +112,14 @@ class BluetoothLinkMonitor {
     this.checking = true;
     try {
       const sink = await this._readSink();
-      if (!sink || sink.state !== 'RUNNING' || !MONITORED_CODECS[sink.codec]) {
+      if (!sink) {
+        this.windows = [];
+        this.settled = false;
+        await this._checkStuck();
+        return;
+      }
+      this.silentChecks = 0;
+      if (sink.state !== 'RUNNING' || !MONITORED_CODECS[sink.codec] || !sink.rate || !sink.hci) {
         this.windows = [];
         this.settled = false;
         return;
@@ -133,7 +162,41 @@ class BluetoothLinkMonitor {
   }
 
   /**
+   * No speaker sink: is the link reversed, or up but silent?
+   * @private
+   */
+  async _checkStuck() {
+    if (!this.onStuck || this.isBusy()) {
+      this.silentChecks = 0;
+      return;
+    }
+    if (await this._sourcePresent()) {
+      this.silentChecks = 0;
+      this.onStuck('reversed');
+      return;
+    }
+    this.silentChecks = (await this._linkUp()) ? this.silentChecks + 1 : 0;
+    if (this.silentChecks >= SILENT_CHECKS_TO_ACT) {
+      this.silentChecks = 0;
+      this.onStuck('silent');
+    }
+  }
+
+  /** A speaker -> Monty capture source means the link came up reversed. @private */
+  async _sourcePresent() {
+    const { stdout } = await execPromise('pactl list short sources', EXEC_OPTS);
+    return stdout.includes(`bluez_source.${this.macUnderscored}`);
+  }
+
+  /** @private */
+  async _linkUp() {
+    const { stdout } = await execPromise('hcitool con', EXEC_OPTS);
+    return stdout.includes(this.deviceMac);
+  }
+
+  /**
    * Read the speaker's bluez sink: state, sample rate, codec, and which hciN carries it.
+   * Null only when there is no sink; unparsed fields come back undefined.
    * @private
    */
   async _readSink() {
@@ -146,7 +209,6 @@ class BluetoothLinkMonitor {
     const rate = Number((block.match(/Sample Specification:.*?(\d+)Hz/) || [])[1]);
     const codec = (block.match(/bluetooth\.codec = "([^"]+)"/) || [])[1];
     const hci = (block.match(/bluez\.path = "\/org\/bluez\/(hci\d+)\//) || [])[1];
-    if (!index || !state || !rate || !codec || !hci) return null;
     return { index, state, rate, codec, hci };
   }
 
@@ -205,18 +267,18 @@ class BluetoothLinkMonitor {
       return;
     }
 
-    const event = {
-      timestamp: new Date().toISOString(),
+    const expected = Math.round(expectedKbps);
+    this.recordEvent({
+      type: 'codec-fallback',
       fromCodec: sink.codec,
       toCodec: 'sbc',
-      expectedKbps: Math.round(expectedKbps),
+      expectedKbps: expected,
       samplesKbps: samples,
       hci: sink.hci,
       role
-    };
-    this.events = [...this.events, event].slice(-MAX_EVENTS);
+    });
     prometheusMetrics.recordOperation('bluetooth-codec-downgrade', true);
-    logger.warn(`Bluetooth link couldn't keep up with ${sink.codec} (needs ~${event.expectedKbps} kbps, ` +
+    logger.warn(`Bluetooth link couldn't keep up with ${sink.codec} (needs ~${expected} kbps, ` +
       `sent ${samples.join(' ')} kbps on ${sink.hci}, link role ${role}) - switched to SBC`);
   }
 }
