@@ -134,6 +134,16 @@ router.get('/keep-connected', async (req, res) => {
   }
 });
 
+// Link health: recent aptX -> SBC fallbacks (polled by the frontend hiccup toast)
+router.get('/link-health', (req, res) => {
+  try {
+    res.json({ success: true, ...getBluetoothService().getLinkHealth() });
+  } catch (error) {
+    logger.error(`Error reading link health: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Set the "keep Bluetooth connected" preference
 router.post('/keep-connected', async (req, res) => {
   try {

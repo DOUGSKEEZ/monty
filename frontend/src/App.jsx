@@ -17,6 +17,7 @@ import useSwipeNav from './utils/useSwipeNav';
 const CamerasPage = lazy(() => import('./pages/CamerasPage'));
 import Toast from './components/shared/Toast';
 import { InterventionToaster } from './components/WeatherInterventions';
+import BluetoothHiccupToaster from './components/BluetoothHiccupToaster';
 
 // Inner component that can access theme context for dark mode
 function AppContent() {
@@ -57,9 +58,10 @@ function AppContent() {
         </Routes>
       </main>
       <Footer />
-      {/* App-wide toasts (Jukebox + Monty's weather interventions) */}
+      {/* App-wide toasts (Jukebox + Monty's weather interventions + Bluetooth fallbacks) */}
       <Toast />
       <InterventionToaster />
+      <BluetoothHiccupToaster />
     </div>
   );
 }

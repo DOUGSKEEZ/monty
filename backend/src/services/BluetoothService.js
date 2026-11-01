@@ -12,6 +12,7 @@ const execPromise = util.promisify(exec);
 const IBluetoothService = require('../interfaces/IBluetoothService');
 const logger = require('../utils/logger').getModuleLogger('bluetooth-service');
 const prometheusMetrics = require('./PrometheusMetricsService');
+const BluetoothLinkMonitor = require('./BluetoothLinkMonitor');
 
 class BluetoothService extends IBluetoothService {
   constructor(configManager, retryHelper, circuitBreaker, serviceRegistry, serviceWatchdog) {
@@ -42,6 +43,9 @@ class BluetoothService extends IBluetoothService {
     this.keepaliveProcess = null;
     this.keepaliveSupervisor = null;
     this.keepaliveSupervisorIntervalMs = 30 * 1000;
+
+    // Link monitor: falls back from aptX HD to SBC when the link can't keep up
+    this.linkMonitor = new BluetoothLinkMonitor(this.bluetoothDevice);
 
     // Register with ServiceRegistry
     this.serviceRegistry.register('BluetoothService', {
@@ -78,6 +82,8 @@ class BluetoothService extends IBluetoothService {
     if (this._keepConnectedEnabled()) {
       this._startKeepaliveSupervisor();
     }
+
+    this.linkMonitor.start();
   }
 
   /**
@@ -896,6 +902,13 @@ class BluetoothService extends IBluetoothService {
     }
 
     return { success: true, keepConnected: on };
+  }
+
+  /**
+   * Recent aptX -> SBC fallbacks from the link monitor (drives the frontend toast)
+   */
+  getLinkHealth() {
+    return this.linkMonitor.getLinkHealth();
   }
 
   /**

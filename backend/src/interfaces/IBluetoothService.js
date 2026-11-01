@@ -53,6 +53,14 @@ class IBluetoothService {
   async getDiagnostics() {
     throw new Error('Method not implemented: getDiagnostics');
   }
+
+  /**
+   * Get link health: recent codec fallbacks and the currently monitored stream
+   * @returns {Object} { monitoring, current, events }
+   */
+  getLinkHealth() {
+    throw new Error('Method not implemented: getLinkHealth');
+  }
 }
 
 module.exports = IBluetoothService;

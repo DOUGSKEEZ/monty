@@ -11,18 +11,26 @@ import { useAppContext } from '../../utils/AppContext';
  * Types: 'success' (green), 'error' (red), 'info' (blue) — mobile: just below
  * the navbar; desktop: bottom-right.
  *
- * 'monty-cloud' / 'monty-sun' — Monty's weather interventions: a larger, tinted
- * glass card with the owl. Mobile: centered on screen; desktop: bottom-right.
+ * 'monty-cloud' / 'monty-sun' — Monty's weather interventions, 'monty-bt' — a
+ * Bluetooth codec fallback: a larger, tinted glass card with the owl.
+ * Mobile: centered on screen; desktop: bottom-right.
  */
 
 const MONTY_STYLES = {
   'monty-cloud': {
+    title: 'Weather Intervention',
     card: 'from-sky-100/90 via-white/90 to-indigo-100/90 border-sky-300 text-slate-800 dark:from-sky-900/80 dark:via-gray-800/90 dark:to-indigo-900/80 dark:border-sky-700 dark:text-sky-50',
     label: 'text-sky-600 dark:text-sky-300'
   },
   'monty-sun': {
+    title: 'Weather Intervention',
     card: 'from-amber-100/90 via-white/90 to-orange-100/90 border-amber-300 text-amber-950 dark:from-amber-900/80 dark:via-gray-800/90 dark:to-orange-900/80 dark:border-amber-700 dark:text-amber-50',
     label: 'text-amber-600 dark:text-amber-300'
+  },
+  'monty-bt': {
+    title: 'Bluetooth Hiccup',
+    card: 'from-violet-100/90 via-white/90 to-blue-100/90 border-violet-300 text-slate-800 dark:from-violet-900/80 dark:via-gray-800/90 dark:to-blue-900/80 dark:border-violet-700 dark:text-violet-50',
+    label: 'text-violet-600 dark:text-violet-300'
   }
 };
 
@@ -35,7 +43,7 @@ function MontyToast({ toast, onDismiss }) {
     >
       <span className="text-4xl flex-shrink-0 animate-monty-owl">🦉</span>
       <div className="flex-1">
-        <div className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${style.label}`}>Weather Intervention</div>
+        <div className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${style.label}`}>{style.title}</div>
         <p className="text-base sm:text-lg font-semibold leading-snug">{toast.message}</p>
       </div>
     </div>

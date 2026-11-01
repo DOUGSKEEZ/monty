@@ -357,6 +357,13 @@ export const bluetoothApi = {
     fetchApi('/bluetooth/diagnostics'),
 
   /**
+   * Get link health: recent aptX -> SBC fallbacks
+   * @returns {Promise<Object>} - { success, monitoring, current, events }
+   */
+  getLinkHealth: () =>
+    fetchApi('/bluetooth/link-health', {}, true),
+
+  /**
    * Get the "keep Bluetooth connected" preference
    * @returns {Promise<Object>} - { success, keepConnected }
    */
