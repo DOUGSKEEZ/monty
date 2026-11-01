@@ -1,9 +1,18 @@
 #!/bin/bash
+#
+# Bluetooth speaker control for Monty (called by backend BluetoothService).
+#
+# `connect` exit codes - a contract BluetoothService acts on:
+#   0 = speaker audio ready (its PulseAudio sink exists)
+#   1 = speaker unreachable (asleep, off, or out of range) - a reset can't help
+#   2 = stuck: BlueZ answered "busy", or the playback profile connected but no
+#       audio sink ever appeared - the backend's stuck-link recovery takes over
 
 ACTION=$1
 DEBUG_FLAG=$2
 SPEAKER_MAC="54:B7:E5:87:7B:73"
 SPEAKER_NAME="Klipsch The Fives"
+SPEAKER_SINK="bluez_sink.${SPEAKER_MAC//:/_}"
 # The speaker is paired on the TP-Link UB500 dongle. A 2nd (onboard) radio
 # handles BLE sensor scanning and may be BlueZ's "default" controller, so we
 # pin ALL speaker bluetoothctl ops to the dongle by MAC to avoid the wrong radio.
@@ -13,11 +22,9 @@ CONTROLLER_MAC="E0:D3:62:EA:29:10"
 # reverse direction (speaker -> Monty: "connected" but silent) when the forward
 # one is stuck "busy" - seen Oct 31 2026 after a speaker power-cycle.
 A2DP_SINK_UUID="0000110b-0000-1000-8000-00805f9b34fb"
-MAX_ATTEMPTS=12
-ATTEMPT_WAIT=3
-EXPECTED_READY_TIME=24  # Expected seconds until audio sink is ready
-GRACE_PERIOD=3          # Grace period after sink appears before declaring success
-CONNECTION_WAIT=8       # Time to wait after connection attempt before checking
+CONNECT_ATTEMPTS=2
+SINK_TIMEOUT=36   # Seconds to wait for the audio sink after the profile connects
+SINK_SETTLE=2     # Sink must be seen this many seconds in a row before "ready"
 
 # Function to log debug info if debug flag is set
 debug_log() {
@@ -35,104 +42,75 @@ btctl() {
 # Connect ONLY the A2DP Sink profile on the dongle (bluetoothctl 5.72's connect
 # can't take a profile, so use BlueZ's D-Bus ConnectProfile). hci numbers shuffle
 # across reboots, so resolve the dongle's hciN from its MAC.
+# Returns 0 = connected, 2 = BlueZ busy (stuck), 1 = anything else (asleep/off/unreachable)
 connect_playback() {
-  local hci
+  local hci out
   hci=$(hciconfig | awk -v mac="$CONTROLLER_MAC" '/^hci/{h=$1; sub(":","",h)} $0 ~ "BD Address: " mac {print h; exit}')
   if [ -z "$hci" ]; then
     echo "Bluetooth dongle $CONTROLLER_MAC not found"
     return 1
   fi
-  dbus-send --system --print-reply --reply-timeout=20000 --dest=org.bluez \
-    "/org/bluez/$hci/dev_${SPEAKER_MAC//:/_}" org.bluez.Device1.ConnectProfile string:$A2DP_SINK_UUID 2>&1 \
-    | grep -E "method return|Error" | sed 's/^.*Error/Error/'
+  out=$(dbus-send --system --print-reply --reply-timeout=20000 --dest=org.bluez \
+    "/org/bluez/$hci/dev_${SPEAKER_MAC//:/_}" org.bluez.Device1.ConnectProfile string:$A2DP_SINK_UUID 2>&1)
+  if echo "$out" | grep -qE "method return|AlreadyConnected"; then
+    return 0
+  fi
+  echo "ConnectProfile failed: $(echo "$out" | grep -o 'Error.*' | head -1)"
+  if echo "$out" | grep -qi "busy"; then
+    return 2
+  fi
+  return 1
 }
 
-# Function to initialize Bluetooth subsystems
-initialize_bluetooth() {
-  echo "Initializing Bluetooth subsystems..."
-  
-  # Ensure PulseAudio is running
-  sudo killall pulseaudio || true
-  sleep 1
-  sudo pulseaudio --system --daemonize
-  sleep 2
+# One line for the logs on failure: is there any link to the speaker, and is it
+# classic (ACL - can carry audio) or LE (low energy - can't)?
+link_report() {
+  local link
+  link=$(hcitool con 2>/dev/null | grep "$SPEAKER_MAC" | awk '{print $2}' | head -1)
+  echo "Link to speaker: ${link:-none}"
+}
 
-  # Ensure bluetooth module is loaded only once
-  if ! pactl list modules | grep -q "module-bluetooth-discover"; then
-    debug_log "Loading bluetooth discover module..."
-    pactl load-module module-bluetooth-discover >/dev/null 2>&1 || true
-  fi
-  
-  # Reset Bluetooth modules if needed
-  if ! pactl list cards | grep -q "bluez"; then
-    echo "Reloading Bluetooth modules..."
-    sudo modprobe -r btusb
-    sleep 2
-    sudo modprobe btusb
-    sleep 2
-  fi
-  
-  # Initialize bluetoothctl
+# Make sure the dongle is powered.
+# (This used to restart PulseAudio, reload its Bluetooth module, and unload/reload
+# the btusb driver via sudo. Removed Nov 2026: the backend's NoNewPrivileges always
+# blocked sudo, and if it had ever run it would have cut all audio and taken down
+# BOTH radios, Govee sensors included.)
+initialize_bluetooth() {
   echo "Initializing Bluetooth controller..."
   btctl power on > /dev/null
-  sleep 2
+  sleep 1
 }
 
 # Function to attempt speaker wake-up (similar to how phones wake them)
 wakeup_speakers() {
   echo "Attempting to wake up speakers from deep sleep..."
-  
+
   # Start scanning (broadcast wake-up signals)
   echo "Beginning active Bluetooth scan..."
   btctl scan on > /dev/null
   sleep 12  # Longer scan to ensure wake signals are broadcast
-  
+
   # Send direct connection attempts (even if they fail, they help wake the device)
   echo "Sending wake-up signals to speakers..."
   for i in {1..3}; do
     connect_playback > /dev/null
     sleep 5
   done
-  
+
   # Stop scanning
   btctl scan off > /dev/null
 
   # Final "poke" to ensure device is awake
   btctl info $SPEAKER_MAC > /dev/null
-  
+
   echo "Wake-up sequence completed"
   sleep 2
 }
 
-# Function to check if a basic audio sink exists
+# Does the speaker's audio sink exist? (An idle sink suspends itself after ~5s -
+# that is still ready; PulseAudio resumes it on demand.)
 check_audio_sink_exists() {
-  if pactl list sinks 2>/dev/null | grep -q "bluez_sink"; then
-    return 0  # Audio sink exists
-  else
-    return 1  # Audio sink doesn't exist
-  fi
-}
-
-# Function to check if audio sink is FULLY ready to play audio, but without disrupting
-check_audio_sink_ready() {
-  # Check if sink exists first
-  if ! check_audio_sink_exists; then
-    debug_log "No sink exists"
-    return 1  # Sink doesn't even exist
-  fi
-  
-  # Check sink state - we want RUNNING or IDLE but not SUSPENDED
-  # We use grep without trailing context here to reduce the chance of disrupting the connection
-  sink_state=$(pactl list sinks 2>/dev/null | grep -m1 -A1 "bluez_sink" | grep "State:" | awk '{print $2}')
-  debug_log "Current sink state: $sink_state"
-  
-  if [ "$sink_state" = "SUSPENDED" ]; then
-    debug_log "Sink is in SUSPENDED state"
-    return 1  # Sink is suspended
-  fi
-  
-  # If we made it here, basic checks pass
-  return 0
+  pactl list short sinks 2>/dev/null | grep -q "$SPEAKER_SINK"
 }
 
 # Function to check connection status
@@ -153,183 +131,79 @@ check_device_available() {
   fi
 }
 
-# Function to safely load the Bluetooth module without unloading first
-safe_load_module() {
-  debug_log "Safely loading Bluetooth module..."
-
-  # Check if module is already loaded before attempting to load
-  if pactl list modules | grep -q "module-bluetooth-discover"; then
-    debug_log "module-bluetooth-discover already loaded, skipping"
-    return 0
-  fi
-
-  debug_log "Loading module-bluetooth-discover..."
-  pactl load-module module-bluetooth-discover >/dev/null 2>&1 || true
-}
-
-# Function to get current timestamp in seconds
-get_timestamp() {
-  date +%s
-}
-
-# Function to wait for audio sink to be ready with smarter detection
+# Wait for PulseAudio to create the speaker's sink after the playback profile
+# connects. Exits 0 once it has been there SINK_SETTLE seconds in a row, or 2 if
+# it never appears (stuck - the backend's recovery takes over).
 wait_for_audio_sink() {
-  local sink_first_detected=0
-  local sink_detection_time=0
-  
-  # Try multiple times to get audio sink with short waits between attempts
-  for i in $(seq 1 $MAX_ATTEMPTS); do
-    echo -ne "Checking for audio sink... (attempt $i/$MAX_ATTEMPTS)\r"
-    
-    # Only try loading the module for first several attempts
-    if [ $i -le 8 ]; then
-      safe_load_module
-    fi
-    
-    # First detect if sink exists
+  local seen=0
+  for i in $(seq 1 $SINK_TIMEOUT); do
     if check_audio_sink_exists; then
-      # If this is the first time we detect it, record the time
-      if [ $sink_first_detected -eq 0 ]; then
-        sink_first_detected=1
-        sink_detection_time=$(get_timestamp)
-        debug_log "Sink first detected at $(date)"
-      fi
-      
-      # Get current time to check if grace period has elapsed
-      current_time=$(get_timestamp)
-      elapsed_since_detection=$((current_time - sink_detection_time))
-      debug_log "Elapsed time since sink detection: $elapsed_since_detection seconds"
-      
-      # Check if grace period has passed since initial detection
-      if [ $elapsed_since_detection -ge $GRACE_PERIOD ]; then
-        # After grace period, just check if sink exists and is not suspended
-        if check_audio_sink_ready; then
-          echo -e "\n✅ Success! Audio sink is ready for playback"
-          
-          # If sink has been around for grace period and isn't suspended, exit
-          debug_log "Sink exists for ${elapsed_since_detection}s and passes checks"
-          exit 0
-        else
-          debug_log "Sink exists but not passing ready checks yet"
-        fi
-      else
-        # During grace period, just report that we're waiting for it to initialize
-        remaining_grace=$((GRACE_PERIOD - elapsed_since_detection))
-        debug_log "In grace period, ${remaining_grace}s remaining"
-        echo -e "\nAudio sink detected, waiting ${remaining_grace}s for it to initialize..."
+      seen=$((seen + 1))
+      debug_log "Sink seen ($seen/$SINK_SETTLE) after ${i}s"
+      if [ $seen -ge $SINK_SETTLE ]; then
+        echo "✅ Success! Audio sink is ready for playback"
+        exit 0
       fi
     else
-      # Reset detection if sink disappears
-      if [ $sink_first_detected -eq 1 ]; then
-        debug_log "Sink disappeared after detection, resetting detection timer"
-        sink_first_detected=0
-      fi
+      seen=0
     fi
-    
-    # Print progress indicator every other attempt if sink not yet detected
-    if [ $sink_first_detected -eq 0 ] && [ $((i % 2)) -eq 1 ]; then
-      # Calculate remaining time based on expected readiness
-      remaining=$((EXPECTED_READY_TIME - (i * ATTEMPT_WAIT)))
-      echo -e "\nWaiting for audio sink to be ready (~$remaining seconds remaining)..."
-    fi
-    
-    sleep $ATTEMPT_WAIT
+    sleep 1
   done
-  
-  # Final checks
-  if check_audio_sink_exists; then
-    if check_audio_sink_ready; then
-      echo "✅ Success! Audio sink exists and appears ready"
-      exit 0
-    else
-      echo "⚠️ Audio sink exists but may not be fully ready"
-      echo "Try playing some audio anyway - it may work despite not showing as ready"
-      exit 1
-    fi
-  else
-    echo "❌ Failed to establish audio sink after multiple attempts"
-    exit 2
-  fi
-}
-
-# Function to attempt connection with proper error handling
-attempt_connection() {
-  local max_connection_attempts=2
-  local attempt=1
-  
-  while [ $attempt -le $max_connection_attempts ]; do
-    echo "Attempting to connect to speakers... (attempt $attempt/$max_connection_attempts)"
-    
-    # Attempt the connection (playback direction only)
-    connect_playback
-    
-    # Wait for connection to establish
-    sleep $CONNECTION_WAIT
-    
-    # Check if we're connected
-    if check_connection; then
-      echo "Successfully connected to speakers!"
-      return 0
-    else
-      echo "Connection attempt $attempt failed"
-      if [ $attempt -lt $max_connection_attempts ]; then
-        echo "Waiting before retry..."
-        sleep 3
-      fi
-    fi
-    
-    attempt=$((attempt + 1))
-  done
-  
-  # If we get here, all connection attempts failed
-  return 1
+  echo "❌ Failed to establish audio sink (playback profile connected, no audio after ${SINK_TIMEOUT}s)"
+  link_report
+  exit 2
 }
 
 case "$ACTION" in
   connect)
     echo "Connecting to $SPEAKER_NAME..."
-
-    # Initialize Bluetooth subsystems
     initialize_bluetooth
-    
+
     # Check if device is available first
     if ! check_device_available; then
       echo "Device not available, attempting wake-up sequence..."
       wakeup_speakers
     fi
-    
-    # Make sure Bluetooth is on
-    btctl power on
-    
-    # Check if already connected
-    if check_connection; then
-      echo "Speakers already connected, checking audio sink..."
-      wait_for_audio_sink
-      # The script should exit inside the wait_for_audio_sink function
+
+    # Already playing to the speaker? Nothing to do.
+    if check_audio_sink_exists; then
+      echo "✅ Success! Speaker audio already ready for playback"
+      exit 0
     fi
-    
-    # Attempt connection with retries
-    if attempt_connection; then
-      echo "Connected to speakers, now establishing audio sink..."
-      wait_for_audio_sink
-      # The script should exit inside the wait_for_audio_sink function
-    else
-      echo "❌ Failed to connect to speakers after multiple attempts"
-      echo "Suggestions:"
-      echo "  1. Check if speakers are powered on and in pairing mode"
-      echo "  2. Try running: $0 wakeup"
-      echo "  3. Try running: $0 disconnect && $0 connect"
-      echo "  4. Check speaker battery level"
-      exit 1
-    fi
+
+    # "Connected" means the playback profile connected - never just "Connected: yes"
+    # from bluetoothctl, which any link (even one that can't carry audio) satisfies.
+    for attempt in $(seq 1 $CONNECT_ATTEMPTS); do
+      echo "Connecting playback to speakers... (attempt $attempt/$CONNECT_ATTEMPTS)"
+      connect_playback
+      case $? in
+        0)
+          echo "Playback connected, waiting for audio sink..."
+          wait_for_audio_sink  # exits 0 (ready) or 2 (stuck)
+          ;;
+        2)
+          echo "❌ BlueZ is stuck (busy) - needs a reset"
+          link_report
+          exit 2
+          ;;
+      esac
+      [ $attempt -lt $CONNECT_ATTEMPTS ] && sleep 3
+    done
+
+    echo "❌ Failed to connect to speakers (asleep, off, or out of range)"
+    link_report
+    echo "Suggestions:"
+    echo "  1. Check if speakers are powered on and set to Bluetooth"
+    echo "  2. Try running: $0 wakeup"
+    exit 1
     ;;
-    
+
   init)
     initialize_bluetooth
     echo "Bluetooth subsystems initialized."
     exit 0
     ;;
-    
+
   wakeup)
     initialize_bluetooth
     wakeup_speakers
@@ -342,20 +216,15 @@ case "$ACTION" in
     btctl disconnect $SPEAKER_MAC
     exit 0
     ;;
-    
+
   status)
     echo "Checking connection status..."
     if check_connection; then
       echo "Speakers are connected"
-      
+
       if check_audio_sink_exists; then
-        if check_audio_sink_ready; then
-          echo "Audio sink exists and is ready for playback"
-          exit 0
-        else
-          echo "Audio sink exists but may not be fully ready"
-          exit 2
-        fi
+        echo "Audio sink exists and is ready for playback"
+        exit 0
       else
         echo "No audio sink detected"
         exit 3
@@ -365,46 +234,47 @@ case "$ACTION" in
       exit 1
     fi
     ;;
-    
+
   debug)
     echo "Showing Bluetooth and audio system debug information..."
     DEBUG_FLAG="debug"
-    
+
     # Bluetooth system status
     echo "Bluetooth service status:"
     systemctl status bluetooth | grep Active
-    
+
     # PulseAudio status
     echo "PulseAudio status:"
     if pgrep -f "pulseaudio.*--system" > /dev/null; then
-    echo "PulseAudio is running in system mode"
-elif [ -S /var/run/pulse/native ]; then
-    echo "PulseAudio is running in system mode (socket detected)"
-else
-    echo "PulseAudio is NOT running"
-fi
-    
+      echo "PulseAudio is running in system mode"
+    elif [ -S /var/run/pulse/native ]; then
+      echo "PulseAudio is running in system mode (socket detected)"
+    else
+      echo "PulseAudio is NOT running"
+    fi
+
     # Device status
     echo "Speaker device status:"
     check_device_available && echo "Device is available" || echo "Device is NOT available"
-    
+
     # Connection status
     echo "Connection status:"
     check_connection && echo "Connected to speakers" || echo "NOT connected to speakers"
-    
+    link_report
+
     # Audio sink status
     echo "Audio sink status:"
     check_audio_sink_exists && echo "Audio sink exists" || echo "Audio sink does NOT exist"
-    
+
     # Show state if sink exists
     if check_audio_sink_exists; then
       echo "Sink state:"
-      pactl list sinks | grep -A 3 "bluez_sink" | grep -E "State:|Name:|Available:"
+      pactl list sinks | grep -A 3 "$SPEAKER_SINK" | grep -E "State:|Name:|Available:"
     fi
-    
+
     exit 0
     ;;
-    
+
   *)
     echo "Usage: $0 {connect|disconnect|status|init|wakeup|debug} [debug]"
     echo
@@ -412,7 +282,7 @@ fi
     echo "  connect     - Connect to $SPEAKER_NAME speakers"
     echo "  disconnect  - Disconnect from speakers"
     echo "  status      - Show current connection status"
-    echo "  init        - Initialize Bluetooth subsystems (useful after reboot)"
+    echo "  init        - Make sure the Bluetooth dongle is powered on"
     echo "  wakeup      - Just attempt to wake up speakers without connecting"
     echo "  debug       - Show detailed debug information about Bluetooth and audio status"
     echo

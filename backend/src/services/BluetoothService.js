@@ -250,13 +250,12 @@ class BluetoothService extends IBluetoothService {
           // Execute the connection command with a longer timeout
           const { stdout, stderr } = await execPromise(`${this.bluetoothScript} connect`, { timeout: 90000 });
           
-          // Check for success indicators in the output
+          // Exit 0 = speaker audio ready (see the exit-code contract at the top of bt-connect.sh)
           const success = stdout.includes('Success!') || stdout.includes('ready for playback');
-          const partialSuccess = stdout.includes('but may not be fully ready') || stdout.includes('Try playing some audio anyway');
-          
-          if (success || partialSuccess) {
+
+          if (success) {
             this.isConnected = true;
-            this.isAudioReady = success;
+            this.isAudioReady = true;
             this.linkRecovery.noteConnected();
 
             prometheusMetrics.recordOperation('bluetooth-connect', true);
@@ -266,10 +265,8 @@ class BluetoothService extends IBluetoothService {
             this._reconcileKeepalive();
             return {
               success: true,
-              audioReady: success,
-              message: success ? 
-                'Successfully connected to Bluetooth speakers with audio ready' : 
-                'Connected to Bluetooth speakers but audio may not be fully ready',
+              audioReady: true,
+              message: 'Successfully connected to Bluetooth speakers with audio ready',
               details: {
                 stdout: stdout.trim(),
                 device: this.bluetoothDevice,
@@ -311,14 +308,23 @@ class BluetoothService extends IBluetoothService {
 
           this.connectionInProgress = false;
 
-          // Exit 2 = speaker reachable but no audio sink (stuck/reversed link).
-          // Exit 1 = speaker unreachable (off) - a bluetoothd restart can't fix that.
+          // bt-connect.sh exit-code contract:
+          // 2 = stuck (BlueZ busy, or profile connected but no audio sink) - recovery takes over.
+          // 1 = speaker unreachable (asleep/off) - a bluetoothd restart can't fix that.
           if (error.code === 2 && !fromRecovery) {
             this.linkRecovery.recover('connect-failed', 'user').catch(() => {});
             return {
               success: false,
               message: 'Speakers connected without audio - Monty is resetting Bluetooth and will reconnect in about a minute',
               error: 'RECOVERING'
+            };
+          }
+          if (error.code === 1) {
+            return {
+              success: false,
+              message: 'Could not reach the speakers - are they on and set to Bluetooth?',
+              error: 'SPEAKER_UNREACHABLE',
+              details: { stdout: error.stdout?.trim() || '' }
             };
           }
 

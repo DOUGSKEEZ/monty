@@ -9,6 +9,8 @@
  * Two-rung ladder, lightest first:
  *   1. Swap direction: drop the A2DP Source profile, connect A2DP Sink (~10s).
  *      If BlueZ answers "busy" (stuck) or no speaker output appears -> rung 2.
+ *      If the speaker simply doesn't answer (asleep/off), stop: a reset can't
+ *      wake a speaker, and restarting would only blip the Govee sensors.
  *   2. Restart bluetoothd (polkit rule 50-monty-bluetooth-restart.rules; the
  *      Govee reader follows via PartOf=) and reconnect through connect().
  *
@@ -82,11 +84,22 @@ class BluetoothLinkRecovery {
     try {
       // A reversal that comes back soon after a rung-1 fix goes straight to rung 2
       const repeatReversal = reason === 'reversed' && Date.now() - this.lastRung1FixAt < AUTO_SPACING_MS;
-      if (!repeatReversal && await this._swapToPlayback()) {
+      const swap = repeatReversal ? 'repeat-reversal' : await this._swapToPlayback();
+      if (swap === 'fixed') {
         this.lastRung1FixAt = Date.now();
         this._finish(true, reason, trigger, 1);
         return;
       }
+      if (swap === 'unreachable') {
+        if (trigger === 'user') {
+          this._finish(false, reason, trigger, 1); // someone is waiting - show the manual steps
+        } else {
+          logger.info(`Speaker unreachable (${reason}, auto) - not resetting Bluetooth`);
+          this.autoHoldUntil = Date.now() + AUTO_SPACING_MS; // and stay quiet for a while
+        }
+        return;
+      }
+      // 'busy' (stuck), 'no-sink', 'no-path', or a repeat reversal -> reset bluetoothd
       if (trigger === 'auto') this.autoHoldUntil = Date.now() + AUTO_SPACING_MS;
       this._finish(await this._restartAndReconnect(), reason, trigger, 2);
     } catch (error) {
@@ -100,19 +113,21 @@ class BluetoothLinkRecovery {
 
   /**
    * Rung 1: close any speaker -> Monty stream, open Monty -> speaker.
+   * @returns {Promise<'fixed'|'busy'|'unreachable'|'no-sink'|'no-path'>}
    * @private
    */
   async _swapToPlayback() {
     const path = await this._speakerPath();
-    if (!path) return false;
+    if (!path) return 'no-path'; // bluetoothd doesn't have the speaker loaded - worth a reset
     await this._callProfile(path, 'DisconnectProfile', A2DP_SOURCE_UUID).catch(() => {}); // fine if not connected
     try {
       await this._callProfile(path, 'ConnectProfile', A2DP_SINK_UUID);
     } catch (error) {
-      logger.info(`Rung 1 failed${/busy/i.test(error.message) ? ' - BlueZ is stuck (busy)' : ''}: ${error.message.trim()}`);
-      return false;
+      const busy = /busy/i.test(error.message);
+      logger.info(`Rung 1 failed - ${busy ? 'BlueZ is stuck (busy)' : 'speaker did not answer'}: ${error.message.trim()}`);
+      return busy ? 'busy' : 'unreachable';
     }
-    return this._waitFor(this.hasSink, SINK_WAIT_MS);
+    return (await this._waitFor(this.hasSink, SINK_WAIT_MS)) ? 'fixed' : 'no-sink';
   }
 
   /**

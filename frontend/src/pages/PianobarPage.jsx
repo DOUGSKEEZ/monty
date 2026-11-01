@@ -1314,7 +1314,7 @@ function PianobarPage() {
                 {bluetooth.isConnected ? (
                   /* Audio is ready ('finishing'); bt-connect.sh is still wrapping up */
                   <p className="text-green-700 dark:text-green-300 mb-2">
-                    🎵 Speakers ready - finishing hi-fi connection, almost done (5-10 more seconds)
+                    🎵 Speakers ready - finishing hi-fi connection!
                   </p>
                 ) : (
                   <p className="text-amber-700 dark:text-amber-200 animate-pulse mb-2">
