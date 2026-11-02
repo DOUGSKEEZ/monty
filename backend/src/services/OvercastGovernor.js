@@ -253,8 +253,8 @@ class OvercastGovernor {
   }
 
   /** Today's state plus the last `days` days of history, newest first. */
-  getStatus(days = 7) {
-    const cutoff = Date.now() - days * 24 * HOUR_MS;
+  getStatus(days = 7, now = new Date()) {
+    const cutoff = now.getTime() - days * 24 * HOUR_MS;
     let history = [];
     try {
       if (fs.existsSync(this.historyPath)) {
@@ -268,7 +268,7 @@ class OvercastGovernor {
     } catch (err) {
       logger.error(`Failed to read intervention history: ${err.message}`);
     }
-    const day = this._today(new Date());
+    const day = this._today(now);
     return { enabled: this._cfg().enabled, today: { ...day }, history };
   }
 }

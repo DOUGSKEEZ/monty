@@ -61,7 +61,7 @@ test('overcast afternoon: holds shades up', async () => {
   const { gov } = makeGovernor(forecast({}, 'Rain'));
   assert.strictEqual(await gov.shouldHoldUp(at(13, 45)), true);
   assert.strictEqual(gov.day.state, 'HELD_UP');
-  assert.strictEqual(gov.getStatus().history[0].action, 'held_up');
+  assert.strictEqual(gov.getStatus(7, at(13, 45)).history[0].action, 'held_up');
 });
 
 test('one scattered hour: lowers as normal', async () => {
@@ -123,7 +123,7 @@ test('manual skip-solar, then it turns sunny: still lowers (the human can be wro
   scheduler.skipSolarToday = true;
   assert.strictEqual(await gov.noteManualHold(at(13, 45)), true);
   assert.strictEqual(gov.day.state, 'HELD_UP');
-  assert.strictEqual(gov.getStatus().history[0].action, 'held_up_manual');
+  assert.strictEqual(gov.getStatus(7, at(13, 45)).history[0].action, 'held_up_manual');
   scheduler.hourly = forecast({ 15: 10 });
   await gov.tick(at(14, 0));
   await gov.tick(at(14, 15));

@@ -641,11 +641,15 @@ class SchedulerService {
         const reason = this.skipSolarToday ? 'skipped for today' : 'held up for overcast';
         logger.info(`Skipping solar shade commands for 'good_afternoon' - ${reason}`);
 
+        // The east-facing Pantry solar still goes up — afternoon sun is in the west whatever the weather
+        const pantry = await this.callShadeCommander('good_afternoon_held');
+        if (!pantry.success) logger.error(`Pantry solar raise failed: ${pantry.message}`);
+
         this.lastExecutedScene = {
           name: sceneName,
           timestamp: new Date(),
           success: true,
-          message: `Scene triggered (solar shades ${reason})`,
+          message: `Scene triggered (solar shades ${reason}; Pantry solar ${pantry.success ? 'raised' : 'raise FAILED'})`,
           skippedShades: true
         };
 
@@ -657,7 +661,7 @@ class SchedulerService {
         // Only the shades are held — the afternoon GONG (daytime demarcation) still fires
         this.notifyVivaldiGong('afternoon').catch(() => {});
 
-        return { success: true, message: 'Solar shades skipped for today', skippedShades: true };
+        return { success: true, message: this.lastExecutedScene.message, skippedShades: true };
       }
 
       // Call ShadeCommander API
@@ -961,9 +965,7 @@ class SchedulerService {
    */
   async callShadeCommander(sceneName) {
     try {
-      const url = `http://192.168.10.15:8000/scenes/${sceneName}/execute`;
-      
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const postData = JSON.stringify({});
         
         const options = {

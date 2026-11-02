@@ -1,0 +1,9 @@
+{
+  "name": "Good Afternoon (Held)",
+  "description": "Weather-independent part of Good Afternoon, run when the solar shades are held up: raise the east-facing Pantry solar (the sun has moved west)",
+  "commands": [
+    {"shade_id": 27, "action": "u", "delay_ms": 1000}
+  ],
+  "retry_count": 2,
+  "timeout_seconds": 5
+}
