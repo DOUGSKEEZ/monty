@@ -22,9 +22,12 @@ CONTROLLER_MAC="E0:D3:62:EA:29:10"
 # reverse direction (speaker -> Monty: "connected" but silent) when the forward
 # one is stuck "busy" - seen Oct 31 2026 after a speaker power-cycle.
 A2DP_SINK_UUID="0000110b-0000-1000-8000-00805f9b34fb"
+PREFERRED_CODEC="aptx_hd"  # Asked for on every fresh connect (see prefer_hifi_codec)
 CONNECT_ATTEMPTS=2
 SINK_TIMEOUT=36   # Seconds to wait for the audio sink after the profile connects
-SINK_SETTLE=2     # Sink must be seen this many seconds in a row before "ready"
+SINK_SETTLE=5     # Sink must be seen this many seconds in a row before "ready" - a speaker
+                  # waking from deep sleep drops the link ~1-2 s after the sink first
+                  # appears, then reconnects ~20 s later (Nov 1 + Nov 2 2026)
 
 # Function to log debug info if debug flag is set
 debug_log() {
@@ -132,7 +135,7 @@ check_device_available() {
 }
 
 # Wait for PulseAudio to create the speaker's sink after the playback profile
-# connects. Exits 0 once it has been there SINK_SETTLE seconds in a row, or 2 if
+# connects. Returns 0 once it has been there SINK_SETTLE seconds in a row, or 2 if
 # it never appears (stuck - the backend's recovery takes over).
 wait_for_audio_sink() {
   local seen=0
@@ -140,10 +143,7 @@ wait_for_audio_sink() {
     if check_audio_sink_exists; then
       seen=$((seen + 1))
       debug_log "Sink seen ($seen/$SINK_SETTLE) after ${i}s"
-      if [ $seen -ge $SINK_SETTLE ]; then
-        echo "✅ Success! Audio sink is ready for playback"
-        exit 0
-      fi
+      [ $seen -ge $SINK_SETTLE ] && return 0
     else
       seen=0
     fi
@@ -151,7 +151,56 @@ wait_for_audio_sink() {
   done
   echo "❌ Failed to establish audio sink (playback profile connected, no audio after ${SINK_TIMEOUT}s)"
   link_report
-  exit 2
+  return 2
+}
+
+# Monty's role on the speaker link: CENTRAL (Monty started it) or PERIPHERAL (the speaker did)
+link_role() {
+  hcitool con 2>/dev/null | grep "$SPEAKER_MAC" | grep -oE 'lm (CENTRAL|PERIPHERAL|MASTER|SLAVE)' | awk '{print $2}' | head -1
+}
+
+# After a cold start the speaker often drops Monty's link and reconnects on its own,
+# leaving the speaker in charge (Monty PERIPHERAL). Speaker-led links have measured
+# weaker (2 of 2: Oct 31 chop, Nov 2 aptX HD fallback), so reconnect once from
+# Monty's side before reporting ready - before any music has started.
+monty_leads_link() {
+  case "$(link_role)" in
+    PERIPHERAL|SLAVE) ;;
+    *) return 0 ;;
+  esac
+  echo "Speaker-led link - reconnecting from Monty's side..."
+  btctl disconnect $SPEAKER_MAC > /dev/null
+  sleep 2
+  if connect_playback && wait_for_audio_sink; then
+    echo "Link role now: $(link_role)"
+    return 0
+  fi
+  # Couldn't take the lead - don't give up on audio the speaker had working
+  echo "Could not reconnect from Monty's side - waiting for the speaker to reconnect"
+  wait_for_audio_sink || exit 2
+  echo "Link role now: $(link_role)"
+}
+
+# BlueZ remembers the last-used audio endpoint per device and reuses it on reconnect,
+# so one fallback to SBC by the backend's link monitor would otherwise stick for good
+# (seen Nov 2 2026). Ask for the best codec on every fresh connect, before any music;
+# the monitor falls back again if this particular link can't keep up.
+prefer_hifi_codec() {
+  local card="/card/bluez_card.${SPEAKER_MAC//:/_}/bluez" codec
+  codec=$(pactl send-message "$card" get-codec 2>/dev/null | tr -d '"')
+  if [ -z "$codec" ] || [ "$codec" = "$PREFERRED_CODEC" ]; then
+    return 0
+  fi
+  if ! pactl send-message "$card" list-codecs 2>/dev/null | grep -q "\"$PREFERRED_CODEC\""; then
+    return 0  # this speaker doesn't offer it
+  fi
+  echo "Switching codec $codec -> $PREFERRED_CODEC..."
+  if ! pactl send-message "$card" switch-codec "\"$PREFERRED_CODEC\"" > /dev/null 2>&1; then
+    echo "Codec switch failed - staying on $codec"
+    return 0
+  fi
+  wait_for_audio_sink || exit 2  # the switch recreates the sink
+  echo "Codec now: $(pactl send-message "$card" get-codec 2>/dev/null | tr -d '"')"
 }
 
 case "$ACTION" in
@@ -179,7 +228,11 @@ case "$ACTION" in
       case $? in
         0)
           echo "Playback connected, waiting for audio sink..."
-          wait_for_audio_sink  # exits 0 (ready) or 2 (stuck)
+          wait_for_audio_sink || exit 2
+          monty_leads_link
+          prefer_hifi_codec
+          echo "✅ Success! Audio sink is ready for playback"
+          exit 0
           ;;
         2)
           echo "❌ BlueZ is stuck (busy) - needs a reset"

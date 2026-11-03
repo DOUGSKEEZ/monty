@@ -8,7 +8,8 @@ import { useAppContext } from '../utils/AppContext';
 // connected can leave them connected backwards (no sound) - disconnect first.
 const MANUAL_STEPS = 'disconnect Bluetooth in Monty, power-cycle the speakers, let them boot, then reconnect.';
 const TOASTS = {
-  'codec-fallback': `Monty switched the speakers to standard quality to keep the music smooth. For hi-fi again: ${MANUAL_STEPS}`,
+  // A fresh connect asks for aptX HD again (bt-connect.sh prefer_hifi_codec) - no power-cycle needed
+  'codec-fallback': 'Monty switched the speakers to standard quality to keep the music smooth. For hi-fi again: disconnect and reconnect Bluetooth in Monty.',
   recovered: 'Bluetooth got stuck, so Monty reset the connection to the speakers. Music should be back.',
   'recovery-failed': `Monty couldn't fix Bluetooth on its own. To get music back: ${MANUAL_STEPS}`
 };
