@@ -157,6 +157,13 @@ export const schedulerApi = {
     fetchApi('/scheduler/alarm-device/wakeup-options'),
 
   /**
+   * Is the bedside alarm Pi answering? (the backend pings its /api/health; polled, so silent)
+   * @returns {Promise<Object>} - { data: { config, connectivity: { success, message }, lastNotificationStatus } }
+   */
+  getAlarmDeviceStatus: () =>
+    fetchApi('/scheduler/alarm-device/status', {}, true),
+
+  /**
    * Disable wake up alarm
    * @returns {Promise<Object>} - Result
    */

@@ -90,6 +90,35 @@ function HomePage() {
     }
   }, [alarmDeviceEnabled]);
 
+  // Status light by the Wake Up Alarm heading: is the bedside Pi answering? (online: null = not known yet)
+  const [alarmPi, setAlarmPi] = useState({ online: null, message: '' });
+  useEffect(() => {
+    if (!alarmDeviceEnabled || guest.isGuest) return;
+    let cancelled = false;
+    const check = () => {
+      if (document.hidden) return;
+      schedulerApi.getAlarmDeviceStatus()
+        .then(result => {
+          const connectivity = result.data?.connectivity;
+          if (!cancelled) setAlarmPi({ online: connectivity?.success === true, message: connectivity?.message || '' });
+        })
+        .catch(() => { if (!cancelled) setAlarmPi({ online: null, message: "Couldn't ask Monty about the Bedroom Raspi" }); });
+    };
+    check();
+    const interval = setInterval(check, 60000);
+    document.addEventListener('visibilitychange', check); // re-check as soon as the app comes back to the screen
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [alarmDeviceEnabled, guest.isGuest]);
+  const alarmPiTitle = alarmPi.online === null
+    ? (alarmPi.message || 'Checking Bedroom Raspi…')
+    : alarmPi.online
+      ? 'Bedroom Raspi Online & Responsive'
+      : `Bedroom Raspi Offline (${alarmPi.message})`;
+
   // Master bedroom guest (guest0) shares the homeowner wake-up alarm; other guests get their room's alarm
   const guestAlarmUrl = guest.sharesHomeAlarm
     ? 'http://192.168.10.15:3001/api/scheduler/wake-up'
@@ -1045,7 +1074,19 @@ function HomePage() {
         ) : (
           // Homeowner Wake Up Widget
           <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Wake Up Alarm</h2>
+            <h2 className="text-xl font-semibold mb-4 dark:text-white flex items-center">
+              Wake Up Alarm
+              {alarmDeviceEnabled && (
+                <span
+                  className={`ml-3 inline-block w-3 h-3 rounded-full ${
+                    alarmPi.online === null ? 'bg-gray-400' : alarmPi.online ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                  title={alarmPiTitle}
+                  role="img"
+                  aria-label={alarmPiTitle}
+                ></span>
+              )}
+            </h2>
 
             <div className="mb-4">
               <p className="text-sm mb-2 dark:text-gray-300">Tomorrow's Wake Up:</p>
