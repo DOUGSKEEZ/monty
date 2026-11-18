@@ -19,8 +19,32 @@ import OffsetAdjuster from './OffsetAdjuster';
 // Graph geometry
 const W = 580, H = 300;
 const PAD = { l: 46, r: 16, t: 16, b: 40 };
-const AZ_MIN = 225, AZ_MAX = 305;   // the sunset-azimuth arc (SW winter -> NW summer)
+const AZ_MIN = 215, AZ_MAX = 305;   // the sunset-azimuth arc (SW winter -> NW summer), plus the whole winter mountain
 const ALT_MIN = 0, ALT_MAX = 16;
+
+// Sketched skyline left of the readings: the mountain the winter sun sets behind, so the
+// ridge doesn't run flat to the axis. Shape traced from a photo, then squeezed toward the
+// summit so the left foot sits at the valley's height (~4.8°): the photo's far-left edge
+// read lower than the mountain looks from the window.
+// Only the part left of the leftmost reading is drawn; readings take over wherever they
+// exist. Drawing only: the engine still clamps flat left of the leftmost reading.
+const SKETCH_LEFT = [
+  [215, 4.8], [216, 5.1], [217, 5.2], [218, 5.4], [219, 5.7], [220, 5.9], [221, 6.2], [222, 6.6],
+  [223, 7.0], [224, 7.5], [225, 7.9], [226, 8.1], [227, 8.4], [228, 8.4], [229, 8.6],
+].map(([azimuth, altitude]) => ({ azimuth, altitude }));
+// Only sketch once readings reach the solstice limit; otherwise keep the flat clamp so
+// the dashed line never covers bearings where the sun really does set.
+const SKETCH_MAX_LEFT_AZ = 231;
+
+// Linear interpolation through azimuth-sorted {azimuth, altitude} points, clamped at the ends.
+const interpRidge = (pts, az) => {
+  if (az <= pts[0].azimuth) return pts[0].altitude;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (az <= b.azimuth) return a.altitude + ((az - a.azimuth) / (b.azimuth - a.azimuth)) * (b.altitude - a.altitude);
+  }
+  return pts[pts.length - 1].altitude;
+};
 
 const todayStr = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 
@@ -54,6 +78,8 @@ function RidgeCalibrator({ onClose }) {
   const triggerChanged = triggerDraft !== savedTrigger;
   // Golden-hour height is a fixed constant (from config); used to draw the graph line.
   const goldenHour = preview?.raise_altitude_deg ?? savedCfg.raise?.raise_altitude_deg ?? 6;
+  // Golden hour only applies to sunsets at/past this bearing (NW); south of it, the ridge tuck decides.
+  const goldenMinAz = preview?.golden_hour_min_azimuth_deg ?? savedCfg.raise?.golden_hour_min_azimuth_deg ?? 260;
 
   // Fetch the sun track + computed times for the current drafts (debounced).
   const fetchPreview = useCallback(async () => {
@@ -131,7 +157,8 @@ function RidgeCalibrator({ onClose }) {
   };
 
   // ---- derived graph data ----
-  const profile = preview?.profile || savedCfg.raise?.horizon_profile || [];
+  const savedProfile = savedCfg.raise?.horizon_profile;
+  const profile = useMemo(() => preview?.profile || savedProfile || [], [preview, savedProfile]);
   const track = preview?.track || [];
   const gonePts = useMemo(
     () => profile.filter((p) => p.calibratedFrom !== 'still_up').slice().sort((a, b) => a.azimuth - b.azimuth),
@@ -162,21 +189,13 @@ function RidgeCalibrator({ onClose }) {
     return reps.sort((a, b) => a.azimuth - b.azimuth);
   }, [gonePts]);
 
-  const ridgeAt = useCallback((az) => {
-    const pts = ridgeReps;
-    if (pts.length === 0) return defaultRidge;
-    if (pts.length === 1) return pts[0].altitude;
-    if (az <= pts[0].azimuth) return pts[0].altitude;
-    if (az >= pts[pts.length - 1].azimuth) return pts[pts.length - 1].altitude;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1];
-      if (az >= a.azimuth && az <= b.azimuth) {
-        const t = (az - a.azimuth) / (b.azimuth - a.azimuth);
-        return a.altitude + t * (b.altitude - a.altitude);
-      }
-    }
-    return defaultRidge;
-  }, [ridgeReps, defaultRidge]);
+  const sketchOn = ridgeReps.length > 0 && ridgeReps[0].azimuth <= SKETCH_MAX_LEFT_AZ;
+
+  // The model's ridge (flat-clamped past both ends, like the engine).
+  const ridgeAt = useCallback(
+    (az) => (ridgeReps.length === 0 ? defaultRidge : interpRidge(ridgeReps, az)),
+    [ridgeReps, defaultRidge]
+  );
 
   const xOf = (az) => PAD.l + ((az - AZ_MIN) / (AZ_MAX - AZ_MIN)) * (W - PAD.l - PAD.r);
   const yOf = (alt) => PAD.t + ((ALT_MAX - alt) / (ALT_MAX - ALT_MIN)) * (H - PAD.t - PAD.b);
@@ -189,9 +208,18 @@ function RidgeCalibrator({ onClose }) {
     .map((p) => `${xOf(p.azimuth).toFixed(1)},${yOf(Math.max(ALT_MIN, p.altitude)).toFixed(1)}`)
     .join(' ');
 
-  // Ridge line (drawn across the whole window, clamped like the model).
-  const ridgeLine = [];
-  for (let az = AZ_MIN; az <= AZ_MAX; az += 2) ridgeLine.push(`${xOf(az).toFixed(1)},${yOf(ridgeAt(az)).toFixed(1)}`);
+  // Ridge line across the whole window: solid over the readings (clamped flat past the
+  // right end, like the model), dashed over the sketched stretch left of the readings.
+  // The sketch is drawn through its own vertices (not the 2° samples) so the plateau
+  // and shoulder keep their shape; it ends on the leftmost reading so the pieces join.
+  const ridgePt = (az) => `${xOf(az).toFixed(1)},${yOf(ridgeAt(az)).toFixed(1)}`;
+  const leftAz = sketchOn ? ridgeReps[0].azimuth : AZ_MIN;
+  const sketchLine = sketchOn
+    ? [...SKETCH_LEFT.filter((s) => s.azimuth < leftAz), ridgeReps[0]]
+        .map((p) => `${xOf(p.azimuth).toFixed(1)},${yOf(p.altitude).toFixed(1)}`)
+    : [];
+  const ridgeLine = sketchOn ? [ridgePt(leftAz)] : [];
+  for (let az = AZ_MIN; az <= AZ_MAX; az += 2) if (az >= leftAz) ridgeLine.push(ridgePt(az));
   // Horizontal golden-hour line (the fixed standard raise height).
   const goldenY = yOf(Math.min(ALT_MAX, goldenHour));
 
@@ -252,7 +280,7 @@ function RidgeCalibrator({ onClose }) {
               </g>
             ))}
             {/* X ticks */}
-            {[225, 240, 255, 270, 285, 300].map((az) => (
+            {[215, 230, 245, 260, 275, 290, 305].map((az) => (
               <g key={az}>
                 <line x1={xOf(az)} y1={H - PAD.b} x2={xOf(az)} y2={H - PAD.b + 3} stroke={axisColor} strokeOpacity="0.4" />
                 <text x={xOf(az)} y={H - PAD.b + 14} textAnchor="middle" fontSize="9" fill={axisColor} fillOpacity="0.6">{az}°</text>
@@ -262,14 +290,17 @@ function RidgeCalibrator({ onClose }) {
 
             {/* ridge fill + line (bright line so the silhouette reads clearly) */}
             <polyline
-              points={`${xOf(AZ_MIN)},${H - PAD.b} ${ridgeLine.join(' ')} ${xOf(AZ_MAX)},${H - PAD.b}`}
+              points={`${xOf(AZ_MIN)},${H - PAD.b} ${[...sketchLine, ...ridgeLine].join(' ')} ${xOf(AZ_MAX)},${H - PAD.b}`}
               fill="#78716c" fillOpacity="0.18" stroke="none"
             />
+            {sketchLine.length > 1 && (
+              <polyline points={sketchLine.join(' ')} fill="none" stroke="#d1d5db" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" />
+            )}
             <polyline points={ridgeLine.join(' ')} fill="none" stroke="#d1d5db" strokeWidth="2.5" strokeLinejoin="round" />
-            {/* golden-hour line — the fixed standard raise height */}
+            {/* golden-hour line — the fixed standard raise height, drawn only over the NW bearings where it applies */}
             {goldenHour <= ALT_MAX && (
               <g>
-                <line x1={PAD.l} y1={goldenY} x2={W - PAD.r} y2={goldenY} stroke="#22c55e" strokeWidth="1" strokeDasharray="2 3" strokeOpacity="0.7" />
+                <line x1={xOf(clampAz(goldenMinAz))} y1={goldenY} x2={W - PAD.r} y2={goldenY} stroke="#22c55e" strokeWidth="1" strokeDasharray="2 3" strokeOpacity="0.7" />
                 <text x={W - PAD.r} y={goldenY - 3} textAnchor="end" fontSize="9" fill="#22c55e">golden hour {goldenHour}°</text>
               </g>
             )}
@@ -323,9 +354,10 @@ function RidgeCalibrator({ onClose }) {
           {/* legend */}
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 px-2 pb-1">
             <span><span style={{ color: '#d1d5db' }}>—</span> ridge line</span>
+            {sketchOn && <span><span style={{ color: '#d1d5db' }}>┄</span> ridge sketched from a photo</span>}
             <span><span style={{ color: '#78716c' }}>●</span> observations (hover)</span>
             <span><span style={{ color: '#a78bfa' }}>●</span> guesses</span>
-            <span><span style={{ color: '#22c55e' }}>┈</span> golden hour ({goldenHour}°)</span>
+            <span><span style={{ color: '#22c55e' }}>┈</span> golden hour ({goldenHour}°, NW sunsets)</span>
             <span><span style={{ color: '#eab308' }}>—</span> sun path</span>
             <span><span style={{ color: '#3b82f6' }}>●</span> raise</span>
           </div>
@@ -358,8 +390,9 @@ function RidgeCalibrator({ onClose }) {
           />
         </div>
         <p className="text-center text-xs text-gray-500 dark:text-gray-400 mb-4">
-          Evening raise is automatic: at <strong>golden hour ({goldenHour}° over the horizon)</strong>, or
-          ~2&nbsp;min before the sun tucks behind the ridge when the ridge is taller than that.
+          Evening raise is automatic: ~2&nbsp;min before the sun tucks behind the ridge, or earlier at{' '}
+          <strong>golden hour ({goldenHour}° over the horizon)</strong> on northwest sunsets (sun past {goldenMinAz}°),
+          where the low sun hits the windows at a glancing angle.
         </p>
 
         {/* Calibration — dated "sun went behind the ridge" observations */}

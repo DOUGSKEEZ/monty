@@ -6,9 +6,8 @@
  * before the sun drops behind the jagged western mountain ridge).
  *
  *   LOWER: first afternoon moment the sun's AZIMUTH reaches `trigger_azimuth_deg`.
- *   RAISE: on the descending western side, when the sun's ALTITUDE first drops to
- *          `ridgeAltitude(azimuth) + viewing_lead_degrees` — i.e. `lead` degrees
- *          above where it will disappear behind the ridge.
+ *   RAISE: the earlier of golden hour (sun down to `raise_altitude_deg`, NW sunsets
+ *          only) and `raise_lead_minutes` before the sun is fully behind the ridge.
  *
  * The ridge is described by a "horizon profile" — a list of {azimuth, altitude}
  * points. Only points measured as an actual disappearance (`calibratedFrom` !==
@@ -65,6 +64,15 @@ class SolarShadeTimes {
   _raiseAltitude() {
     const r = this._cfg().raise || {};
     return Number.isFinite(r.raise_altitude_deg) ? r.raise_altitude_deg : 6;
+  }
+
+  // Golden hour only applies to sunsets at or past this bearing (northwest, summer).
+  // The windows face ~240°, so a winter sunset in the low saddle (~236–243°) hits the
+  // glass square-on and is harsh even at 5–6°; a summer sunset (~285–298°) is 45–58°
+  // off the window face. South of this bearing, the raise waits for the ridge tuck.
+  _goldenMinAzimuth() {
+    const r = this._cfg().raise || {};
+    return Number.isFinite(r.golden_hour_min_azimuth_deg) ? r.golden_hour_min_azimuth_deg : 260;
   }
 
   _defaultRidge() {
@@ -215,7 +223,9 @@ class SolarShadeTimes {
    * On a low ridge, golden hour comes first (long open-sky view). On a ridge
    * taller than 6°, the sun is already behind it by 6°, so the tuck wins — and
    * because it's a TIME lead, it's a genuine ~1–2 min before the sun vanishes,
-   * every season. Returns a local Date, or null if no crossing.
+   * every season. Golden hour only counts when the sun reaches 6° at or past
+   * golden_hour_min_azimuth_deg (NW summer sunsets); otherwise the tuck decides.
+   * Returns a local Date, or null if no crossing.
    */
   _findRaiseTime(date) {
     const raiseAlt = this._raiseAltitude();
@@ -223,6 +233,7 @@ class SolarShadeTimes {
     // subtract a couple minutes from it (minute-rounding there would skew the lead).
     const base = this._localMidnight(date);
     let goldenTime = null;   // sun reaches golden-hour height
+    let goldenAz = null;     // ...and the bearing where it does
     let goneTime = null;     // sun reaches the ridge (fully behind)
     let prevAlt = null;
     for (let sec = 12 * 3600; sec <= 21.5 * 3600; sec += 20) {
@@ -230,13 +241,13 @@ class SolarShadeTimes {
       const { altitude, azimuth } = this.sunPosition(when);
       const descending = prevAlt !== null && altitude < prevAlt;
       if (descending && azimuth > 180) {
-        if (goldenTime === null && altitude <= raiseAlt) goldenTime = when;
+        if (goldenTime === null && altitude <= raiseAlt) { goldenTime = when; goldenAz = azimuth; }
         if (goneTime === null && altitude <= this.ridgeAltitudeAt(azimuth)) goneTime = when;
       }
       prevAlt = altitude;
     }
     const candidates = [];
-    if (goldenTime) candidates.push(goldenTime.getTime());
+    if (goldenTime && goldenAz >= this._goldenMinAzimuth()) candidates.push(goldenTime.getTime());
     if (goneTime) candidates.push(goneTime.getTime() - this._raiseLeadMinutes() * 60000);
     if (!candidates.length) return null;
     return new Date(Math.min(...candidates));

@@ -20,6 +20,7 @@ const ensureSolarConfig = (schedulerService) => {
   const r = cfg.solar_shades.raise;
   if (!Number.isFinite(r.raise_altitude_deg)) r.raise_altitude_deg = 6;
   if (!Number.isFinite(r.raise_lead_minutes)) r.raise_lead_minutes = 2;
+  if (!Number.isFinite(r.golden_hour_min_azimuth_deg)) r.golden_hour_min_azimuth_deg = 260;
   if (!Number.isFinite(r.default_ridge_altitude_deg)) r.default_ridge_altitude_deg = 3.0;
   if (!Array.isArray(r.horizon_profile)) r.horizon_profile = [];
   return cfg.solar_shades;
@@ -1151,6 +1152,7 @@ router.get('/solar-preview', async (req, res) => {
         trigger_azimuth_deg: override.lower.trigger_azimuth_deg ?? 202,
         raise_altitude_deg: override.raise.raise_altitude_deg ?? 6,
         raise_lead_minutes: override.raise.raise_lead_minutes ?? 2,
+        golden_hour_min_azimuth_deg: override.raise.golden_hour_min_azimuth_deg ?? 260,
         profile: (base.raise && base.raise.horizon_profile) || [],
         track
       }
