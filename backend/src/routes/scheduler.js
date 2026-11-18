@@ -75,6 +75,26 @@ const syncRidgeCsv = (profile) => {
   fs.writeFileSync(RIDGE_CSV_PATH, `${RIDGE_CSV_HEADER}\n${body}\n`);
 };
 
+// How a new "gone" reading compares with what the ridge predicted BEFORE it was added
+// (`others` = the profile minus any same-day entry it replaces). Readings at the same
+// spot on different dates have different clock times, so compare against the prediction
+// for this date, never against the other reading's clock time.
+const ridgeCheck = (cfg, others, point, when) => {
+  const before = new SolarShadeTimes(() => ({ solar_shades: { ...cfg, raise: { ...cfg.raise, horizon_profile: others } } }));
+  const reps = before._ridgeReps();
+  const owner = reps.find((r) => Math.abs(r.azimuth - point.azimuth) <= 0.3);
+  const spot = owner ? { observedAt: owner.observedAt, guess: owner.guess } : null;
+  // Only predict inside the mapped stretch; outside it the ridge is just a flat guess.
+  const inRange = reps.length >= 2 && point.azimuth >= reps[0].azimuth && point.azimuth <= reps[reps.length - 1].azimuth;
+  const predicted = inRange ? before.goneTime(when) : null;
+  return {
+    spot,
+    ignored: !!(point.guess && spot && !spot.guess),   // real beats guess: this one won't count
+    predictedGone: predicted ? predicted.toISOString() : null,
+    deltaMin: predicted ? Math.round((when - predicted) / 6000) / 10 : null
+  };
+};
+
 // Shared fallback for all scheduler circuits.
 const schedulerFallback = async () => {
   logger.warn(`Scheduler circuit breaker open, using fallback`);
@@ -1069,9 +1089,14 @@ router.post('/calibrate-ridge', async (req, res) => {
 
         // One observation per calendar DAY: re-recording the same day overwrites it,
         // but different days (even at a similar bearing) both persist. The ridge calc
-        // later picks the most-recent per bearing.
+        // later picks one per bearing (real beats guess, then most recent).
         const profile = cfg.raise.horizon_profile;
         const idx = profile.findIndex(p => p.observedAt && localDateKey(p.observedAt) === localDateKey(point.observedAt));
+        // A guess must never overwrite a watched reading (here or in the CSV backup).
+        if (guess && idx >= 0 && !profile[idx].guess) {
+          return { blocked: `${fmtLocalClock(new Date(profile[idx].observedAt))} was already watched that day; a guess won't replace it.` };
+        }
+        const check = state === 'gone' ? ridgeCheck(cfg, profile.filter((_, i) => i !== idx), point, when) : null;
         if (idx >= 0) profile[idx] = point; else profile.push(point);
         profile.sort((a, b) => a.azimuth - b.azimuth);
 
@@ -1087,11 +1112,12 @@ router.post('/calibrate-ridge', async (req, res) => {
         } catch (scheduleError) {
           logger.warn(`Reschedule after calibration failed: ${scheduleError.message}`);
         }
-        return { recorded: point, profile };
+        return { recorded: point, profile, check };
       }, { operationName: 'calibrate-ridge', isCritical: false });
     }, 'calibrate-ridge');
 
     if (result.fallback) return res.status(503).json(result);
+    if (result.blocked) return res.status(409).json({ success: false, error: result.blocked });
 
     res.json({
       success: true,
@@ -1153,7 +1179,12 @@ router.get('/solar-preview', async (req, res) => {
         raise_altitude_deg: override.raise.raise_altitude_deg ?? 6,
         raise_lead_minutes: override.raise.raise_lead_minutes ?? 2,
         golden_hour_min_azimuth_deg: override.raise.golden_hour_min_azimuth_deg ?? 260,
-        profile: (base.raise && base.raise.horizon_profile) || [],
+        // Copies (never the live config objects) tagged with each point's mirror date:
+        // the other day of the year the sun crosses that same ridge spot.
+        profile: ((base.raise && base.raise.horizon_profile) || []).map((p) => {
+          const pair = p.observedAt ? previewSst.mirrorDate(new Date(p.observedAt)) : null;
+          return { ...p, pairDate: pair ? pair.toLocaleDateString('en-CA') : null };
+        }),
         track
       }
     });

@@ -48,6 +48,30 @@ const interpRidge = (pts, az) => {
 
 const todayStr = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 
+const fmtMonthDay = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+// 'YYYY-MM-DD' -> local Date (parsing the bare string would read it as UTC midnight).
+const fromDateKey = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+
+// Save feedback: how the new reading compared with what the ridge predicted for that
+// date. (Two readings of the same spot have different clock times on their two dates,
+// so the comparison is always against the prediction, never the other reading's time.)
+const describeCheck = (check) => {
+  if (!check) return null;
+  const from = check.spot ? fmtMonthDay(new Date(check.spot.observedAt)) : null;
+  if (check.ignored) {
+    return `The ${from} watched reading already covers this spot, so the ridge keeps it and this guess changes nothing.`;
+  }
+  if (!check.predictedGone) return null;
+  // Round the prediction to the minute FIRST and diff against that, so the note can't
+  // read "predicted 4:42 ... 3 min earlier" for a 4:40 entry (4:42:40 minus seconds).
+  const predMs = new Date(check.predictedGone).getTime();
+  const shown = Math.round(predMs / 60000) * 60000;
+  const diff = Math.round((predMs + check.deltaMin * 60000 - shown) / 60000);
+  const predicted = new Date(shown).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const vs = diff === 0 ? 'right on it' : `${Math.abs(diff)} min ${diff > 0 ? 'later' : 'earlier'}`;
+  return `Monty predicted ${predicted}${from ? ` from your ${from}${check.spot.guess ? ' guess' : ' reading'}` : ''}: ${vs}.`;
+};
+
 function RidgeCalibrator({ onClose }) {
   const { scheduler, actions } = useAppContext();
 
@@ -132,7 +156,7 @@ function RidgeCalibrator({ onClose }) {
       const res = await actions.calibrateRidge({ state: 'gone', timestamp: clock.toISOString(), guess: isGuess });
       if (res.success && res.data?.recorded) {
         const label = clock.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-        setMessage(`Saved ${label}${isGuess ? ' (guess)' : ''} — your skyline just got a little more accurate.`);
+        setMessage(`Saved ${label}${isGuess ? ' (guess)' : ''}. ${describeCheck(res.data.check) || 'Your skyline just got a little more accurate.'}`);
         setObsMin('');
         setIsGuess(false);
         await fetchPreview();
@@ -167,23 +191,23 @@ function RidgeCalibrator({ onClose }) {
 
   // Date span of recorded observations, for the read-only summary line.
   const obsDates = profile.map((p) => p.observedAt).filter(Boolean).map((s) => new Date(s)).sort((a, b) => a - b);
-  const fmtObsDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const obsRange = obsDates.length >= 2
-    ? `${fmtObsDate(obsDates[0])} – ${fmtObsDate(obsDates[obsDates.length - 1])}`
-    : obsDates.length === 1 ? fmtObsDate(obsDates[0]) : '';
+    ? `${fmtMonthDay(obsDates[0])} – ${fmtMonthDay(obsDates[obsDates.length - 1])}`
+    : obsDates.length === 1 ? fmtMonthDay(obsDates[0]) : '';
   const guessCount = profile.filter((p) => p.guess).length;
   const obsCount = profile.length - guessCount;
 
   // Collapse only near-duplicate readings (within 0.3° — under the sun's ~0.5° width)
-  // to the most-recent one; distinct days (~0.5°/day apart) stay as separate points.
-  // Matches the engine's _ridgeReps.
+  // to one: a watched reading beats a guess, otherwise the most recent wins. Distinct
+  // days (~0.5°/day apart) stay as separate points. Matches the engine's _ridgeReps.
   const ridgeReps = useMemo(() => {
     const reps = [];
     for (const p of gonePts) {
       const near = reps.find((r) => Math.abs(r.azimuth - p.azimuth) <= 0.3);
-      if (!near) reps.push({ azimuth: p.azimuth, altitude: p.altitude, observedAt: p.observedAt });
-      else if (new Date(p.observedAt || 0) >= new Date(near.observedAt || 0)) {
-        near.azimuth = p.azimuth; near.altitude = p.altitude; near.observedAt = p.observedAt;
+      const guess = !!p.guess;
+      if (!near) reps.push({ azimuth: p.azimuth, altitude: p.altitude, observedAt: p.observedAt, guess });
+      else if (guess !== near.guess ? !guess : new Date(p.observedAt || 0) >= new Date(near.observedAt || 0)) {
+        Object.assign(near, { azimuth: p.azimuth, altitude: p.altitude, observedAt: p.observedAt, guess });
       }
     }
     return reps.sort((a, b) => a.azimuth - b.azimuth);
@@ -336,18 +360,25 @@ function RidgeCalibrator({ onClose }) {
             {/* hover tooltip: date + the time it went behind the ridge; guesses add a tag */}
             {hoverPoint && (
               <g pointerEvents="none">
-                <rect x={Math.min(hoverPoint.x + 6, W - 152)} y={hoverPoint.y - 36} width="148" height="30" rx="3" fill="#111827" opacity="0.92" />
-                <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - 23} fontSize="9" fill="#ffffff">
+                {/* the extra mirror-date line grows the box UPWARD, so it never covers the dot */}
+                <rect x={Math.min(hoverPoint.x + 6, W - 152)} y={hoverPoint.y - (hoverPoint.p.pairDate ? 47 : 36)} width="148" height={hoverPoint.p.pairDate ? 41 : 30} rx="3" fill="#111827" opacity="0.92" />
+                <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - (hoverPoint.p.pairDate ? 34 : 23)} fontSize="9" fill="#ffffff">
                   {hoverPoint.p.observedAt
                     ? new Date(hoverPoint.p.observedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                     : `bearing ${hoverPoint.p.azimuth}°`}
                 </text>
-                <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - 12} fontSize="9" fill="#d1d5db">
+                <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - (hoverPoint.p.pairDate ? 23 : 12)} fontSize="9" fill="#d1d5db">
                   {hoverPoint.p.observedAt
                     ? `behind ridge ${new Date(hoverPoint.p.observedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
                     : `${hoverPoint.p.altitude}° high`}
                   {hoverPoint.p.guess ? ' · 🔮 guess' : ''}
                 </text>
+                {/* the other day of the year the sun crosses this spot (± a day in leap years) */}
+                {hoverPoint.p.pairDate && (
+                  <text x={Math.min(hoverPoint.x + 12, W - 146)} y={hoverPoint.y - 12} fontSize="9" fill="#9ca3af">
+                    {`same spot again ~${fmtMonthDay(fromDateKey(hoverPoint.p.pairDate))}`}
+                  </text>
+                )}
               </g>
             )}
           </svg>
@@ -491,7 +522,7 @@ function RidgeCalibrator({ onClose }) {
                   <ul className="border border-gray-200 dark:border-gray-700 rounded divide-y divide-gray-100 dark:divide-gray-700 max-h-48 overflow-y-auto">
                     {profile.slice().sort((a, b) => new Date(a.observedAt || 0) - new Date(b.observedAt || 0)).map((p, i) => {
                       const dateLabel = p.observedAt
-                        ? new Date(p.observedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                        ? new Date(p.observedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
                         : `ridge point at ${p.azimuth}°`;
                       return (
                         <li key={i} className="flex items-center justify-between px-3 py-2 text-sm">

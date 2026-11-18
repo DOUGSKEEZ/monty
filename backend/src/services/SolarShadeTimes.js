@@ -121,11 +121,7 @@ class SolarShadeTimes {
       + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g)
       - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
 
-    // Solar declination (radians).
-    const decl = 0.006918
-      - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g)
-      - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g)
-      - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+    const decl = SolarShadeTimes._declination(g);
 
     const tst = hourUTC * 60 + eqtime + 4 * lon; // true solar time, minutes
     const ha = (tst / 4 - 180) * D2R;            // hour angle, radians
@@ -142,21 +138,63 @@ class SolarShadeTimes {
     return { altitude, azimuth };
   }
 
+  /** Solar declination (radians) for the NOAA fractional-year angle g. */
+  static _declination(g) {
+    return 0.006918
+      - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g)
+      - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g)
+      - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+  }
+
+  /** Declination (radians) at an instant: the same series sunPosition uses. */
+  _declinationAt(date) {
+    const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 0);
+    const dayMs = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - startOfYear;
+    const hourUTC = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+    return SolarShadeTimes._declination((2 * Math.PI / 365) * (Math.floor(dayMs / 86400000) - 1 + (hourUTC - 12) / 24));
+  }
+
+  /**
+   * The other day of the year the sun crosses the same ridge spot as at `when`.
+   * The sun's evening path is set by its declination, which takes each value twice
+   * a year (once heading toward the winter solstice, once heading away), so a ridge
+   * point seen on one date is crossed again on its "mirror" date (Nov 17 <-> Jan 26).
+   * Returns null near a solstice, where the two dates collapse into the turnaround.
+   */
+  mirrorDate(when) {
+    const target = this._declinationAt(when);
+    let prev = null;
+    for (let d = 1; d <= 366; d++) {
+      const diff = this._declinationAt(new Date(when.getTime() + d * 86400000)) - target;
+      if (prev !== null && (prev < 0) !== (diff < 0)) {
+        const days = d - 1 + prev / (prev - diff);
+        // Within a few days of the reading (either way round the year) = the turnaround itself.
+        return days < 4 || days > 361 ? null : new Date(when.getTime() + days * 86400000);
+      }
+      prev = diff;
+    }
+    return null;
+  }
+
   /**
    * Ridge points collapsed for the CALCULATION: only readings essentially on the
    * SAME spot (within MERGE_BAND° — narrower than the sun's ~0.5° width) collapse to
-   * the MOST RECENT one. Distinct days are ~0.5°/day apart near the equinox, so they
-   * are kept as separate ridge points; this only fuses true near-duplicate readings.
+   * one: a watched reading beats a guess, otherwise the MOST RECENT wins. (The sun
+   * re-crosses each bearing after the solstice, so a later-dated guess must not
+   * override a real reading from the other side of the year.) Distinct days are
+   * ~0.5°/day apart near the equinox, so they stay separate ridge points.
+   * Mirrored in the frontend RidgeCalibrator.
    */
   _ridgeReps() {
     const MERGE_BAND = 0.3;
     const reps = [];
     for (const p of this._ridgePoints()) {
       const near = reps.find((r) => Math.abs(r.azimuth - p.azimuth) <= MERGE_BAND);
+      const guess = !!p.guess;
       if (!near) {
-        reps.push({ azimuth: p.azimuth, altitude: p.altitude, observedAt: p.observedAt });
-      } else if (new Date(p.observedAt || 0) >= new Date(near.observedAt || 0)) {
-        near.azimuth = p.azimuth; near.altitude = p.altitude; near.observedAt = p.observedAt;
+        reps.push({ azimuth: p.azimuth, altitude: p.altitude, observedAt: p.observedAt, guess });
+      } else if (guess !== near.guess ? !guess : new Date(p.observedAt || 0) >= new Date(near.observedAt || 0)) {
+        Object.assign(near, { azimuth: p.azimuth, altitude: p.altitude, observedAt: p.observedAt, guess });
       }
     }
     return reps.sort((a, b) => a.azimuth - b.azimuth);
@@ -228,6 +266,21 @@ class SolarShadeTimes {
    * Returns a local Date, or null if no crossing.
    */
   _findRaiseTime(date) {
+    const { goldenTime, goldenAz, goneTime } = this._scanEvening(date);
+    const candidates = [];
+    if (goldenTime && goldenAz >= this._goldenMinAzimuth()) candidates.push(goldenTime.getTime());
+    if (goneTime) candidates.push(goneTime.getTime() - this._raiseLeadMinutes() * 60000);
+    if (!candidates.length) return null;
+    return new Date(Math.min(...candidates));
+  }
+
+  /** When the sun goes fully behind the ridge on `date` (local Date), or null. */
+  goneTime(date) {
+    return this._scanEvening(date).goneTime;
+  }
+
+  /** Evening scan: when (and where) the sun reaches golden-hour height, and the ridge. */
+  _scanEvening(date) {
     const raiseAlt = this._raiseAltitude();
     // 20-second resolution: the ridge-crossing time must be accurate, since we
     // subtract a couple minutes from it (minute-rounding there would skew the lead).
@@ -246,11 +299,7 @@ class SolarShadeTimes {
       }
       prevAlt = altitude;
     }
-    const candidates = [];
-    if (goldenTime && goldenAz >= this._goldenMinAzimuth()) candidates.push(goldenTime.getTime());
-    if (goneTime) candidates.push(goneTime.getTime() - this._raiseLeadMinutes() * 60000);
-    if (!candidates.length) return null;
-    return new Date(Math.min(...candidates));
+    return { goldenTime, goldenAz, goneTime };
   }
 
   /**
